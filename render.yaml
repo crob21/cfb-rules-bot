@@ -1,0 +1,13 @@
+services:
+  - type: worker
+    name: cfb-rules-bot
+    env: python
+    buildCommand: pip3 install -r requirements.txt
+    startCommand: python3 bot.py
+    envVars:
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
