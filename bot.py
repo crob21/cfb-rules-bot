@@ -30,6 +30,7 @@ load_dotenv()
 # Bot configuration
 intents = discord.Intents.default()
 intents.guilds = True
+# Remove message_content intent to avoid privileged intents requirement
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
