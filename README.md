@@ -18,7 +18,7 @@ A Discord bot for the CFB 26 online dynasty league. Answer questions about leagu
 
 2. **Environment Variables**
    ```bash
-   cp .env.example .env
+   cp env.example .env
    # Edit .env with your Discord bot token
    ```
 
@@ -34,7 +34,7 @@ A Discord bot for the CFB 26 online dynasty league. Answer questions about leagu
 - `/team <team_name>` - Get team information
 - `/conference <conference_name>` - Get conference information
 - `/dynasty <topic>` - Get dynasty management rules
-- `/help` - Show all available commands
+- `/help_cfb` - Show all available commands
 
 ## Development
 
