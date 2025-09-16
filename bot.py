@@ -76,7 +76,7 @@ async def load_league_data():
 @bot.tree.command(name="rule", description="Look up CFB 26 league rules")
 async def rule(interaction: discord.Interaction, rule_name: str):
     """Look up a specific league rule"""
-    await interaction.response.defer()
+    await interaction.response.send_message("📋 Looking up rule...", ephemeral=True)
     
     # Search for rule in league data
     rule_found = False
@@ -287,7 +287,7 @@ async def help_cfb(interaction: discord.Interaction):
 @bot.tree.command(name="search", description="Search the official league charter")
 async def search_charter(interaction: discord.Interaction, search_term: str):
     """Search for specific terms in the league charter"""
-    await interaction.response.defer()
+    await interaction.response.send_message("🔍 Searching...", ephemeral=True)
     
     embed = discord.Embed(
         title=f"🔍 Search Results: '{search_term}'",
@@ -326,8 +326,6 @@ async def search_charter(interaction: discord.Interaction, search_term: str):
 @bot.tree.command(name="ask", description="Ask AI about league rules and policies")
 async def ask_ai(interaction: discord.Interaction, question: str):
     """Ask AI about the league charter"""
-    await interaction.response.defer()
-    
     embed = discord.Embed(
         title="🤖 AI Assistant Response",
         color=0x9b59b6
@@ -335,6 +333,9 @@ async def ask_ai(interaction: discord.Interaction, question: str):
     
     if AI_AVAILABLE and ai_assistant:
         try:
+            # Send initial response immediately
+            await interaction.response.send_message("🤖 Thinking...", ephemeral=True)
+            
             response = await ai_assistant.ask_ai(question)
             if response:
                 embed.description = response
@@ -358,6 +359,7 @@ async def ask_ai(interaction: discord.Interaction, question: str):
     
     embed.set_footer(text="CFB 26 League Bot - AI Assistant")
     
+    # Send the actual response
     await interaction.followup.send(embed=embed)
 
 @bot.event
