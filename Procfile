@@ -1,1 +1,2 @@
-worker: python3 bot.py
+# Railway deployment
+python3 bot.py
