@@ -34,7 +34,24 @@ A Discord bot for the CFB 26 online dynasty league. Answer questions about leagu
 - `/team <team_name>` - Get team information
 - `/conference <conference_name>` - Get conference information
 - `/dynasty <topic>` - Get dynasty management rules
+- `/charter` - Get direct link to the official league charter
+- `/search <term>` - Search for specific terms in the league charter
+- `/ask <question>` - Ask AI about league rules and policies (optional)
 - `/help_cfb` - Show all available commands
+
+## Optional Integrations
+
+### AI Integration
+Add AI-powered responses to league questions:
+- **Setup**: See [AI_SETUP.md](AI_SETUP.md)
+- **Providers**: OpenAI GPT or Anthropic Claude
+- **Cost**: ~$0.001-0.002 per question
+
+### Google Docs Integration
+Direct integration with your league charter:
+- **Setup**: See [GOOGLE_DOCS_SETUP.md](GOOGLE_DOCS_SETUP.md)
+- **Features**: Search document content, extract sections
+- **Requirements**: Google Cloud credentials
 
 ## Development
 
@@ -42,6 +59,8 @@ This bot is built with:
 - `discord.py` - Discord API wrapper
 - `aiohttp` - HTTP client for API calls
 - `python-dotenv` - Environment variable management
+- `google-api-python-client` - Google Docs integration (optional)
+- `openai` / `anthropic` - AI integration (optional)
 
 ## License
 

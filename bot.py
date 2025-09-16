@@ -17,6 +17,13 @@ try:
 except ImportError:
     GOOGLE_DOCS_AVAILABLE = False
 
+# Optional AI integration
+try:
+    from ai_integration import AICharterAssistant
+    AI_AVAILABLE = True
+except ImportError:
+    AI_AVAILABLE = False
+
 # Load environment variables
 load_dotenv()
 
@@ -31,6 +38,11 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 google_docs = None
 if GOOGLE_DOCS_AVAILABLE:
     google_docs = GoogleDocsIntegration()
+
+# Initialize AI integration if available
+ai_assistant = None
+if AI_AVAILABLE:
+    ai_assistant = AICharterAssistant()
 
 @bot.event
 async def on_ready():
@@ -252,6 +264,11 @@ async def help_cfb(interaction: discord.Interaction):
         inline=False
     )
     embed.add_field(
+        name="/ask <question>",
+        value="Ask AI about league rules and policies (if AI is enabled)",
+        inline=False
+    )
+    embed.add_field(
         name="/help_cfb",
         value="Show this help message",
         inline=False
@@ -303,6 +320,43 @@ async def search_charter(interaction: discord.Interaction, search_term: str):
         value="[Open League Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
         inline=False
     )
+    
+    await interaction.followup.send(embed=embed)
+
+@bot.tree.command(name="ask", description="Ask AI about league rules and policies")
+async def ask_ai(interaction: discord.Interaction, question: str):
+    """Ask AI about the league charter"""
+    await interaction.response.defer()
+    
+    embed = discord.Embed(
+        title="🤖 AI Assistant Response",
+        color=0x9b59b6
+    )
+    
+    if AI_AVAILABLE and ai_assistant:
+        try:
+            response = await ai_assistant.ask_ai(question)
+            if response:
+                embed.description = response
+                embed.add_field(
+                    name="💡 Tip",
+                    value="AI responses are based on the league charter. Always verify important rules in the full document.",
+                    inline=False
+                )
+            else:
+                embed.description = "Sorry, I couldn't get an AI response right now. Please check the charter directly."
+        except Exception as e:
+            embed.description = f"Error getting AI response: {str(e)}"
+    else:
+        embed.description = "AI integration not available. Please check the charter directly or use other commands."
+    
+    embed.add_field(
+        name="📖 Full Charter",
+        value="[Open League Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+        inline=False
+    )
+    
+    embed.set_footer(text="CFB 26 League Bot - AI Assistant")
     
     await interaction.followup.send(embed=embed)
 
