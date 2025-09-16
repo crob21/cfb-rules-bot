@@ -1,0 +1,92 @@
+{
+  "1": {
+    "title": "The Game, Field, Players and Equipment",
+    "description": "Basic rules about the game, field dimensions, player requirements, and equipment standards.",
+    "sections": [
+      "Game and Field",
+      "Players and Equipment",
+      "Game Officials"
+    ]
+  },
+  "2": {
+    "title": "Definitions",
+    "description": "Official definitions of terms used throughout the NCAA football rulebook.",
+    "sections": [
+      "General Definitions",
+      "Player Definitions",
+      "Equipment Definitions"
+    ]
+  },
+  "3": {
+    "title": "Periods, Time Factors and Substitutions",
+    "description": "Rules governing game periods, timing, and player substitutions.",
+    "sections": [
+      "Game Periods",
+      "Time Factors",
+      "Substitutions"
+    ]
+  },
+  "4": {
+    "title": "Ball in Play, Dead Ball, Out of Bounds",
+    "description": "Rules about when the ball is live, dead, and out of bounds.",
+    "sections": [
+      "Ball in Play",
+      "Dead Ball",
+      "Out of Bounds"
+    ]
+  },
+  "5": {
+    "title": "Series of Downs, Team Possession After Penalty",
+    "description": "Rules about downs, series, and possession after penalties.",
+    "sections": [
+      "Series of Downs",
+      "Team Possession After Penalty"
+    ]
+  },
+  "6": {
+    "title": "Kicks",
+    "description": "Rules governing all types of kicks including punts, field goals, and kickoffs.",
+    "sections": [
+      "Kickoff",
+      "Scrimmage Kicks",
+      "Free Kicks"
+    ]
+  },
+  "7": {
+    "title": "Snap, Hand-to-Hand Pass, Handoff",
+    "description": "Rules about the snap, hand-to-hand passes, and handoffs.",
+    "sections": [
+      "Snap",
+      "Hand-to-Hand Pass",
+      "Handoff"
+    ]
+  },
+  "8": {
+    "title": "Forward Pass, Backward Pass, Fumble",
+    "description": "Rules governing forward passes, backward passes, and fumbles.",
+    "sections": [
+      "Forward Pass",
+      "Backward Pass",
+      "Fumble"
+    ]
+  },
+  "9": {
+    "title": "Scoring",
+    "description": "Rules about how points are scored in college football.",
+    "sections": [
+      "Touchdown",
+      "Field Goal",
+      "Safety",
+      "Extra Point"
+    ]
+  },
+  "10": {
+    "title": "Enforcement of Penalties",
+    "description": "Rules about how penalties are enforced and applied.",
+    "sections": [
+      "Basic Enforcement",
+      "Special Enforcement",
+      "Penalty Declination"
+    ]
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "league_info": {
+    "name": "CFB 26 Online Dynasty",
+    "season": "2026",
+    "platform": "NCAA Football 26",
+    "charter_url": "https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit"
+  },
+  "rules": {
+    "recruiting": {
+      "description": "Recruiting rules and policies for the CFB 26 dynasty",
+      "topics": {
+        "visits": "Rules about official and unofficial visits",
+        "offers": "Rules about scholarship offers and commitments",
+        "dead_periods": "Recruiting dead periods and restrictions",
+        "evaluation": "Rules about player evaluation and scouting"
+      }
+    },
+    "transfers": {
+      "description": "Transfer portal rules and policies",
+      "topics": {
+        "portal": "Transfer portal rules and restrictions",
+        "immediate_eligibility": "Rules for immediate eligibility",
+        "sit_out": "Rules for players who must sit out",
+        "grad_transfers": "Graduate transfer rules"
+      }
+    },
+    "gameplay": {
+      "description": "Gameplay rules and restrictions",
+      "topics": {
+        "difficulty": "Game difficulty settings",
+        "sliders": "Custom slider settings",
+        "house_rules": "League-specific gameplay rules",
+        "simulation": "Rules for simulating games"
+      }
+    },
+    "scheduling": {
+      "description": "Scheduling rules and policies",
+      "topics": {
+        "advance_schedule": "Rules for advancing the schedule",
+        "bye_weeks": "Bye week policies",
+        "conference_games": "Conference game requirements",
+        "non_conference": "Non-conference scheduling rules"
+      }
+    },
+    "conduct": {
+      "description": "League conduct and behavior rules",
+      "topics": {
+        "communication": "Discord and communication rules",
+        "sportsmanship": "Sportsmanship expectations",
+        "disputes": "How to handle disputes",
+        "penalties": "Penalties for rule violations"
+      }
+    }
+  },
+  "teams": {
+    "conferences": {
+      "SEC": {
+        "description": "Southeastern Conference",
+        "teams": []
+      },
+      "Big_Ten": {
+        "description": "Big Ten Conference", 
+        "teams": []
+      },
+      "ACC": {
+        "description": "Atlantic Coast Conference",
+        "teams": []
+      },
+      "Big_12": {
+        "description": "Big 12 Conference",
+        "teams": []
+      },
+      "Pac_12": {
+        "description": "Pac-12 Conference",
+        "teams": []
+      }
+    }
+  }
+}
