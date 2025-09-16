@@ -10,6 +10,13 @@ from dotenv import load_dotenv
 import aiohttp
 import json
 
+# Optional Google Docs integration
+try:
+    from google_docs_integration import GoogleDocsIntegration
+    GOOGLE_DOCS_AVAILABLE = True
+except ImportError:
+    GOOGLE_DOCS_AVAILABLE = False
+
 # Load environment variables
 load_dotenv()
 
@@ -19,6 +26,11 @@ intents.message_content = True
 intents.guilds = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
+
+# Initialize Google Docs integration if available
+google_docs = None
+if GOOGLE_DOCS_AVAILABLE:
+    google_docs = GoogleDocsIntegration()
 
 @bot.event
 async def on_ready():
@@ -175,6 +187,31 @@ async def dynasty(interaction: discord.Interaction, topic: str):
     
     await interaction.followup.send(embed=embed)
 
+@bot.tree.command(name="charter", description="Get link to the official league charter")
+async def charter(interaction: discord.Interaction):
+    """Get the official league charter link"""
+    embed = discord.Embed(
+        title="📋 CFB 26 League Charter",
+        description="Official league rules, policies, and guidelines",
+        color=0x1e90ff
+    )
+    
+    embed.add_field(
+        name="📖 View Full Charter",
+        value="[Open League Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="📝 Quick Commands",
+        value="Use `/rule <topic>`, `/recruiting <topic>`, or `/dynasty <topic>` for specific information",
+        inline=False
+    )
+    
+    embed.set_footer(text="CFB 26 League Bot - Always check the charter for complete rules")
+    
+    await interaction.response.send_message(embed=embed)
+
 @bot.tree.command(name="help_cfb", description="Show all available commands")
 async def help_cfb(interaction: discord.Interaction):
     """Show help information"""
@@ -205,6 +242,16 @@ async def help_cfb(interaction: discord.Interaction):
         inline=False
     )
     embed.add_field(
+        name="/charter",
+        value="Get direct link to the official league charter",
+        inline=False
+    )
+    embed.add_field(
+        name="/search <term>",
+        value="Search for specific terms in the league charter",
+        inline=False
+    )
+    embed.add_field(
         name="/help_cfb",
         value="Show this help message",
         inline=False
@@ -219,6 +266,45 @@ async def help_cfb(interaction: discord.Interaction):
     embed.set_footer(text="CFB 26 League Bot - Ready to help with league rules!")
     
     await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="search", description="Search the official league charter")
+async def search_charter(interaction: discord.Interaction, search_term: str):
+    """Search for specific terms in the league charter"""
+    await interaction.response.defer()
+    
+    embed = discord.Embed(
+        title=f"🔍 Search Results: '{search_term}'",
+        color=0xffa500
+    )
+    
+    if GOOGLE_DOCS_AVAILABLE and google_docs:
+        try:
+            results = google_docs.search_document(search_term)
+            if results:
+                embed.description = "Found in the league charter:"
+                for i, result in enumerate(results, 1):
+                    # Truncate long results
+                    if len(result) > 200:
+                        result = result[:200] + "..."
+                    embed.add_field(
+                        name=f"Result {i}",
+                        value=result,
+                        inline=False
+                    )
+            else:
+                embed.description = "No results found in the charter."
+        except Exception as e:
+            embed.description = f"Error searching charter: {str(e)}"
+    else:
+        embed.description = "Google Docs integration not available. Use the direct link to search manually."
+    
+    embed.add_field(
+        name="📖 Full Charter",
+        value="[Open League Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+        inline=False
+    )
+    
+    await interaction.followup.send(embed=embed)
 
 @bot.event
 async def on_command_error(ctx, error):
