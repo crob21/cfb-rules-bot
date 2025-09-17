@@ -220,49 +220,43 @@ async def on_message(message):
         # Handle greetings specially
         elif is_greeting and not contains_keywords and not is_question:
             embed.description = f"Hi {message.author.display_name}! 👋 I'm Harry, your CFB 26 league assistant! I'm here to help with any questions about league rules, recruiting, transfers, or anything else in our charter. Just ask me anything!"
-        elif AI_AVAILABLE and ai_assistant:
-            try:
-                # Make the question more conversational
-                question = message.content
-                if bot_mentioned:
-                    # Remove the mention from the question
-                    question = question.replace(f'<@{bot.user.id}>', '').strip()
-                
-                # Add context to make it more natural
-                conversational_question = f"Answer this question about CFB 26 league rules in a friendly, conversational way as if you're Harry the league assistant: {question}"
-                response = await ai_assistant.ask_ai(conversational_question)
-                
-                if response:
-                    embed.description = response
-                    # Only add charter link if asking about rules
-                    if any(keyword in message.content.lower() for keyword in ['rule', 'rules', 'charter', 'league']):
-                        embed.add_field(
-                            name="📖 Full League Charter",
-                            value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
-                            inline=False
-                        )
-                else:
-                    embed.description = "Hi! I'm Harry, your CFB 26 league assistant! I can help with general questions, but for the complete and official rules, please check our charter below!"
-                    # Only add charter link if asking about rules
-                    if any(keyword in message.content.lower() for keyword in ['rule', 'rules', 'charter', 'league']):
-                        embed.add_field(
-                            name="📖 Full League Charter",
-                            value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
-                            inline=False
-                        )
-            except Exception as e:
-                embed.description = f"Hi! I'm Harry, your CFB 26 league assistant! I can help with general questions, but for the complete and official rules, please check our charter below!"
-                # Only add charter link if asking about rules
-                if any(keyword in message.content.lower() for keyword in ['rule', 'rules', 'charter', 'league']):
-                    embed.add_field(
-                        name="📖 Full League Charter",
-                        value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
-                        inline=False
-                    )
         else:
-            embed.description = "Hi! I'm Harry, your CFB 26 league assistant! I can help with general questions, but for the complete and official rules, please check our charter below!"
-            # Only add charter link if asking about rules
-            if any(keyword in message.content.lower() for keyword in ['rule', 'rules', 'charter', 'league']):
+            # Try AI first for all other responses
+            ai_response = None
+            if AI_AVAILABLE and ai_assistant:
+                try:
+                    # Make the question more conversational
+                    question = message.content
+                    if bot_mentioned:
+                        # Remove the mention from the question
+                        question = question.replace(f'<@{bot.user.id}>', '').strip()
+                    
+                    # Improved prompt to handle both league and non-league questions
+                    conversational_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question in a conversational way:
+
+Question: {question}
+
+If it's about CFB 26 league rules, recruiting, transfers, or dynasty management, provide helpful information and mention the league charter.
+If it's not about the league (like Netflix, weather, etc.), politely redirect to league topics while being friendly.
+Keep responses concise and helpful."""
+
+                    ai_response = await ai_assistant.ask_ai(conversational_question)
+                except Exception as e:
+                    logger.error(f"AI error: {e}")
+                    ai_response = None
+            
+            # Use AI response if available, otherwise fall back to generic
+            if ai_response:
+                embed.description = ai_response
+                # Always add charter link for AI responses
+                embed.add_field(
+                    name="📖 Full League Charter",
+                    value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+                    inline=False
+                )
+            else:
+                embed.description = "Hi! I'm Harry, your CFB 26 league assistant! I can help with general questions, but for the complete and official rules, please check our charter below!"
+                # Always add charter link for generic responses
                 embed.add_field(
                     name="📖 Full League Charter",
                     value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
