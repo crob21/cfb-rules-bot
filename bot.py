@@ -109,7 +109,11 @@ async def on_message(message):
         'harry': 'That\'s me! Harry, your CFB 26 league assistant! 🏈',
         'bot': 'I\'m not just a bot, I\'m Harry! 🏈',
         'ai': 'I\'m powered by AI to help with your league questions! 🤖',
-        'help': 'I\'m here to help! Ask me about league rules, recruiting, transfers, or anything else! 💡'
+        'help': 'I\'m here to help! Ask me about league rules, recruiting, transfers, or anything else! 💡',
+        'rules': 'Here are the CFB 26 league rules! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
+        'league rules': 'Here are the CFB 26 league rules! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
+        'charter': 'Here\'s the official CFB 26 league charter! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
+        'league charter': 'Here\'s the official CFB 26 league charter! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)'
     }
     
     rivalry_response = None
@@ -344,11 +348,13 @@ async def rule(interaction: discord.Interaction, rule_name: str):
     
     if not rule_found:
         embed.description = "Rule not found in league data. Check the league charter for more details."
-        embed.add_field(
-            name="League Charter", 
-            value="[View Full Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
-            inline=False
-        )
+    
+    # Always add the charter link
+    embed.add_field(
+        name="📖 Full League Charter",
+        value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+        inline=False
+    )
     
     await interaction.followup.send(embed=embed)
 
@@ -532,8 +538,8 @@ async def help_cfb(interaction: discord.Interaction):
     )
     
     embed.add_field(
-        name="League Charter", 
-        value="[View Full Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+        name="📖 **OFFICIAL LEAGUE CHARTER**", 
+        value="[**📋 View Complete Rules & Policies**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)\n\n*This is the official source for all CFB 26 league rules!*",
         inline=False
     )
     
