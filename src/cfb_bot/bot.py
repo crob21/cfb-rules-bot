@@ -178,6 +178,7 @@ async def on_message(message):
     logger.info(f"🔍 Channel check: current='{message.channel.name}', general_channel={is_general_channel}")
     
     # Skip regular messages in #general (slash commands bypass this)
+    logger.info(f"🔍 Ignore check: is_general_channel={is_general_channel}, starts_with_slash={message.content.startswith('/')}")
     if is_general_channel and not message.content.startswith('/'):
         logger.info(f"⏭️ Ignoring regular message in #{GENERAL_CHANNEL_NAME} channel (slash commands allowed)")
         return
