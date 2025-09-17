@@ -374,7 +374,7 @@ Please provide a helpful, accurate answer. Be conversational and friendly. This 
                 else:
                     # For other channels, use league-specific AI logic
                     # Determine if this is a league-related question
-                    is_league_related = any(f' {keyword} ' in f' {question.lower()} ' for keyword in league_keywords)
+                    is_league_related = any(f' {keyword} ' in f' {question.lower()} ' for keyword in LEAGUE_KEYWORDS)
                     
                     if is_league_related:
                         # Step 1: Try AI with charter content for league questions
