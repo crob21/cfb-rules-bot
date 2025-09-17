@@ -1,62 +1,59 @@
 {
-  "false_start": {
-    "name": "False Start",
-    "yards": 5,
-    "description": "An offensive player moves after taking a set position before the snap.",
-    "enforcement": "From the line of scrimmage"
-  },
-  "offside": {
-    "name": "Offside",
-    "yards": 5,
-    "description": "A defensive player is in the neutral zone or crosses the line of scrimmage before the snap.",
-    "enforcement": "From the line of scrimmage"
-  },
-  "holding": {
-    "name": "Holding",
-    "yards": 10,
-    "description": "A player illegally grasps or pulls an opponent to impede their movement.",
-    "enforcement": "From the spot of the foul"
-  },
-  "pass_interference": {
-    "name": "Pass Interference",
-    "yards": 15,
-    "description": "A player interferes with an opponent's opportunity to catch a forward pass.",
-    "enforcement": "From the spot of the foul"
-  },
-  "personal_foul": {
-    "name": "Personal Foul",
-    "yards": 15,
-    "description": "Unnecessary roughness, unsportsmanlike conduct, or other personal fouls.",
-    "enforcement": "From the spot of the foul"
-  },
-  "targeting": {
-    "name": "Targeting",
-    "yards": 15,
-    "description": "A player targets and makes forcible contact with the head or neck area of a defenseless opponent.",
-    "enforcement": "From the spot of the foul, player ejection"
-  },
-  "unsportsmanlike_conduct": {
-    "name": "Unsportsmanlike Conduct",
-    "yards": 15,
-    "description": "Conduct that is not in the spirit of fair play or is considered unsportsmanlike.",
-    "enforcement": "From the spot of the foul"
-  },
-  "delay_of_game": {
-    "name": "Delay of Game",
-    "yards": 5,
-    "description": "The offense fails to snap the ball before the play clock expires.",
-    "enforcement": "From the line of scrimmage"
-  },
-  "illegal_formation": {
-    "name": "Illegal Formation",
-    "yards": 5,
-    "description": "The offense is not properly aligned at the snap.",
-    "enforcement": "From the line of scrimmage"
-  },
-  "illegal_motion": {
-    "name": "Illegal Motion",
-    "yards": 5,
-    "description": "An offensive player is in motion illegally at the snap.",
-    "enforcement": "From the line of scrimmage"
+  "note": "This file contains CFB 26 league-specific penalties only. General NCAA football penalties have been removed to focus on dynasty league violations.",
+  "league_penalties": {
+    "rule_violation": {
+      "name": "League Rule Violation",
+      "description": "Violation of CFB 26 league rules",
+      "penalties": [
+        "Warning for first offense",
+        "Loss of recruiting points for second offense", 
+        "Suspension for repeated violations"
+      ]
+    },
+    "unsportsmanlike_conduct": {
+      "name": "Unsportsmanlike Conduct",
+      "description": "Inappropriate behavior in Discord or during games",
+      "penalties": [
+        "Warning and reminder of league rules",
+        "Temporary Discord mute for repeated offenses",
+        "Game suspension for severe violations"
+      ]
+    },
+    "schedule_violation": {
+      "name": "Schedule Violation", 
+      "description": "Failure to advance schedule or play games on time",
+      "penalties": [
+        "Reminder to advance schedule",
+        "Commissioner advance after 24 hours",
+        "Loss of bye week for repeated violations"
+      ]
+    },
+    "recruiting_violation": {
+      "name": "Recruiting Violation",
+      "description": "Violation of recruiting rules or dead periods",
+      "penalties": [
+        "Loss of recruiting points",
+        "Temporary recruiting restrictions",
+        "Commissioner review for severe violations"
+      ]
+    },
+    "simulation_violation": {
+      "name": "Unauthorized Simulation",
+      "description": "Simming games without commissioner approval",
+      "penalties": [
+        "Game replay required",
+        "Loss of recruiting points",
+        "Suspension for repeated violations"
+      ]
+    },
+    "communication_violation": {
+      "name": "Communication Violation",
+      "description": "Inappropriate or disrespectful communication",
+      "penalties": [
+        "Warning and reminder of conduct rules",
+        "Temporary Discord restrictions",
+        "League review for severe violations"
+      ]
+    }
   }
 }
