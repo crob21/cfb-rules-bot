@@ -143,6 +143,17 @@ async def on_message(message):
     if message.author == bot.user:
         return
     
+    # Only respond in #general channel on specific server
+    TARGET_SERVER_ID = 1261662233109205144
+    TARGET_CHANNEL_NAME = "general"
+    
+    # Check if we're in the right server and channel
+    if not message.guild or message.guild.id != TARGET_SERVER_ID:
+        return
+    
+    if message.channel.name != TARGET_CHANNEL_NAME:
+        return
+    
     # Comprehensive logging
     guild_name = message.guild.name if message.guild else "DM"
     logger.info(f"📨 Message received: '{message.content}' from {message.author} in #{message.channel} (Server: {guild_name})")
@@ -198,8 +209,8 @@ async def on_message(message):
     
     logger.info(f"🔍 Response triggers: is_greeting={is_greeting}, rivalry_response={rivalry_response is not None}")
     
-    # Respond if mentioned, contains league keywords, is a direct question, is a greeting, or has rivalry keywords
-    if bot_mentioned or contains_keywords or is_question or is_greeting or rivalry_response:
+    # Only respond to direct mentions, direct questions, or rivalry keywords
+    if bot_mentioned or is_question or rivalry_response:
         logger.info(f"✅ Bot will respond to message: '{message.content}' (Server: {guild_name})")
         # Don't respond to slash commands
         if message.content.startswith('/'):
@@ -217,9 +228,6 @@ async def on_message(message):
         # Handle rivalry responses specially
         if rivalry_response:
             embed.description = rivalry_response
-        # Handle greetings specially
-        elif is_greeting and not contains_keywords and not is_question:
-            embed.description = f"Hi {message.author.display_name}! 👋 I'm Harry, your CFB 26 league assistant! I'm here to help with any questions about league rules, recruiting, transfers, or anything else in our charter. Just ask me anything!"
         else:
             # Step 1: Try AI with charter content first
             ai_response = None
