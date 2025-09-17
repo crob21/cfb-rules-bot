@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 import aiohttp
 import json
 import asyncio
+import logging
+import sys
+from datetime import datetime
 
 # Optional Google Docs integration
 try:
@@ -27,6 +30,35 @@ except ImportError:
 
 # Load environment variables
 load_dotenv()
+
+# Set up comprehensive logging
+def setup_logging():
+    """Set up comprehensive logging for Render"""
+    # Create logs directory if it doesn't exist
+    os.makedirs('logs', exist_ok=True)
+    
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler('logs/bot.log'),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+    
+    # Set Discord.py logging level
+    discord_logger = logging.getLogger('discord')
+    discord_logger.setLevel(logging.INFO)
+    
+    # Set our bot logger
+    bot_logger = logging.getLogger('CFB26Bot')
+    bot_logger.setLevel(logging.INFO)
+    
+    return bot_logger
+
+# Initialize logging
+logger = setup_logging()
 
 # Bot configuration
 intents = discord.Intents.default()
@@ -48,9 +80,9 @@ if AI_AVAILABLE:
 @bot.event
 async def on_ready():
     """Called when the bot is ready"""
-    print(f'🏈 CFB 26 League Bot ({bot.user}) has connected to Discord!')
-    print(f'📊 Connected to {len(bot.guilds)} guilds')
-    print(f'👋 Harry is ready to help with league questions!')
+    logger.info(f'🏈 CFB 26 League Bot ({bot.user}) has connected to Discord!')
+    logger.info(f'📊 Connected to {len(bot.guilds)} guilds')
+    logger.info(f'👋 Harry is ready to help with league questions!')
     
     # Load league data
     await load_league_data()
@@ -58,11 +90,11 @@ async def on_ready():
     # Sync slash commands
     try:
         synced = await bot.tree.sync()
-        print(f'✅ Synced {len(synced)} command(s)')
-        print(f'🎯 Try: /harry what are the league rules?')
-        print(f'💬 Or mention @Harry in chat for natural conversations!')
+        logger.info(f'✅ Synced {len(synced)} command(s)')
+        logger.info(f'🎯 Try: /harry what are the league rules?')
+        logger.info(f'💬 Or mention @Harry in chat for natural conversations!')
     except Exception as e:
-        print(f'❌ Failed to sync commands: {e}')
+        logger.error(f'❌ Failed to sync commands: {e}')
 
 @bot.event
 async def on_message(message):
@@ -71,8 +103,8 @@ async def on_message(message):
     if message.author == bot.user:
         return
     
-    # Debug logging
-    print(f"📨 Message received: '{message.content}' from {message.author}")
+    # Comprehensive logging
+    logger.info(f"📨 Message received: '{message.content}' from {message.author} in #{message.channel}")
     
     # Check if the bot is mentioned or if message contains league-related keywords
     bot_mentioned = bot.user.mentioned_in(message)
@@ -80,7 +112,7 @@ async def on_message(message):
     contains_keywords = any(keyword in message.content.lower() for keyword in league_keywords)
     is_question = message.content.strip().endswith('?')
     
-    print(f"🔍 Debug: bot_mentioned={bot_mentioned}, contains_keywords={contains_keywords}, is_question={is_question}")
+    logger.info(f"🔍 Message analysis: bot_mentioned={bot_mentioned}, contains_keywords={contains_keywords}, is_question={is_question}")
     
     # Check for greetings
     greetings = ['hi harry', 'hello harry', 'hey harry', 'harry', 'hi bot', 'hello bot']
@@ -127,11 +159,11 @@ async def on_message(message):
             rivalry_response = response
             break
     
-    print(f"🔍 Debug: is_greeting={is_greeting}, rivalry_response={rivalry_response is not None}")
+    logger.info(f"🔍 Response triggers: is_greeting={is_greeting}, rivalry_response={rivalry_response is not None}")
     
     # Respond if mentioned, contains league keywords, is a direct question, is a greeting, or has rivalry keywords
     if bot_mentioned or contains_keywords or is_question or is_greeting or rivalry_response:
-        print(f"✅ Bot will respond to message: '{message.content}'")
+        logger.info(f"✅ Bot will respond to message: '{message.content}'")
         # Don't respond to slash commands
         if message.content.startswith('/'):
             return
@@ -196,21 +228,21 @@ async def on_message(message):
                         inline=False
                     )
                 else:
-                    embed.description = "Hi! I'm Harry, your CFB 26 league assistant. I'm having some technical difficulties right now, but you can always check the charter directly!"
+                    embed.description = "Hi! I'm Harry, your CFB 26 league assistant! I can help with general questions, but for the complete and official rules, please check our charter below!"
                     embed.add_field(
                         name="💬 Responding to:",
                         value=f"*{message.content}*",
                         inline=False
                     )
             except Exception as e:
-                embed.description = f"Oops! Something went wrong: {str(e)}"
+                embed.description = f"Hi! I'm Harry, your CFB 26 league assistant! I can help with general questions, but for the complete and official rules, please check our charter below!"
                 embed.add_field(
                     name="💬 Responding to:",
                     value=f"*{message.content}*",
                     inline=False
                 )
         else:
-            embed.description = "Hi! I'm Harry, your CFB 26 league assistant. I'm having some technical difficulties right now, but you can always check the charter directly!"
+            embed.description = "Hi! I'm Harry, your CFB 26 league assistant! I can help with general questions, but for the complete and official rules, please check our charter below!"
             embed.add_field(
                 name="💬 Responding to:",
                 value=f"*{message.content}*",
@@ -229,7 +261,7 @@ async def on_message(message):
         await message.channel.send(embed=embed)
     
     else:
-        print(f"❌ Bot will NOT respond to message: '{message.content}'")
+        logger.info(f"❌ Bot will NOT respond to message: '{message.content}'")
     
     # Process other bot commands
     await bot.process_commands(message)
@@ -326,12 +358,12 @@ async def load_league_data():
     try:
         with open('data/league_rules.json', 'r') as f:
             bot.league_data = json.load(f)
-        print("✅ League data loaded successfully")
+        logger.info("✅ League data loaded successfully")
     except FileNotFoundError:
-        print("⚠️  League data file not found - using default data")
+        logger.warning("⚠️  League data file not found - using default data")
         bot.league_data = {"league_info": {"name": "CFB 26 Online Dynasty"}}
     except json.JSONDecodeError as e:
-        print(f"❌ Error parsing league data: {e}")
+        logger.error(f"❌ Error parsing league data: {e}")
         bot.league_data = {"league_info": {"name": "CFB 26 Online Dynasty"}}
 
 @bot.tree.command(name="rule", description="Look up CFB 26 league rules")
@@ -711,9 +743,17 @@ async def on_command_error(ctx, error):
 if __name__ == "__main__":
     token = os.getenv('DISCORD_BOT_TOKEN')
     if not token:
-        print("❌ DISCORD_BOT_TOKEN not found in environment variables")
-        print("📝 Please create a .env file with your bot token")
+        logger.error("❌ DISCORD_BOT_TOKEN not found in environment variables")
+        logger.error("📝 Please create a .env file with your bot token")
         exit(1)
     
-    print("🚀 Starting CFB Rules Bot...")
-    bot.run(token)
+    logger.info("🚀 Starting CFB Rules Bot...")
+    logger.info(f"📊 Environment: {'Production' if os.getenv('RENDER') else 'Development'}")
+    logger.info(f"🤖 AI Available: {AI_AVAILABLE}")
+    logger.info(f"📄 Google Docs Available: {GOOGLE_DOCS_AVAILABLE}")
+    
+    try:
+        bot.run(token)
+    except Exception as e:
+        logger.error(f"❌ Bot failed to start: {e}")
+        raise

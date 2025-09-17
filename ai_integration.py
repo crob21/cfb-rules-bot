@@ -8,7 +8,11 @@ import os
 import json
 import aiohttp
 import asyncio
+import logging
 from typing import Dict, List, Optional
+
+# Set up logging
+logger = logging.getLogger('CFB26Bot.AI')
 
 class AICharterAssistant:
     """AI-powered assistant for league charter questions"""
@@ -30,39 +34,11 @@ class AICharterAssistant:
                 if content:
                     return content
         except Exception as e:
-            print(f"⚠️  Google Docs integration failed: {e}")
+            logger.warning(f"⚠️  Google Docs integration failed: {e}")
         
-        # Fallback to placeholder content if Google Docs fails
-        return """
-        CFB 26 League Charter - Key Rules and Policies:
-        
-        RECRUITING:
-        - Each team can recruit up to 25 players per season
-        - Official visits limited to 5 per player
-        - Dead periods: No recruiting during finals week
-        
-        TRANSFERS:
-        - Transfer portal opens after bowl season
-        - Players must sit out one year unless graduate transfer
-        - Maximum 3 transfers per team per season
-        
-        GAMEPLAY:
-        - All-American difficulty required
-        - Custom sliders: CPU QB accuracy 25, User pass coverage 75
-        - No simming games without commissioner approval
-        
-        SCHEDULING:
-        - Advance schedule every 48 hours
-        - Conference games must be played first
-        - Bye weeks allowed only during mid-season
-        
-        CONDUCT:
-        - Respectful communication in Discord required
-        - No trash talking during games
-        - Report disputes to commissioners within 24 hours
-        
-        Note: This is placeholder content. For the full charter, visit: https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit
-        """
+        # No fallback content - always direct to the real charter
+        logger.info("📄 No charter content available - directing users to Google Doc")
+        return None
     
     async def ask_openai(self, question: str, context: str) -> Optional[str]:
         """Ask OpenAI about the charter"""
@@ -99,6 +75,7 @@ class AICharterAssistant:
         }
         
         try:
+            logger.info(f"🤖 Asking OpenAI: {question[:100]}...")
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     'https://api.openai.com/v1/chat/completions',
@@ -107,12 +84,13 @@ class AICharterAssistant:
                 ) as response:
                     if response.status == 200:
                         result = await response.json()
+                        logger.info("✅ OpenAI response received")
                         return result['choices'][0]['message']['content'].strip()
                     else:
-                        print(f"OpenAI API error: {response.status}")
+                        logger.error(f"OpenAI API error: {response.status}")
                         return None
         except Exception as e:
-            print(f"Error calling OpenAI: {e}")
+            logger.error(f"Error calling OpenAI: {e}")
             return None
     
     async def ask_anthropic(self, question: str, context: str) -> Optional[str]:
