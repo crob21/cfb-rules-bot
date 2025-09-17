@@ -8,6 +8,10 @@ import os
 import json
 import re
 from typing import Dict, List, Optional
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 try:
     from google.oauth2.credentials import Credentials

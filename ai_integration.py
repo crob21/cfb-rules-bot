@@ -10,6 +10,10 @@ import aiohttp
 import asyncio
 import logging
 from typing import Dict, List, Optional
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Set up logging
 logger = logging.getLogger('CFB26Bot.AI')
@@ -43,6 +47,7 @@ class AICharterAssistant:
     async def ask_openai(self, question: str, context: str) -> Optional[str]:
         """Ask OpenAI about the charter"""
         if not self.openai_api_key:
+            logger.warning("⚠️ OpenAI API key not found")
             return None
             
         headers = {
@@ -96,6 +101,7 @@ class AICharterAssistant:
     async def ask_anthropic(self, question: str, context: str) -> Optional[str]:
         """Ask Anthropic Claude about the charter"""
         if not self.anthropic_api_key:
+            logger.warning("⚠️ Anthropic API key not found")
             return None
             
         headers = {
@@ -145,17 +151,31 @@ class AICharterAssistant:
     
     async def ask_ai(self, question: str) -> Optional[str]:
         """Ask AI about the charter (tries OpenAI first, then Anthropic)"""
+        logger.info(f"🤖 AI asked: {question[:100]}...")
+        
         context = await self.get_charter_content()
+        
+        # Use empty context if no charter content available
         if not context:
-            return None
+            context = "No charter content available. Please provide general information about CFB 26 league rules, recruiting, transfers, or dynasty management."
+            logger.info("📄 Using fallback context (no charter content)")
+        else:
+            logger.info(f"📄 Using charter context ({len(context)} characters)")
         
         # Try OpenAI first
+        logger.info("🔄 Trying OpenAI...")
         response = await self.ask_openai(question, context)
         if response:
+            logger.info("✅ OpenAI response received")
             return response
         
         # Fallback to Anthropic
+        logger.info("🔄 Trying Anthropic...")
         response = await self.ask_anthropic(question, context)
+        if response:
+            logger.info("✅ Anthropic response received")
+        else:
+            logger.warning("❌ No AI response from either provider")
         return response
 
 def setup_ai_integration():

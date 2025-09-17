@@ -37,7 +37,8 @@ except ImportError:
 # Optional AI integration
 try:
     from ai_integration import AICharterAssistant
-    AI_AVAILABLE = True
+    # Check if at least one AI API key is available
+    AI_AVAILABLE = bool(os.getenv('OPENAI_API_KEY') or os.getenv('ANTHROPIC_API_KEY'))
 except ImportError:
     AI_AVAILABLE = False
 
