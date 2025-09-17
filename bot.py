@@ -159,16 +159,6 @@ async def on_message(message):
         # Handle rivalry responses specially
         if rivalry_response:
             embed.description = rivalry_response
-            embed.add_field(
-                name="💬 Responding to:",
-                value=f"*{message.content}*",
-                inline=False
-            )
-            embed.add_field(
-                name="🏈 CFB 26 League",
-                value="Speaking of teams, need help with league rules? Just ask!",
-                inline=False
-            )
         # Handle greetings specially
         elif is_greeting and not contains_keywords and not is_question:
             embed.description = f"Hi {message.author.display_name}! 👋 I'm Harry, your CFB 26 league assistant! I'm here to help with any questions about league rules, recruiting, transfers, or anything else in our charter. Just ask me anything!"
