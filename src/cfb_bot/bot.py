@@ -45,6 +45,18 @@ except ImportError:
 # Load environment variables
 load_dotenv()
 
+# League-related keywords for classification
+LEAGUE_KEYWORDS = [
+    'rule', 'rules', 'charter', 'league', 'recruiting', 'transfer', 'dynasty', 'cfb', 'advance', 'game', 'team', 'player', 'coach', 'schedule', 'playoff', 'bowl', 'conference', 'football', 'college', 'ncaa', 'sim', 'simulation', 'settings', 'difficulty', 'quarter', 'injury', 'fatigue', 'weather', 'championship', 'season', 'week', 'day', 'time', 'est', 'eastern', 'deadline', 'force', 'user vs user', 'pvp', 'connection', 'loss', 'win', 'score', 'timeout', 'restart', 'tampering', 'violation', 'penalty', 'ban', 'suspension', 'commissioner', 'commish', 'officer', 'admin', 'moderator', 'discord', 'channel', 'offseason', 'voting', 'poll', 'proposal', 'roster', 'active', 'retired', 'member', 'history', 'champion', 'winner', 'participant', 'job', 'change', 'move', 'switch', 'school', 'university', 'program', 'prestige', 'performance', 'scholarship', 'academic', 'progress', 'graduation', 'reputation', 'management', 'fired', 'hired', 'seasons', 'break', 'holiday', 'vacation', 'work', 'trip', 'special', 'circumstance', 'evaluation', 'ranked', 'opponent', 'impact', 'champions', 'playoffs', 'bowl', 'games', 'simulated', 'computers', 'unranked', 'simmed', 'discretion', 'early', 'scheduled', 'monday', 'tuesday', 'friday', 'morning', 'breaks', 'voted', 'tag', 'bug', 'users', 'play', 'games', 'regular', 'cadence', 'designed', 'prevent', 'matchups', 'occur', 'during', 'conference', 'play', 'assign', 'volunteer', 'matchup', 'assigned', 'stop', 'match', 'reason', 'receive', 'forced', 'regardless', 'remaining', 'restarted', 'immediately', 'unless', 'both', 'parties', 'agree', 'otherwise', 'refuses', 'face', 'tolerance', 'restarting', 'engaging', 'unethical', 'behavior', 'result', 'punishment', 'discretion', 'losses', 'bans', 'plead', 'case', 'decision', 'final', 'attempt', 'manipulate', 'advantage', 'especially', 'regarding', 'punished', 'accordingly', 'gameplay', 'streaming', 'requirement', 'stream', 'wish', 'restrictions', 'style', 'plays', 'run', 'preferences', 'within', 'settings', 'allowed', 'roles', 'expectations', 'oversee', 'operations', 'scheduling', 'enforcement', 'conflict', 'resolution', 'schedule', 'soon', 'played', 'investigate', 'address', 'violations', 'communication', 'keep', 'informed', 'advances', 'changes', 'important', 'updates', 'neutrality', 'remain', 'impartial', 'disputes', 'engagement', 'notifications', 'mute', 'coaches', 'issues', 'harassment', 'brought', 'whole', 'participation', 'time', 'communicate', 'unavailable', 'respect', 'treat', 'members', 'follow', 'rules', 'coordinate', 'opponents', 'promptly', 'reporting', 'report', 'conflicts', 'participate', 'discussions', 'votes', 'boozerob', 'washington', 'havron24', 'nebraska', 'cornhuskies', 'robinsonn1', 'texas', 'mb', 'colorado', 'sedelhammer', 'pittsburgh', 'vicktorious', 'virginia', 'tech', 'wustyman', 'ole', 'miss', 'yesko19', 'florida', 'state', 'zschrode', 'ucla', 'spartymo', 'michigan', 'balk3', 'usc', 'national', 'participants', 'boise', 'usf'
+]
+
+def classify_question(question: str) -> tuple[bool, bool, list[str]]:
+    """Classify a question and return (is_question, league_related, matched_keywords)"""
+    is_question = question.strip().endswith('?')
+    league_related = any(f' {keyword} ' in f' {question.lower()} ' for keyword in LEAGUE_KEYWORDS)
+    matched_keywords = [kw for kw in LEAGUE_KEYWORDS if f' {kw} ' in f' {question.lower()} '] if league_related else []
+    return is_question, league_related, matched_keywords
+
 # Set up comprehensive logging
 def setup_logging():
     """
@@ -294,13 +306,7 @@ async def on_message(message):
         return
     
     # PRIORITY 2: Handle direct mentions and league-related questions with AI
-    # Main topics and names from the charter
-    league_keywords = [
-        # Main section topics and bolded items from charter
-        'rule', 'rules', 'charter', 'league', 'recruiting', 'transfer', 'dynasty', 'cfb', 'advance', 'game', 'team', 'player', 'coach', 'schedule', 'playoff', 'bowl', 'conference', 'football', 'college', 'ncaa', 'sim', 'simulation', 'settings', 'difficulty', 'quarter', 'injury', 'fatigue', 'weather', 'championship', 'season', 'week', 'day', 'time', 'est', 'eastern', 'deadline', 'force', 'user vs user', 'pvp', 'connection', 'loss', 'win', 'score', 'timeout', 'restart', 'tampering', 'violation', 'penalty', 'ban', 'suspension', 'commissioner', 'commish', 'officer', 'admin', 'moderator', 'discord', 'channel', 'offseason', 'voting', 'poll', 'proposal', 'roster', 'active', 'retired', 'member', 'history', 'champion', 'winner', 'participant', 'job', 'change', 'move', 'switch', 'school', 'university', 'program', 'prestige', 'performance', 'scholarship', 'academic', 'progress', 'graduation', 'reputation', 'management', 'fired', 'hired', 'seasons', 'break', 'holiday', 'vacation', 'work', 'trip', 'special', 'circumstance', 'evaluation', 'ranked', 'opponent', 'impact', 'champions', 'playoffs', 'bowl', 'games', 'simulated', 'computers', 'unranked', 'simmed', 'discretion', 'early', 'scheduled', 'monday', 'tuesday', 'friday', 'morning', 'breaks', 'voted', 'tag', 'bug', 'users', 'play', 'games', 'regular', 'cadence', 'designed', 'prevent', 'matchups', 'occur', 'during', 'conference', 'play', 'assign', 'volunteer', 'matchup', 'assigned', 'stop', 'match', 'reason', 'receive', 'forced', 'regardless', 'remaining', 'restarted', 'immediately', 'unless', 'both', 'parties', 'agree', 'otherwise', 'refuses', 'face', 'tolerance', 'restarting', 'engaging', 'unethical', 'behavior', 'result', 'punishment', 'discretion', 'losses', 'bans', 'plead', 'case', 'decision', 'final', 'attempt', 'manipulate', 'advantage', 'especially', 'regarding', 'punished', 'accordingly', 'gameplay', 'streaming', 'requirement', 'stream', 'wish', 'restrictions', 'style', 'plays', 'run', 'preferences', 'within', 'settings', 'allowed', 'roles', 'expectations', 'oversee', 'operations', 'scheduling', 'enforcement', 'conflict', 'resolution', 'schedule', 'soon', 'played', 'investigate', 'address', 'violations', 'communication', 'keep', 'informed', 'advances', 'changes', 'important', 'updates', 'neutrality', 'remain', 'impartial', 'disputes', 'engagement', 'notifications', 'mute', 'coaches', 'issues', 'harassment', 'brought', 'whole', 'participation', 'time', 'communicate', 'unavailable', 'respect', 'treat', 'members', 'follow', 'rules', 'coordinate', 'opponents', 'promptly', 'reporting', 'report', 'conflicts', 'participate', 'discussions', 'votes', 'boozerob', 'washington', 'havron24', 'nebraska', 'cornhuskies', 'robinsonn1', 'texas', 'mb', 'colorado', 'sedelhammer', 'pittsburgh', 'vicktorious', 'virginia', 'tech', 'wustyman', 'ole', 'miss', 'yesko19', 'florida', 'state', 'zschrode', 'ucla', 'spartymo', 'michigan', 'balk3', 'usc', 'national', 'participants', 'boise', 'usf'
-    ]
-    
-    league_related_question = is_question and any(f' {keyword} ' in f' {message.content.lower()} ' for keyword in league_keywords)
+    is_question, league_related_question, matched_keywords = classify_question(message.content)
     
     logger.info(f"🔍 DEBUG: bot_mentioned={bot_mentioned}, is_question={is_question}, league_related_question={league_related_question}")
     
@@ -311,7 +317,6 @@ async def on_message(message):
         if bot_mentioned:
             classification_reason.append("bot_mentioned=True")
         if league_related_question:
-            matched_keywords = [kw for kw in league_keywords if f' {kw} ' in f' {message.content.lower()} ']
             classification_reason.append(f"league_question=True (matched: {matched_keywords})")
         
         logger.info(f"🎯 CLASSIFICATION: {message.author} ({message.author.id}) - '{message.content}'")
@@ -854,7 +859,6 @@ async def search_charter(interaction: discord.Interaction, search_term: str):
 @bot.tree.command(name="harry", description="Ask Harry (the bot) about league rules and policies")
 async def ask_harry(interaction: discord.Interaction, question: str):
     """Ask Harry (the bot) about the league charter in a conversational way"""
-    logger.info(f"🚨 DEBUG: /harry command called with question: '{question}'")
     embed = discord.Embed(
         title="🏈 Harry's Response",
         color=0x1e90ff
@@ -872,16 +876,10 @@ async def ask_harry(interaction: discord.Interaction, question: str):
             logger.info(f"🏠 Server: {guild_name} (ID: {interaction.guild.id if interaction.guild else 'DM'})")
             
             # Classification for slash commands
-            league_keywords = [
-                'rule', 'rules', 'charter', 'league', 'recruiting', 'transfer', 'dynasty', 'cfb', 'advance', 'game', 'team', 'player', 'coach', 'schedule', 'playoff', 'bowl', 'conference', 'football', 'college', 'ncaa', 'sim', 'simulation', 'settings', 'difficulty', 'quarter', 'injury', 'fatigue', 'weather', 'championship', 'season', 'week', 'day', 'time', 'est', 'eastern', 'deadline', 'force', 'user vs user', 'pvp', 'connection', 'loss', 'win', 'score', 'timeout', 'restart', 'tampering', 'violation', 'penalty', 'ban', 'suspension', 'commissioner', 'commish', 'officer', 'admin', 'moderator', 'discord', 'channel', 'offseason', 'voting', 'poll', 'proposal', 'roster', 'active', 'retired', 'member', 'history', 'champion', 'winner', 'participant', 'job', 'change', 'move', 'switch', 'school', 'university', 'program', 'prestige', 'performance', 'scholarship', 'academic', 'progress', 'graduation', 'reputation', 'management', 'fired', 'hired', 'seasons', 'break', 'holiday', 'vacation', 'work', 'trip', 'special', 'circumstance', 'evaluation', 'ranked', 'opponent', 'impact', 'champions', 'playoffs', 'bowl', 'games', 'simulated', 'computers', 'unranked', 'simmed', 'discretion', 'early', 'scheduled', 'monday', 'tuesday', 'friday', 'morning', 'breaks', 'voted', 'tag', 'bug', 'users', 'play', 'games', 'regular', 'cadence', 'designed', 'prevent', 'matchups', 'occur', 'during', 'conference', 'play', 'assign', 'volunteer', 'matchup', 'assigned', 'stop', 'match', 'reason', 'receive', 'forced', 'regardless', 'remaining', 'restarted', 'immediately', 'unless', 'both', 'parties', 'agree', 'otherwise', 'refuses', 'face', 'tolerance', 'restarting', 'engaging', 'unethical', 'behavior', 'result', 'punishment', 'discretion', 'losses', 'bans', 'plead', 'case', 'decision', 'final', 'attempt', 'manipulate', 'advantage', 'especially', 'regarding', 'punished', 'accordingly', 'gameplay', 'streaming', 'requirement', 'stream', 'wish', 'restrictions', 'style', 'plays', 'run', 'preferences', 'within', 'settings', 'allowed', 'roles', 'expectations', 'oversee', 'operations', 'scheduling', 'enforcement', 'conflict', 'resolution', 'schedule', 'soon', 'played', 'investigate', 'address', 'violations', 'communication', 'keep', 'informed', 'advances', 'changes', 'important', 'updates', 'neutrality', 'remain', 'impartial', 'disputes', 'engagement', 'notifications', 'mute', 'coaches', 'issues', 'harassment', 'brought', 'whole', 'participation', 'time', 'communicate', 'unavailable', 'respect', 'treat', 'members', 'follow', 'rules', 'coordinate', 'opponents', 'promptly', 'reporting', 'report', 'conflicts', 'participate', 'discussions', 'votes', 'boozerob', 'washington', 'havron24', 'nebraska', 'cornhuskies', 'robinsonn1', 'texas', 'mb', 'colorado', 'sedelhammer', 'pittsburgh', 'vicktorious', 'virginia', 'tech', 'wustyman', 'ole', 'miss', 'yesko19', 'florida', 'state', 'zschrode', 'ucla', 'spartymo', 'michigan', 'balk3', 'usc', 'national', 'participants', 'boise', 'usf'
-            ]
-            
-            is_question = question.strip().endswith('?')
-            league_related = any(f' {keyword} ' in f' {question.lower()} ' for keyword in league_keywords)
+            is_question, league_related, matched_keywords = classify_question(question)
             
             logger.info(f"🔍 CLASSIFICATION: is_question={is_question}, league_related={league_related}")
             if league_related:
-                matched_keywords = [kw for kw in league_keywords if f' {kw} ' in f' {question.lower()} ']
                 logger.info(f"🎯 Matched keywords: {matched_keywords}")
             
             # Make the AI response more conversational
@@ -953,16 +951,10 @@ async def ask_ai(interaction: discord.Interaction, question: str):
             logger.info(f"🏠 Server: {guild_name} (ID: {interaction.guild.id if interaction.guild else 'DM'})")
             
             # Classification for slash commands
-            league_keywords = [
-                'rule', 'rules', 'charter', 'league', 'recruiting', 'transfer', 'dynasty', 'cfb', 'advance', 'game', 'team', 'player', 'coach', 'schedule', 'playoff', 'bowl', 'conference', 'football', 'college', 'ncaa', 'sim', 'simulation', 'settings', 'difficulty', 'quarter', 'injury', 'fatigue', 'weather', 'championship', 'season', 'week', 'day', 'time', 'est', 'eastern', 'deadline', 'force', 'user vs user', 'pvp', 'connection', 'loss', 'win', 'score', 'timeout', 'restart', 'tampering', 'violation', 'penalty', 'ban', 'suspension', 'commissioner', 'commish', 'officer', 'admin', 'moderator', 'discord', 'channel', 'offseason', 'voting', 'poll', 'proposal', 'roster', 'active', 'retired', 'member', 'history', 'champion', 'winner', 'participant', 'job', 'change', 'move', 'switch', 'school', 'university', 'program', 'prestige', 'performance', 'scholarship', 'academic', 'progress', 'graduation', 'reputation', 'management', 'fired', 'hired', 'seasons', 'break', 'holiday', 'vacation', 'work', 'trip', 'special', 'circumstance', 'evaluation', 'ranked', 'opponent', 'impact', 'champions', 'playoffs', 'bowl', 'games', 'simulated', 'computers', 'unranked', 'simmed', 'discretion', 'early', 'scheduled', 'monday', 'tuesday', 'friday', 'morning', 'breaks', 'voted', 'tag', 'bug', 'users', 'play', 'games', 'regular', 'cadence', 'designed', 'prevent', 'matchups', 'occur', 'during', 'conference', 'play', 'assign', 'volunteer', 'matchup', 'assigned', 'stop', 'match', 'reason', 'receive', 'forced', 'regardless', 'remaining', 'restarted', 'immediately', 'unless', 'both', 'parties', 'agree', 'otherwise', 'refuses', 'face', 'tolerance', 'restarting', 'engaging', 'unethical', 'behavior', 'result', 'punishment', 'discretion', 'losses', 'bans', 'plead', 'case', 'decision', 'final', 'attempt', 'manipulate', 'advantage', 'especially', 'regarding', 'punished', 'accordingly', 'gameplay', 'streaming', 'requirement', 'stream', 'wish', 'restrictions', 'style', 'plays', 'run', 'preferences', 'within', 'settings', 'allowed', 'roles', 'expectations', 'oversee', 'operations', 'scheduling', 'enforcement', 'conflict', 'resolution', 'schedule', 'soon', 'played', 'investigate', 'address', 'violations', 'communication', 'keep', 'informed', 'advances', 'changes', 'important', 'updates', 'neutrality', 'remain', 'impartial', 'disputes', 'engagement', 'notifications', 'mute', 'coaches', 'issues', 'harassment', 'brought', 'whole', 'participation', 'time', 'communicate', 'unavailable', 'respect', 'treat', 'members', 'follow', 'rules', 'coordinate', 'opponents', 'promptly', 'reporting', 'report', 'conflicts', 'participate', 'discussions', 'votes', 'boozerob', 'washington', 'havron24', 'nebraska', 'cornhuskies', 'robinsonn1', 'texas', 'mb', 'colorado', 'sedelhammer', 'pittsburgh', 'vicktorious', 'virginia', 'tech', 'wustyman', 'ole', 'miss', 'yesko19', 'florida', 'state', 'zschrode', 'ucla', 'spartymo', 'michigan', 'balk3', 'usc', 'national', 'participants', 'boise', 'usf'
-            ]
-            
-            is_question = question.strip().endswith('?')
-            league_related = any(f' {keyword} ' in f' {question.lower()} ' for keyword in league_keywords)
+            is_question, league_related, matched_keywords = classify_question(question)
             
             logger.info(f"🔍 CLASSIFICATION: is_question={is_question}, league_related={league_related}")
             if league_related:
-                matched_keywords = [kw for kw in league_keywords if f' {kw} ' in f' {question.lower()} ']
                 logger.info(f"🎯 Matched keywords: {matched_keywords}")
             
             response = await ai_assistant.ask_ai(question, f"{interaction.user} ({interaction.user.id})")
