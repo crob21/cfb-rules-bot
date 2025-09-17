@@ -216,7 +216,7 @@ async def on_message(message):
         'oregon': 'Fuck Oregon! 🦆💩',
         'ducks': 'Ducks are assholes! 🦆💩',
         'oregon ducks': 'Fuck Oregon! 🦆💩',
-        'oregon state': 'Fuck Oregon! 🦆💩',
+        'oregon state': 'BEAVS!',
         'detroit lions': 'Go Lions! 🦁',
         'lions': 'Go Lions! 🦁',
         'tampa bay buccaneers': 'Go Bucs! 🏴‍☠️',
@@ -229,10 +229,10 @@ async def on_message(message):
         'uw': 'Go Huskies! 🐕',
         'alabama': 'Roll Tide! 🐘',
         'crimson tide': 'Roll Tide! 🐘',
-        'georgia': 'Go Dawgs! 🐕',
-        'bulldogs': 'Go Dawgs! 🐕',
-        'ohio state': 'Go Buckeyes! 🌰',
-        'buckeyes': 'Go Buckeyes! 🌰',
+        'georgia': 'Wrong Dawgs...',
+        'bulldogs': 'Wrong Dawgs...',
+        'ohio state': 'Ohio sucks! 🌰',
+        'buckeyes': 'Ohio sucks! 🌰',
         'michigan': 'Go Blue! 💙',
         'wolverines': 'Go Blue! 💙',
         'cfb 26': 'CFB 26 is the best dynasty league! 🏈👑',
@@ -283,11 +283,17 @@ async def on_message(message):
         await message.channel.send(embed=embed)
         return
     
-    # PRIORITY 2: Handle direct mentions with league-related content OR league-related questions
-    league_related_question = is_question and any(keyword in message.content.lower() for keyword in ['rule', 'rules', 'charter', 'league', 'recruiting', 'transfer', 'dynasty', 'cfb'])
-    league_related_mention = bot_mentioned and any(keyword in message.content.lower() for keyword in ['rule', 'rules', 'charter', 'league', 'recruiting', 'transfer', 'dynasty', 'cfb', 'advance', 'game', 'team', 'player', 'coach', 'schedule', 'playoff', 'bowl', 'conference'])
+    # PRIORITY 2: Handle direct mentions and league-related questions with AI
+    # Main topics and names from the charter
+    league_keywords = [
+        # Main section topics and bolded items from charter
+        'rule', 'rules', 'charter', 'league', 'recruiting', 'transfer', 'dynasty', 'cfb', 'advance', 'game', 'team', 'player', 'coach', 'schedule', 'playoff', 'bowl', 'conference', 'football', 'college', 'ncaa', 'sim', 'simulation', 'settings', 'difficulty', 'quarter', 'injury', 'fatigue', 'weather', 'championship', 'season', 'week', 'day', 'time', 'est', 'eastern', 'deadline', 'force', 'user vs user', 'pvp', 'connection', 'loss', 'win', 'score', 'timeout', 'restart', 'tampering', 'violation', 'penalty', 'ban', 'suspension', 'commissioner', 'commish', 'officer', 'admin', 'moderator', 'discord', 'channel', 'offseason', 'voting', 'poll', 'proposal', 'roster', 'active', 'retired', 'member', 'history', 'champion', 'winner', 'participant', 'job', 'change', 'move', 'switch', 'school', 'university', 'program', 'prestige', 'performance', 'scholarship', 'academic', 'progress', 'graduation', 'reputation', 'management', 'fired', 'hired', 'seasons', 'break', 'holiday', 'vacation', 'work', 'trip', 'special', 'circumstance', 'evaluation', 'ranked', 'opponent', 'impact', 'champions', 'playoffs', 'bowl', 'games', 'simulated', 'computers', 'unranked', 'simmed', 'discretion', 'early', 'scheduled', 'monday', 'tuesday', 'friday', 'morning', 'breaks', 'voted', 'tag', 'bug', 'users', 'play', 'games', 'regular', 'cadence', 'designed', 'prevent', 'matchups', 'occur', 'during', 'conference', 'play', 'assign', 'volunteer', 'matchup', 'assigned', 'stop', 'match', 'reason', 'receive', 'forced', 'regardless', 'remaining', 'restarted', 'immediately', 'unless', 'both', 'parties', 'agree', 'otherwise', 'refuses', 'face', 'tolerance', 'restarting', 'engaging', 'unethical', 'behavior', 'result', 'punishment', 'discretion', 'losses', 'bans', 'plead', 'case', 'decision', 'final', 'attempt', 'manipulate', 'advantage', 'especially', 'regarding', 'punished', 'accordingly', 'gameplay', 'streaming', 'requirement', 'stream', 'wish', 'restrictions', 'style', 'plays', 'run', 'preferences', 'within', 'settings', 'allowed', 'roles', 'expectations', 'oversee', 'operations', 'scheduling', 'enforcement', 'conflict', 'resolution', 'schedule', 'soon', 'played', 'investigate', 'address', 'violations', 'communication', 'keep', 'informed', 'advances', 'changes', 'important', 'updates', 'neutrality', 'remain', 'impartial', 'disputes', 'engagement', 'notifications', 'mute', 'coaches', 'issues', 'harassment', 'brought', 'whole', 'participation', 'time', 'communicate', 'unavailable', 'respect', 'treat', 'members', 'follow', 'rules', 'coordinate', 'opponents', 'promptly', 'reporting', 'report', 'conflicts', 'participate', 'discussions', 'votes', 'boozerob', 'washington', 'havron24', 'nebraska', 'cornhuskies', 'robinsonn1', 'texas', 'mb', 'colorado', 'sedelhammer', 'pittsburgh', 'vicktorious', 'virginia', 'tech', 'wustyman', 'ole', 'miss', 'yesko19', 'florida', 'state', 'zschrode', 'ucla', 'spartymo', 'michigan', 'balk3', 'usc', 'national', 'participants', 'boise', 'usf'
+    ]
     
-    if league_related_mention or league_related_question:
+    league_related_question = is_question and any(f' {keyword} ' in f' {message.content.lower()} ' for keyword in league_keywords)
+    
+    # Direct mentions get AI responses regardless of content
+    if bot_mentioned or league_related_question:
         logger.info(f"💬 Regular response triggered: bot_mentioned={bot_mentioned}, league_question={league_related_question}")
         logger.info(f"✅ Bot will respond to message: '{message.content}' (Server: {guild_name})")
         
@@ -314,29 +320,46 @@ async def on_message(message):
                     # Remove the mention from the question
                     question = question.replace(f'<@{bot.user.id}>', '').strip()
                 
-                # Step 1: Try AI with charter content
-                charter_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question using ONLY the league charter content:
+                # Determine if this is a league-related question
+                is_league_related = any(f' {keyword} ' in f' {question.lower()} ' for keyword in league_keywords)
+                
+                if is_league_related:
+                    # Step 1: Try AI with charter content for league questions
+                    charter_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question using ONLY the league charter content:
 
 Question: {question}
 
 If the charter contains relevant information, provide a helpful answer. If not, respond with "NO_CHARTER_INFO"."""
 
-                # Log the question and who asked it
-                logger.info(f"🤖 AI Question from {message.author} ({message.author.id}): {question}")
-                logger.info(f"📝 Full AI prompt: {charter_question[:200]}...")
+                    # Log the question and who asked it
+                    logger.info(f"🤖 League AI Question from {message.author} ({message.author.id}): {question}")
+                    logger.info(f"📝 Full AI prompt: {charter_question[:200]}...")
 
-                ai_response = await ai_assistant.ask_ai(charter_question, f"{message.author} ({message.author.id})")
-                
-                # Step 2: If no charter info, try general AI search
-                if ai_response and "NO_CHARTER_INFO" in ai_response:
-                    logger.info("No charter info found, trying general AI search")
-                    general_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question about CFB 26 league rules, recruiting, transfers, or dynasty management:
+                    ai_response = await ai_assistant.ask_ai(charter_question, f"{message.author} ({message.author.id})")
+                    
+                    # Step 2: If no charter info, try general AI search
+                    if ai_response and "NO_CHARTER_INFO" in ai_response:
+                        logger.info("No charter info found, trying general AI search")
+                        general_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question about CFB 26 league rules, recruiting, transfers, or dynasty management:
 
 Question: {question}
 
 IMPORTANT: Only provide a direct answer if you're confident about CFB 26 league specifics. If you're not sure about the exact league rules, say "I don't have that specific information about our league rules, but you can check our full charter for the official details."
 
 Keep responses concise and helpful. Do NOT mention "charter" unless you truly don't know the answer."""
+
+                        # Log the general AI question
+                        logger.info(f"🤖 General AI Question from {message.author} ({message.author.id}): {question}")
+                        logger.info(f"📝 General AI prompt: {general_question[:200]}...")
+
+                        ai_response = await ai_assistant.ask_ai(general_question, f"{message.author} ({message.author.id})")
+                else:
+                    # For non-league questions, use general AI search directly
+                    general_question = f"""You are Harry, a friendly assistant. Answer this question helpfully and accurately:
+
+Question: {question}
+
+Please provide a helpful, accurate answer. Be conversational and friendly."""
 
                     # Log the general AI question
                     logger.info(f"🤖 General AI Question from {message.author} ({message.author.id}): {question}")
