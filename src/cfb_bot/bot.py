@@ -864,9 +864,13 @@ async def ask_harry(interaction: discord.Interaction, question: str):
             # Send initial response immediately
             await interaction.response.send_message("🤔 Harry is thinking...", ephemeral=True)
             
+            # Log the slash command usage
+            logger.info(f"🎯 SLASH COMMAND: /harry from {interaction.user} ({interaction.user.id}) - '{question}'")
+            logger.info(f"🔍 Slash command question: '{question}'")
+            
             # Make the AI response more conversational
             conversational_question = f"Answer this question about CFB 26 league rules in a friendly, conversational way as if you're Harry the league assistant: {question}"
-            response = await ai_assistant.ask_ai(conversational_question)
+            response = await ai_assistant.ask_ai(conversational_question, f"{interaction.user} ({interaction.user.id})")
             
             if response:
                 embed.description = response
@@ -926,7 +930,11 @@ async def ask_ai(interaction: discord.Interaction, question: str):
             # Send initial response immediately
             await interaction.response.send_message("🤖 Thinking...", ephemeral=True)
             
-            response = await ai_assistant.ask_ai(question)
+            # Log the slash command usage
+            logger.info(f"🎯 SLASH COMMAND: /ask from {interaction.user} ({interaction.user.id}) - '{question}'")
+            logger.info(f"🔍 Slash command question: '{question}'")
+            
+            response = await ai_assistant.ask_ai(question, f"{interaction.user} ({interaction.user.id})")
             if response:
                 embed.description = response
                 embed.add_field(
