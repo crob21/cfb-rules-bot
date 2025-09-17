@@ -49,6 +49,7 @@ async def on_ready():
     """Called when the bot is ready"""
     print(f'🏈 CFB 26 League Bot ({bot.user}) has connected to Discord!')
     print(f'📊 Connected to {len(bot.guilds)} guilds')
+    print(f'👋 Harry is ready to help with league questions!')
     
     # Load league data
     await load_league_data()
@@ -57,6 +58,7 @@ async def on_ready():
     try:
         synced = await bot.tree.sync()
         print(f'✅ Synced {len(synced)} command(s)')
+        print(f'🎯 Try: /harry what are the league rules?')
     except Exception as e:
         print(f'❌ Failed to sync commands: {e}')
 
@@ -264,6 +266,11 @@ async def help_cfb(interaction: discord.Interaction):
         inline=False
     )
     embed.add_field(
+        name="/harry <question>",
+        value="Ask Harry (the bot) about league rules in a conversational way",
+        inline=False
+    )
+    embed.add_field(
         name="/ask <question>",
         value="Ask AI about league rules and policies (if AI is enabled)",
         inline=False
@@ -321,6 +328,48 @@ async def search_charter(interaction: discord.Interaction, search_term: str):
         inline=False
     )
     
+    await interaction.followup.send(embed=embed)
+
+@bot.tree.command(name="harry", description="Ask Harry (the bot) about league rules and policies")
+async def ask_harry(interaction: discord.Interaction, question: str):
+    """Ask Harry (the bot) about the league charter in a conversational way"""
+    embed = discord.Embed(
+        title="🏈 Harry's Response",
+        color=0x1e90ff
+    )
+    
+    if AI_AVAILABLE and ai_assistant:
+        try:
+            # Send initial response immediately
+            await interaction.response.send_message("🤔 Harry is thinking...", ephemeral=True)
+            
+            # Make the AI response more conversational
+            conversational_question = f"Answer this question about CFB 26 league rules in a friendly, conversational way as if you're Harry the league assistant: {question}"
+            response = await ai_assistant.ask_ai(conversational_question)
+            
+            if response:
+                embed.description = response
+                embed.add_field(
+                    name="💡 Need More Info?",
+                    value="Ask me anything about league rules, or check the full charter below!",
+                    inline=False
+                )
+            else:
+                embed.description = "Sorry, I couldn't get a response right now. Let me check the charter for you!"
+        except Exception as e:
+            embed.description = f"Oops! Something went wrong: {str(e)}"
+    else:
+        embed.description = "Hi! I'm Harry, your CFB 26 league assistant. I'm having some technical difficulties right now, but you can always check the charter directly!"
+    
+    embed.add_field(
+        name="📖 Full League Charter",
+        value="[Open Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+        inline=False
+    )
+    
+    embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
+    
+    # Send the actual response
     await interaction.followup.send(embed=embed)
 
 @bot.tree.command(name="ask", description="Ask AI about league rules and policies")

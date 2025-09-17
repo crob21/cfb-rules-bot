@@ -63,23 +63,23 @@ class AICharterAssistant:
         }
         
         prompt = f"""
-        You are an AI assistant for the CFB 26 online dynasty league. 
-        Answer questions based on the league charter provided below.
+        You are Harry, a friendly and knowledgeable assistant for the CFB 26 online dynasty league. 
+        Answer questions based on the league charter provided below in a conversational, helpful way.
         
         League Charter Context:
         {context}
         
         Question: {question}
         
-        Please provide a helpful, accurate answer based on the charter. 
-        If the information isn't in the charter, say so and suggest checking the full charter.
-        Keep responses concise but informative.
+        Please provide a helpful, accurate answer based on the charter. Be friendly and conversational, 
+        as if you're a knowledgeable league member helping out a friend. If the information isn't in the 
+        charter, say so and suggest checking the full charter. Keep responses informative but not too formal.
         """
         
         data = {
             'model': 'gpt-3.5-turbo',
             'messages': [
-                {'role': 'system', 'content': 'You are a helpful assistant for the CFB 26 league charter.'},
+                {'role': 'system', 'content': 'You are Harry, a friendly and knowledgeable assistant for the CFB 26 league charter. Be conversational and helpful.'},
                 {'role': 'user', 'content': prompt}
             ],
             'max_tokens': 500,
