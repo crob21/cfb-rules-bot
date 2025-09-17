@@ -645,6 +645,35 @@ async def help_cfb(interaction: discord.Interaction):
     
     await interaction.response.send_message(embed=embed)
 
+@bot.tree.command(name="tokens", description="Show AI token usage statistics")
+async def show_tokens(interaction: discord.Interaction):
+    """Show AI token usage statistics"""
+    if AI_AVAILABLE and ai_assistant:
+        stats = ai_assistant.get_token_usage()
+        embed = discord.Embed(
+            title="🔢 AI Token Usage Statistics",
+            color=0x00ff00
+        )
+        
+        embed.add_field(
+            name="📊 Usage Summary",
+            value=f"**Total Requests:** {stats['total_requests']}\n**OpenAI Tokens:** {stats['openai_tokens']:,}\n**Anthropic Tokens:** {stats['anthropic_tokens']:,}\n**Total Tokens:** {stats['total_tokens']:,}",
+            inline=False
+        )
+        
+        if stats['total_requests'] > 0:
+            avg_tokens = stats['total_tokens'] / stats['total_requests']
+            embed.add_field(
+                name="📈 Averages",
+                value=f"**Avg Tokens per Request:** {avg_tokens:.1f}",
+                inline=False
+            )
+        
+        embed.set_footer(text="Token usage since bot startup")
+        await interaction.response.send_message(embed=embed)
+    else:
+        await interaction.response.send_message("❌ AI integration not available")
+
 @bot.tree.command(name="search", description="Search the official league charter")
 async def search_charter(interaction: discord.Interaction, search_term: str):
     """Search for specific terms in the league charter"""

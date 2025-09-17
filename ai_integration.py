@@ -27,6 +27,11 @@ class AICharterAssistant:
         self.charter_url = "https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit"
         self.charter_content = None
         
+        # Token usage tracking
+        self.total_openai_tokens = 0
+        self.total_anthropic_tokens = 0
+        self.total_requests = 0
+        
     async def get_charter_content(self) -> Optional[str]:
         """Get charter content for AI context"""
         # Try to get content from local file first
@@ -95,7 +100,15 @@ class AICharterAssistant:
         }
         
         try:
+            # Log the full prompt being sent
             logger.info(f"🤖 Asking OpenAI: {question[:100]}...")
+            logger.info(f"📝 Full prompt length: {len(prompt)} characters")
+            logger.info(f"📄 Context length: {len(context)} characters")
+            
+            # Estimate token count (rough approximation: 1 token ≈ 4 characters)
+            estimated_tokens = len(prompt) // 4
+            logger.info(f"🔢 Estimated input tokens: ~{estimated_tokens}")
+            
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     'https://api.openai.com/v1/chat/completions',
@@ -104,10 +117,28 @@ class AICharterAssistant:
                 ) as response:
                     if response.status == 200:
                         result = await response.json()
-                        logger.info("✅ OpenAI response received")
-                        return result['choices'][0]['message']['content'].strip()
+                        
+                        # Extract token usage information
+                        usage = result.get('usage', {})
+                        prompt_tokens = usage.get('prompt_tokens', 0)
+                        completion_tokens = usage.get('completion_tokens', 0)
+                        total_tokens = usage.get('total_tokens', 0)
+                        
+                        # Update token counters
+                        self.total_openai_tokens += total_tokens
+                        self.total_requests += 1
+                        
+                        logger.info(f"✅ OpenAI response received")
+                        logger.info(f"🔢 Token usage - Prompt: {prompt_tokens}, Completion: {completion_tokens}, Total: {total_tokens}")
+                        logger.info(f"📊 Total OpenAI tokens used: {self.total_openai_tokens} (across {self.total_requests} requests)")
+                        
+                        response_text = result['choices'][0]['message']['content'].strip()
+                        logger.info(f"📝 Response length: {len(response_text)} characters")
+                        
+                        return response_text
                     else:
-                        logger.error(f"OpenAI API error: {response.status}")
+                        error_text = await response.text()
+                        logger.error(f"OpenAI API error: {response.status} - {error_text}")
                         return None
         except Exception as e:
             logger.error(f"Error calling OpenAI: {e}")
@@ -148,6 +179,15 @@ class AICharterAssistant:
         }
         
         try:
+            # Log the request details
+            logger.info(f"🤖 Asking Anthropic: {question[:100]}...")
+            logger.info(f"📝 Full prompt length: {len(prompt)} characters")
+            logger.info(f"📄 Context length: {len(context)} characters")
+            
+            # Estimate token count (rough approximation: 1 token ≈ 4 characters)
+            estimated_tokens = len(prompt) // 4
+            logger.info(f"🔢 Estimated input tokens: ~{estimated_tokens}")
+            
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     'https://api.anthropic.com/v1/messages',
@@ -156,12 +196,31 @@ class AICharterAssistant:
                 ) as response:
                     if response.status == 200:
                         result = await response.json()
-                        return result['content'][0]['text'].strip()
+                        
+                        # Extract token usage information
+                        usage = result.get('usage', {})
+                        input_tokens = usage.get('input_tokens', 0)
+                        output_tokens = usage.get('output_tokens', 0)
+                        
+                        # Update token counters
+                        total_tokens = input_tokens + output_tokens
+                        self.total_anthropic_tokens += total_tokens
+                        self.total_requests += 1
+                        
+                        logger.info(f"✅ Anthropic response received")
+                        logger.info(f"🔢 Token usage - Input: {input_tokens}, Output: {output_tokens}")
+                        logger.info(f"📊 Total Anthropic tokens used: {self.total_anthropic_tokens} (across {self.total_requests} requests)")
+                        
+                        response_text = result['content'][0]['text'].strip()
+                        logger.info(f"📝 Response length: {len(response_text)} characters")
+                        
+                        return response_text
                     else:
-                        print(f"Anthropic API error: {response.status}")
+                        error_text = await response.text()
+                        logger.error(f"Anthropic API error: {response.status} - {error_text}")
                         return None
         except Exception as e:
-            print(f"Error calling Anthropic: {e}")
+            logger.error(f"Error calling Anthropic: {e}")
             return None
     
     async def ask_ai(self, question: str) -> Optional[str]:
@@ -192,6 +251,24 @@ class AICharterAssistant:
         else:
             logger.warning("❌ No AI response from either provider")
         return response
+    
+    def get_token_usage(self) -> dict:
+        """Get current token usage statistics"""
+        return {
+            'total_requests': self.total_requests,
+            'openai_tokens': self.total_openai_tokens,
+            'anthropic_tokens': self.total_anthropic_tokens,
+            'total_tokens': self.total_openai_tokens + self.total_anthropic_tokens
+        }
+    
+    def log_token_summary(self):
+        """Log a summary of token usage"""
+        stats = self.get_token_usage()
+        logger.info(f"📊 AI Token Usage Summary:")
+        logger.info(f"   Total Requests: {stats['total_requests']}")
+        logger.info(f"   OpenAI Tokens: {stats['openai_tokens']}")
+        logger.info(f"   Anthropic Tokens: {stats['anthropic_tokens']}")
+        logger.info(f"   Total Tokens: {stats['total_tokens']}")
 
 def setup_ai_integration():
     """Setup instructions for AI integration"""
