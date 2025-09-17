@@ -9,6 +9,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 import aiohttp
 import json
+import asyncio
 
 # Optional Google Docs integration
 try:
@@ -59,8 +60,126 @@ async def on_ready():
         synced = await bot.tree.sync()
         print(f'✅ Synced {len(synced)} command(s)')
         print(f'🎯 Try: /harry what are the league rules?')
+        print(f'💬 Or mention @Harry in chat for natural conversations!')
     except Exception as e:
         print(f'❌ Failed to sync commands: {e}')
+
+@bot.event
+async def on_message(message):
+    """Handle regular chat messages"""
+    # Ignore messages from the bot itself
+    if message.author == bot.user:
+        return
+    
+    # Check if the bot is mentioned or if message contains league-related keywords
+    bot_mentioned = bot.user.mentioned_in(message)
+    league_keywords = ['rule', 'rules', 'charter', 'league', 'recruiting', 'transfer', 'penalty', 'difficulty', 'sim']
+    contains_keywords = any(keyword in message.content.lower() for keyword in league_keywords)
+    is_question = message.content.strip().endswith('?')
+    
+    # Check for greetings
+    greetings = ['hi harry', 'hello harry', 'hey harry', 'harry', 'hi bot', 'hello bot']
+    is_greeting = any(greeting in message.content.lower() for greeting in greetings)
+    
+    # Respond if mentioned, contains league keywords, is a direct question, or is a greeting
+    if bot_mentioned or contains_keywords or is_question or is_greeting:
+        # Don't respond to slash commands
+        if message.content.startswith('/'):
+            return
+            
+        # Add a small delay to make it feel more natural
+        await asyncio.sleep(1)
+        
+        # Create a friendly response
+        embed = discord.Embed(
+            title="🏈 Harry's Response",
+            color=0x1e90ff
+        )
+        
+        # Handle greetings specially
+        if is_greeting and not contains_keywords and not is_question:
+            embed.description = f"Hi {message.author.display_name}! 👋 I'm Harry, your CFB 26 league assistant! I'm here to help with any questions about league rules, recruiting, transfers, or anything else in our charter. Just ask me anything!"
+            embed.add_field(
+                name="💡 Try asking:",
+                value="• What are the league rules?\n• How does recruiting work?\n• What's the transfer policy?\n• What difficulty should I use?",
+                inline=False
+            )
+        elif AI_AVAILABLE and ai_assistant:
+            try:
+                # Make the question more conversational
+                question = message.content
+                if bot_mentioned:
+                    # Remove the mention from the question
+                    question = question.replace(f'<@{bot.user.id}>', '').strip()
+                
+                # Add context to make it more natural
+                conversational_question = f"Answer this question about CFB 26 league rules in a friendly, conversational way as if you're Harry the league assistant: {question}"
+                response = await ai_assistant.ask_ai(conversational_question)
+                
+                if response:
+                    embed.description = response
+                    embed.add_field(
+                        name="💡 Need More Info?",
+                        value="Ask me anything about league rules, or check the full charter below!",
+                        inline=False
+                    )
+                else:
+                    embed.description = "Hi! I'm Harry, your CFB 26 league assistant. I'm having some technical difficulties right now, but you can always check the charter directly!"
+            except Exception as e:
+                embed.description = f"Oops! Something went wrong: {str(e)}"
+        else:
+            embed.description = "Hi! I'm Harry, your CFB 26 league assistant. I'm having some technical difficulties right now, but you can always check the charter directly!"
+        
+        embed.add_field(
+            name="📖 Full League Charter",
+            value="[Open Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+            inline=False
+        )
+        
+        embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
+        
+        # Send the response
+        await message.channel.send(embed=embed)
+    
+    # Process other bot commands
+    await bot.process_commands(message)
+
+@bot.event
+async def on_reaction_add(reaction, user):
+    """Handle emoji reactions"""
+    # Ignore reactions from the bot itself
+    if user == bot.user:
+        return
+    
+    # If someone reacts to Harry's message with a question mark, offer help
+    if reaction.emoji == '❓' and reaction.message.author == bot.user:
+        embed = discord.Embed(
+            title="🏈 Harry's Help",
+            description="I'm here to help with CFB 26 league questions! Here are some ways to interact with me:",
+            color=0x1e90ff
+        )
+        
+        embed.add_field(
+            name="💬 Chat Commands:",
+            value="• Mention me: `@Harry what are the rules?`\n• Ask questions: `What's the transfer policy?`\n• Say hi: `Hi Harry!`",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="⚡ Slash Commands:",
+            value="• `/harry <question>` - Ask me anything\n• `/charter` - Link to full charter\n• `/help_cfb` - See all commands",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="📖 Full Charter",
+            value="[Open Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+            inline=False
+        )
+        
+        embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
+        
+        await reaction.message.channel.send(embed=embed)
 
 async def load_league_data():
     """Load league rules and data from JSON files"""
@@ -278,6 +397,12 @@ async def help_cfb(interaction: discord.Interaction):
     embed.add_field(
         name="/help_cfb",
         value="Show this help message",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="💬 Chat Interactions:",
+        value="• Mention me: `@Harry what are the rules?`\n• Ask questions: `What's the transfer policy?`\n• Say hi: `Hi Harry!`\n• React with ❓ to my messages for help",
         inline=False
     )
     
