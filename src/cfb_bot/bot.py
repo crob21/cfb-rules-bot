@@ -224,9 +224,13 @@ async def on_message(message):
     
     logger.info(f"🔍 Message analysis: bot_mentioned={bot_mentioned}, contains_keywords={contains_keywords}, is_question={is_question}")
     
-    # Check for greetings
-    greetings = ['hi harry', 'hello harry', 'hey harry', 'harry', 'hi bot', 'hello bot']
+    # Check for greetings (more specific patterns to avoid false positives)
+    greetings = ['hi harry', 'hello harry', 'hey harry', 'hi bot', 'hello bot']
     is_greeting = any(greeting in message.content.lower() for greeting in greetings)
+    
+    # Also check for standalone "harry" but only if it's the only word or at the start
+    if not is_greeting and message.content.lower().strip() == 'harry':
+        is_greeting = True
     
     # Check for rivalry/fun responses
     rivalry_keywords = {
