@@ -81,8 +81,42 @@ async def on_message(message):
     greetings = ['hi harry', 'hello harry', 'hey harry', 'harry', 'hi bot', 'hello bot']
     is_greeting = any(greeting in message.content.lower() for greeting in greetings)
     
-    # Respond if mentioned, contains league keywords, is a direct question, or is a greeting
-    if bot_mentioned or contains_keywords or is_question or is_greeting:
+    # Check for rivalry/fun responses
+    rivalry_keywords = {
+        'oregon': 'Oregon sucks! 🦆💩',
+        'ducks': 'Oregon sucks! 🦆💩',
+        'oregon ducks': 'Oregon sucks! 🦆💩',
+        'washington': 'Go Huskies! 🐕',
+        'huskies': 'Go Huskies! 🐕',
+        'uw': 'Go Huskies! 🐕',
+        'alabama': 'Roll Tide! 🐘',
+        'crimson tide': 'Roll Tide! 🐘',
+        'georgia': 'Go Dawgs! 🐕',
+        'bulldogs': 'Go Dawgs! 🐕',
+        'ohio state': 'Go Buckeyes! 🌰',
+        'buckeyes': 'Go Buckeyes! 🌰',
+        'michigan': 'Go Blue! 💙',
+        'wolverines': 'Go Blue! 💙',
+        'cfb 26': 'CFB 26 is the best dynasty league! 🏈👑',
+        'dynasty': 'Dynasty leagues are the best! 🏆',
+        'sim': 'Simming games? Make sure you follow the league rules! 📋',
+        'recruit': 'Recruiting is key to dynasty success! 🎯',
+        'transfer': 'Transfers can make or break your season! 🔄',
+        'penalty': 'Better follow the rules or you\'ll get penalized! ⚠️',
+        'harry': 'That\'s me! Harry, your CFB 26 league assistant! 🏈',
+        'bot': 'I\'m not just a bot, I\'m Harry! 🏈',
+        'ai': 'I\'m powered by AI to help with your league questions! 🤖',
+        'help': 'I\'m here to help! Ask me about league rules, recruiting, transfers, or anything else! 💡'
+    }
+    
+    rivalry_response = None
+    for keyword, response in rivalry_keywords.items():
+        if keyword in message.content.lower():
+            rivalry_response = response
+            break
+    
+    # Respond if mentioned, contains league keywords, is a direct question, is a greeting, or has rivalry keywords
+    if bot_mentioned or contains_keywords or is_question or is_greeting or rivalry_response:
         # Don't respond to slash commands
         if message.content.startswith('/'):
             return
@@ -96,9 +130,27 @@ async def on_message(message):
             color=0x1e90ff
         )
         
+        # Handle rivalry responses specially
+        if rivalry_response:
+            embed.description = rivalry_response
+            embed.add_field(
+                name="💬 Responding to:",
+                value=f"*{message.content}*",
+                inline=False
+            )
+            embed.add_field(
+                name="🏈 CFB 26 League",
+                value="Speaking of teams, need help with league rules? Just ask!",
+                inline=False
+            )
         # Handle greetings specially
-        if is_greeting and not contains_keywords and not is_question:
+        elif is_greeting and not contains_keywords and not is_question:
             embed.description = f"Hi {message.author.display_name}! 👋 I'm Harry, your CFB 26 league assistant! I'm here to help with any questions about league rules, recruiting, transfers, or anything else in our charter. Just ask me anything!"
+            embed.add_field(
+                name="💬 Responding to:",
+                value=f"*{message.content}*",
+                inline=False
+            )
             embed.add_field(
                 name="💡 Try asking:",
                 value="• What are the league rules?\n• How does recruiting work?\n• What's the transfer policy?\n• What difficulty should I use?",
@@ -119,16 +171,36 @@ async def on_message(message):
                 if response:
                     embed.description = response
                     embed.add_field(
+                        name="💬 Responding to:",
+                        value=f"*{message.content}*",
+                        inline=False
+                    )
+                    embed.add_field(
                         name="💡 Need More Info?",
                         value="Ask me anything about league rules, or check the full charter below!",
                         inline=False
                     )
                 else:
                     embed.description = "Hi! I'm Harry, your CFB 26 league assistant. I'm having some technical difficulties right now, but you can always check the charter directly!"
+                    embed.add_field(
+                        name="💬 Responding to:",
+                        value=f"*{message.content}*",
+                        inline=False
+                    )
             except Exception as e:
                 embed.description = f"Oops! Something went wrong: {str(e)}"
+                embed.add_field(
+                    name="💬 Responding to:",
+                    value=f"*{message.content}*",
+                    inline=False
+                )
         else:
             embed.description = "Hi! I'm Harry, your CFB 26 league assistant. I'm having some technical difficulties right now, but you can always check the charter directly!"
+            embed.add_field(
+                name="💬 Responding to:",
+                value=f"*{message.content}*",
+                inline=False
+            )
         
         embed.add_field(
             name="📖 Full League Charter",
@@ -151,8 +223,13 @@ async def on_reaction_add(reaction, user):
     if user == bot.user:
         return
     
-    # If someone reacts to Harry's message with a question mark, offer help
-    if reaction.emoji == '❓' and reaction.message.author == bot.user:
+    # Only respond to reactions on Harry's messages
+    if reaction.message.author != bot.user:
+        return
+    
+    # Handle different emoji reactions
+    if reaction.emoji == '❓':
+        # Question mark - offer help
         embed = discord.Embed(
             title="🏈 Harry's Help",
             description="I'm here to help with CFB 26 league questions! Here are some ways to interact with me:",
@@ -179,6 +256,51 @@ async def on_reaction_add(reaction, user):
         
         embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
         
+        await reaction.message.channel.send(embed=embed)
+    
+    elif reaction.emoji == '🏈':
+        # Football emoji - CFB enthusiasm
+        embed = discord.Embed(
+            title="🏈 CFB 26 Hype!",
+            description="CFB 26 is the best dynasty league! 🏆\n\nNeed help with league rules? Just ask me anything!",
+            color=0x1e90ff
+        )
+        await reaction.message.channel.send(embed=embed)
+    
+    elif reaction.emoji == '🦆':
+        # Duck emoji - Oregon rivalry
+        embed = discord.Embed(
+            title="🦆 Oregon Sucks!",
+            description="Oregon sucks! 🦆💩\n\nBut CFB 26 rules are awesome! Ask me about them!",
+            color=0x1e90ff
+        )
+        await reaction.message.channel.send(embed=embed)
+    
+    elif reaction.emoji == '🐕':
+        # Dog emoji - Huskies support
+        embed = discord.Embed(
+            title="🐕 Go Huskies!",
+            description="Go Huskies! 🐕\n\nSpeaking of teams, need help with league rules?",
+            color=0x1e90ff
+        )
+        await reaction.message.channel.send(embed=embed)
+    
+    elif reaction.emoji == '🤖':
+        # Robot emoji - AI explanation
+        embed = discord.Embed(
+            title="🤖 AI Assistant",
+            description="I'm powered by AI to help with your CFB 26 league questions! Ask me anything about rules, recruiting, transfers, or penalties!",
+            color=0x1e90ff
+        )
+        await reaction.message.channel.send(embed=embed)
+    
+    elif reaction.emoji == '💡':
+        # Lightbulb emoji - tips
+        embed = discord.Embed(
+            title="💡 Pro Tips",
+            description="Here are some pro tips for CFB 26:\n\n• Follow all league rules to avoid penalties\n• Recruit smart - quality over quantity\n• Use the right difficulty settings\n• Don't sim games without permission\n\nNeed more help? Just ask!",
+            color=0x1e90ff
+        )
         await reaction.message.channel.send(embed=embed)
 
 async def load_league_data():
@@ -475,16 +597,36 @@ async def ask_harry(interaction: discord.Interaction, question: str):
             if response:
                 embed.description = response
                 embed.add_field(
+                    name="💬 Responding to:",
+                    value=f"*{question}*",
+                    inline=False
+                )
+                embed.add_field(
                     name="💡 Need More Info?",
                     value="Ask me anything about league rules, or check the full charter below!",
                     inline=False
                 )
             else:
                 embed.description = "Sorry, I couldn't get a response right now. Let me check the charter for you!"
+                embed.add_field(
+                    name="💬 Responding to:",
+                    value=f"*{question}*",
+                    inline=False
+                )
         except Exception as e:
             embed.description = f"Oops! Something went wrong: {str(e)}"
+            embed.add_field(
+                name="💬 Responding to:",
+                value=f"*{question}*",
+                inline=False
+            )
     else:
         embed.description = "Hi! I'm Harry, your CFB 26 league assistant. I'm having some technical difficulties right now, but you can always check the charter directly!"
+        embed.add_field(
+            name="💬 Responding to:",
+            value=f"*{question}*",
+            inline=False
+        )
     
     embed.add_field(
         name="📖 Full League Charter",
