@@ -854,6 +854,7 @@ async def search_charter(interaction: discord.Interaction, search_term: str):
 @bot.tree.command(name="harry", description="Ask Harry (the bot) about league rules and policies")
 async def ask_harry(interaction: discord.Interaction, question: str):
     """Ask Harry (the bot) about the league charter in a conversational way"""
+    logger.info(f"🚨 DEBUG: /harry command called with question: '{question}'")
     embed = discord.Embed(
         title="🏈 Harry's Response",
         color=0x1e90ff
