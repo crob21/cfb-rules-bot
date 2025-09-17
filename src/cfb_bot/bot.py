@@ -163,15 +163,12 @@ async def on_message(message):
     if message.author == bot.user:
         return
     
-    # Only respond in #general channel on specific server
-    TARGET_SERVER_ID = 1261662233109205144
-    TARGET_CHANNEL_NAME = "general"
+    # Ignore #general channel but respond in all other channels
+    IGNORE_CHANNEL_NAME = "general"
     
-    # Check if we're in the right server and channel
-    if not message.guild or message.guild.id != TARGET_SERVER_ID:
-        return
-    
-    if message.channel.name != TARGET_CHANNEL_NAME:
+    # Check if we're in the channel to ignore
+    if message.channel.name == IGNORE_CHANNEL_NAME:
+        logger.info(f"⏭️ Ignoring message in #{IGNORE_CHANNEL_NAME} channel")
         return
     
     # Comprehensive logging
