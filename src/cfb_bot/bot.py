@@ -159,6 +159,12 @@ async def on_message(message):
     Args:
         message (discord.Message): The message received
     """
+    # Prevent duplicate processing of the same message (check first!)
+    if message.id in processed_messages:
+        logger.info(f"⏭️ Duplicate message detected: skipping message {message.id} from {message.author}")
+        return
+    processed_messages.add(message.id)
+    
     # Ignore messages from the bot itself
     if message.author == bot.user:
         return
@@ -179,12 +185,6 @@ async def on_message(message):
     if not message.content or message.content.strip() == '':
         logger.info(f"⏭️ Skipping empty message from {message.author}")
         return
-    
-    # Prevent duplicate processing of the same message
-    if message.id in processed_messages:
-        logger.info(f"⏭️ Duplicate message detected: skipping message {message.id} from {message.author}")
-        return
-    processed_messages.add(message.id)
     
     # Simple rate limiting to prevent duplicate responses (5 second cooldown per user)
     current_time = asyncio.get_event_loop().time()
