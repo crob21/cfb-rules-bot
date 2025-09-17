@@ -325,7 +325,7 @@ If the charter contains relevant information, provide a helpful answer. If not, 
                 logger.info(f"🤖 AI Question from {message.author} ({message.author.id}): {question}")
                 logger.info(f"📝 Full AI prompt: {charter_question[:200]}...")
 
-                ai_response = await ai_assistant.ask_ai(charter_question)
+                ai_response = await ai_assistant.ask_ai(charter_question, f"{message.author} ({message.author.id})")
                 
                 # Step 2: If no charter info, try general AI search
                 if ai_response and "NO_CHARTER_INFO" in ai_response:
@@ -342,7 +342,7 @@ Keep responses concise and helpful. Do NOT mention "charter" unless you truly do
                     logger.info(f"🤖 General AI Question from {message.author} ({message.author.id}): {question}")
                     logger.info(f"📝 General AI prompt: {general_question[:200]}...")
 
-                    ai_response = await ai_assistant.ask_ai(general_question)
+                    ai_response = await ai_assistant.ask_ai(general_question, f"{message.author} ({message.author.id})")
                         
             except Exception as e:
                 logger.error(f"AI error: {e}")
@@ -753,6 +753,14 @@ async def show_tokens(interaction: discord.Interaction):
                 value=f"**Avg Tokens per Request:** {avg_tokens:.1f}",
                 inline=False
             )
+        
+        # Add cost estimates (rough approximations)
+        openai_cost = stats['openai_tokens'] * 0.000002  # GPT-3.5-turbo pricing
+        embed.add_field(
+            name="💰 Estimated Costs",
+            value=f"**OpenAI Cost:** ~${openai_cost:.4f}\n**Note:** Actual costs may vary based on model and pricing",
+            inline=False
+        )
         
         embed.set_footer(text="Token usage since bot startup")
         await interaction.response.send_message(embed=embed)

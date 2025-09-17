@@ -124,12 +124,31 @@ class AICharterAssistant:
                         completion_tokens = usage.get('completion_tokens', 0)
                         total_tokens = usage.get('total_tokens', 0)
                         
+                        # Log detailed usage information
+                        logger.info(f"✅ OpenAI response received")
+                        logger.info(f"🔢 Token usage - Prompt: {prompt_tokens}, Completion: {completion_tokens}, Total: {total_tokens}")
+                        
+                        # Log any rate limit information if available
+                        if 'x-ratelimit-remaining-requests' in response.headers:
+                            remaining_requests = response.headers.get('x-ratelimit-remaining-requests')
+                            logger.info(f"⏱️ Rate limit - Remaining requests: {remaining_requests}")
+                        
+                        if 'x-ratelimit-remaining-tokens' in response.headers:
+                            remaining_tokens = response.headers.get('x-ratelimit-remaining-tokens')
+                            logger.info(f"⏱️ Rate limit - Remaining tokens: {remaining_tokens}")
+                        
+                        if 'x-ratelimit-reset-requests' in response.headers:
+                            reset_requests = response.headers.get('x-ratelimit-reset-requests')
+                            logger.info(f"⏱️ Rate limit - Requests reset at: {reset_requests}")
+                        
+                        if 'x-ratelimit-reset-tokens' in response.headers:
+                            reset_tokens = response.headers.get('x-ratelimit-reset-tokens')
+                            logger.info(f"⏱️ Rate limit - Tokens reset at: {reset_tokens}")
+                        
                         # Update token counters
                         self.total_openai_tokens += total_tokens
                         self.total_requests += 1
                         
-                        logger.info(f"✅ OpenAI response received")
-                        logger.info(f"🔢 Token usage - Prompt: {prompt_tokens}, Completion: {completion_tokens}, Total: {total_tokens}")
                         logger.info(f"📊 Total OpenAI tokens used: {self.total_openai_tokens} (across {self.total_requests} requests)")
                         
                         response_text = result['choices'][0]['message']['content'].strip()
@@ -223,9 +242,12 @@ class AICharterAssistant:
             logger.error(f"Error calling Anthropic: {e}")
             return None
     
-    async def ask_ai(self, question: str) -> Optional[str]:
+    async def ask_ai(self, question: str, user_info: str = None) -> Optional[str]:
         """Ask AI about the charter (tries OpenAI first, then Anthropic)"""
-        logger.info(f"🤖 AI asked: {question[:100]}...")
+        if user_info:
+            logger.info(f"🤖 AI asked by {user_info}: {question[:100]}...")
+        else:
+            logger.info(f"🤖 AI asked: {question[:100]}...")
         
         context = await self.get_charter_content()
         
