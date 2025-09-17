@@ -211,8 +211,8 @@ async def on_message(message):
                 bot_mentioned = True
                 break
     
-    # Also check for "harry" in the message content as a fallback
-    if not bot_mentioned and 'harry' in message.content.lower():
+    # Also check for "harry" in the message content as a fallback (whole word matching)
+    if not bot_mentioned and f' {message.content.lower()} '.find(' harry ') != -1:
         bot_mentioned = True
         logger.info(f"🔍 Harry mentioned by name in message: '{message.content}'")
     # Very specific rule-related phrases that indicate actual questions about league rules
