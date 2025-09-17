@@ -152,15 +152,20 @@ async def on_message(message):
     
     # Check if the bot is mentioned or if message contains league-related keywords
     bot_mentioned = bot.user.mentioned_in(message)
-    # More specific league keywords that indicate actual questions about league topics
-    league_keywords = ['league rules', 'recruiting rules', 'transfer rules', 'charter rules', 'league policy', 'recruiting policy', 'transfer policy']
-    contains_keywords = any(keyword in message.content.lower() for keyword in league_keywords)
+    # Very specific rule-related phrases that indicate actual questions about league rules
+    rule_keywords = [
+        'what are the rules', 'league rules', 'recruiting rules', 'transfer rules', 'charter rules',
+        'league policy', 'recruiting policy', 'transfer policy', 'penalty rules', 'difficulty rules',
+        'sim rules', 'what are the league rules', 'how do the rules work', 'explain the rules',
+        'tell me about the rules', 'league charter', 'recruiting policy', 'transfer policy'
+    ]
+    contains_keywords = any(keyword in message.content.lower() for keyword in rule_keywords)
     is_question = message.content.strip().endswith('?')
     
     # Debug: show which keyword was matched
-    matched_keywords = [keyword for keyword in league_keywords if keyword in message.content.lower()]
+    matched_keywords = [keyword for keyword in rule_keywords if keyword in message.content.lower()]
     if matched_keywords:
-        logger.info(f"🔍 Matched keywords: {matched_keywords}")
+        logger.info(f"🔍 Matched rule keywords: {matched_keywords}")
     
     logger.info(f"🔍 Message analysis: bot_mentioned={bot_mentioned}, contains_keywords={contains_keywords}, is_question={is_question}")
     
