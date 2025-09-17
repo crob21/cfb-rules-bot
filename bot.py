@@ -283,10 +283,11 @@ async def on_message(message):
         await message.channel.send(embed=embed)
         return
     
-    # PRIORITY 2: Handle direct mentions and league-related questions with AI
+    # PRIORITY 2: Handle direct mentions with league-related content OR league-related questions
     league_related_question = is_question and any(keyword in message.content.lower() for keyword in ['rule', 'rules', 'charter', 'league', 'recruiting', 'transfer', 'dynasty', 'cfb'])
+    league_related_mention = bot_mentioned and any(keyword in message.content.lower() for keyword in ['rule', 'rules', 'charter', 'league', 'recruiting', 'transfer', 'dynasty', 'cfb', 'advance', 'game', 'team', 'player', 'coach', 'schedule', 'playoff', 'bowl', 'conference'])
     
-    if bot_mentioned or league_related_question:
+    if league_related_mention or league_related_question:
         logger.info(f"💬 Regular response triggered: bot_mentioned={bot_mentioned}, league_question={league_related_question}")
         logger.info(f"✅ Bot will respond to message: '{message.content}' (Server: {guild_name})")
         
@@ -320,6 +321,10 @@ Question: {question}
 
 If the charter contains relevant information, provide a helpful answer. If not, respond with "NO_CHARTER_INFO"."""
 
+                # Log the question and who asked it
+                logger.info(f"🤖 AI Question from {message.author} ({message.author.id}): {question}")
+                logger.info(f"📝 Full AI prompt: {charter_question[:200]}...")
+
                 ai_response = await ai_assistant.ask_ai(charter_question)
                 
                 # Step 2: If no charter info, try general AI search
@@ -332,6 +337,10 @@ Question: {question}
 IMPORTANT: Only provide a direct answer if you're confident about CFB 26 league specifics. If you're not sure about the exact league rules, say "I don't have that specific information about our league rules, but you can check our full charter for the official details."
 
 Keep responses concise and helpful. Do NOT mention "charter" unless you truly don't know the answer."""
+
+                    # Log the general AI question
+                    logger.info(f"🤖 General AI Question from {message.author} ({message.author.id}): {question}")
+                    logger.info(f"📝 General AI prompt: {general_question[:200]}...")
 
                     ai_response = await ai_assistant.ask_ai(general_question)
                         
@@ -358,6 +367,33 @@ Keep responses concise and helpful. Do NOT mention "charter" unless you truly do
                 inline=False
             )
         
+        embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
+        
+        # Send the response
+        await message.channel.send(embed=embed)
+    
+    # PRIORITY 3: Handle direct mentions that aren't league-related
+    elif bot_mentioned:
+        logger.info(f"💬 Direct mention but not league-related: '{message.content}' (Server: {guild_name})")
+        
+        # Don't respond to slash commands
+        if message.content.startswith('/'):
+            return
+            
+        # Add a small delay to make it feel more natural
+        await asyncio.sleep(1)
+        
+        # Create a friendly response redirecting to league topics
+        embed = discord.Embed(
+            title="🏈 Harry's Response",
+            color=0x1e90ff
+        )
+        embed.description = "Hey there! I'm Harry, your CFB 26 league assistant! I'm here to help with league rules, recruiting, transfers, dynasty management, and all things college football. Ask me about our league charter, game settings, or anything CFB 26 related!"
+        embed.add_field(
+            name="📖 Full League Charter",
+            value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+            inline=False
+        )
         embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
         
         # Send the response
