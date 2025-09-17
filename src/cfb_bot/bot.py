@@ -160,20 +160,27 @@ async def on_message(message):
         message (discord.Message): The message received
     """
     # Prevent duplicate processing of the same message (check first!)
+    logger.info(f"🔍 Message ID check: {message.id} in processed_messages: {message.id in processed_messages}")
     if message.id in processed_messages:
         logger.info(f"⏭️ Duplicate message detected: skipping message {message.id} from {message.author}")
         return
     processed_messages.add(message.id)
+    logger.info(f"✅ Added message {message.id} to processed_messages (total: {len(processed_messages)})")
     
     # Ignore messages from the bot itself
     if message.author == bot.user:
         return
     
-    # Route #general channel to general AI (no league context)
+    # Ignore regular messages in #general channel (slash commands still work)
     GENERAL_CHANNEL_NAME = "general"
     is_general_channel = message.channel.name == GENERAL_CHANNEL_NAME
     
     logger.info(f"🔍 Channel check: current='{message.channel.name}', general_channel={is_general_channel}")
+    
+    # Skip regular messages in #general (slash commands bypass this)
+    if is_general_channel and not message.content.startswith('/'):
+        logger.info(f"⏭️ Ignoring regular message in #{GENERAL_CHANNEL_NAME} channel (slash commands allowed)")
+        return
     
     # Comprehensive logging
     guild_name = message.guild.name if message.guild else "DM"
