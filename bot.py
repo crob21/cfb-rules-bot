@@ -127,37 +127,9 @@ async def on_message(message):
     
     # Check for rivalry/fun responses
     rivalry_keywords = {
-        'oregon': 'Oregon sucks! 🦆💩',
-        'ducks': 'Oregon sucks! 🦆💩',
-        'oregon ducks': 'Oregon sucks! 🦆💩',
-        'oregon state': 'Oregon sucks! 🦆💩',
-        'oregon university': 'Oregon sucks! 🦆💩',
-        'university of oregon': 'Oregon sucks! 🦆💩',
-        'washington': 'Go Huskies! 🐕',
-        'huskies': 'Go Huskies! 🐕',
-        'uw': 'Go Huskies! 🐕',
-        'alabama': 'Roll Tide! 🐘',
-        'crimson tide': 'Roll Tide! 🐘',
-        'georgia': 'Go Dawgs! 🐕',
-        'bulldogs': 'Go Dawgs! 🐕',
-        'ohio state': 'Go Buckeyes! 🌰',
-        'buckeyes': 'Go Buckeyes! 🌰',
-        'michigan': 'Go Blue! 💙',
-        'wolverines': 'Go Blue! 💙',
-        'cfb 26': 'CFB 26 is the best dynasty league! 🏈👑',
-        'dynasty': 'Dynasty leagues are the best! 🏆',
-        'sim': 'Simming games? Make sure you follow the league rules! 📋',
-        'recruit': 'Recruiting is key to dynasty success! 🎯',
-        'transfer': 'Transfers can make or break your season! 🔄',
-        'penalty': 'Better follow the rules or you\'ll get penalized! ⚠️',
-        'harry': 'That\'s me! Harry, your CFB 26 league assistant! 🏈',
-        'bot': 'I\'m not just a bot, I\'m Harry! 🏈',
-        'ai': 'I\'m powered by AI to help with your league questions! 🤖',
-        'help': 'I\'m here to help! Ask me about league rules, recruiting, transfers, or anything else! 💡',
+        'oregon': 'Fuck Oregon! 🦆💩',
+        'ducks': 'Ducks are assholes! 🦆💩',
         'rules': 'Here are the CFB 26 league rules! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
-        'league rules': 'Here are the CFB 26 league rules! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
-        'charter': 'Here\'s the official CFB 26 league charter! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
-        'league charter': 'Here\'s the official CFB 26 league charter! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)'
     }
     
     rivalry_response = None
