@@ -259,20 +259,37 @@ async def on_message(message):
     
     logger.info(f"🔍 Response triggers: is_greeting={is_greeting}, rivalry_response={rivalry_response is not None}")
     
-    # Only respond to direct mentions, league-related questions, or rivalry keywords
-    league_related_question = is_question and any(keyword in message.content.lower() for keyword in ['rule', 'rules', 'charter', 'league', 'recruiting', 'transfer', 'dynasty', 'cfb'])
-    
-    # Rivalry responses work with or without direct mentions
+    # PRIORITY 1: Handle rivalry responses immediately (no AI processing needed)
     if rivalry_response:
         logger.info(f"🏆 Rivalry response triggered: {rivalry_response[:50]}...")
-    elif bot_mentioned or league_related_question:
-        logger.info(f"💬 Regular response triggered: bot_mentioned={bot_mentioned}, league_question={league_related_question}")
-    else:
-        logger.info(f"❌ No response triggers met")
+        logger.info(f"✅ Bot will respond to message: '{message.content}' (Server: {guild_name})")
+        
+        # Don't respond to slash commands
+        if message.content.startswith('/'):
+            return
+            
+        # Add a small delay to make it feel more natural
+        await asyncio.sleep(1)
+        
+        # Create a friendly response
+        embed = discord.Embed(
+            title="🏈 Harry's Response",
+            color=0x1e90ff
+        )
+        embed.description = rivalry_response
+        embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
+        
+        # Send the response immediately
+        await message.channel.send(embed=embed)
         return
     
-    if rivalry_response or bot_mentioned or league_related_question:
+    # PRIORITY 2: Handle direct mentions and league-related questions with AI
+    league_related_question = is_question and any(keyword in message.content.lower() for keyword in ['rule', 'rules', 'charter', 'league', 'recruiting', 'transfer', 'dynasty', 'cfb'])
+    
+    if bot_mentioned or league_related_question:
+        logger.info(f"💬 Regular response triggered: bot_mentioned={bot_mentioned}, league_question={league_related_question}")
         logger.info(f"✅ Bot will respond to message: '{message.content}' (Server: {guild_name})")
+        
         # Don't respond to slash commands
         if message.content.startswith('/'):
             return
@@ -286,32 +303,29 @@ async def on_message(message):
             color=0x1e90ff
         )
         
-        # Handle rivalry responses specially
-        if rivalry_response:
-            embed.description = rivalry_response
-        else:
-            # Step 1: Try AI with charter content first
-            ai_response = None
-            if AI_AVAILABLE and ai_assistant:
-                try:
-                    question = message.content
-                    if bot_mentioned:
-                        # Remove the mention from the question
-                        question = question.replace(f'<@{bot.user.id}>', '').strip()
-                    
-                    # Step 1: Try AI with charter content
-                    charter_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question using ONLY the league charter content:
+        # Handle AI responses
+        # Step 1: Try AI with charter content first
+        ai_response = None
+        if AI_AVAILABLE and ai_assistant:
+            try:
+                question = message.content
+                if bot_mentioned:
+                    # Remove the mention from the question
+                    question = question.replace(f'<@{bot.user.id}>', '').strip()
+                
+                # Step 1: Try AI with charter content
+                charter_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question using ONLY the league charter content:
 
 Question: {question}
 
 If the charter contains relevant information, provide a helpful answer. If not, respond with "NO_CHARTER_INFO"."""
 
-                    ai_response = await ai_assistant.ask_ai(charter_question)
-                    
-                    # Step 2: If no charter info, try general AI search
-                    if ai_response and "NO_CHARTER_INFO" in ai_response:
-                        logger.info("No charter info found, trying general AI search")
-                        general_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question about CFB 26 league rules, recruiting, transfers, or dynasty management:
+                ai_response = await ai_assistant.ask_ai(charter_question)
+                
+                # Step 2: If no charter info, try general AI search
+                if ai_response and "NO_CHARTER_INFO" in ai_response:
+                    logger.info("No charter info found, trying general AI search")
+                    general_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question about CFB 26 league rules, recruiting, transfers, or dynasty management:
 
 Question: {question}
 
@@ -319,30 +333,30 @@ IMPORTANT: Only provide a direct answer if you're confident about CFB 26 league 
 
 Keep responses concise and helpful. Do NOT mention "charter" unless you truly don't know the answer."""
 
-                        ai_response = await ai_assistant.ask_ai(general_question)
+                    ai_response = await ai_assistant.ask_ai(general_question)
                         
-                except Exception as e:
-                    logger.error(f"AI error: {e}")
-                    ai_response = None
+            except Exception as e:
+                logger.error(f"AI error: {e}")
+                ai_response = None
             
-            # Use AI response if available, otherwise fall back to generic
-            if ai_response and "NO_CHARTER_INFO" not in ai_response:
-                embed.description = ai_response
-                # Only add charter link if AI indicates it doesn't know the answer
-                if "check the full charter" in ai_response.lower() or "charter" in ai_response.lower():
-                    embed.add_field(
-                        name="📖 Full League Charter",
-                        value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
-                        inline=False
-                    )
-            else:
-                embed.description = "Well, you stumped me! But check our charter below - it has all the official CFB 26 league rules, recruiting policies, and dynasty management guidelines!"
-                # Always add charter link for generic responses
+        # Use AI response if available, otherwise fall back to generic
+        if ai_response and "NO_CHARTER_INFO" not in ai_response:
+            embed.description = ai_response
+            # Only add charter link if AI indicates it doesn't know the answer
+            if "check the full charter" in ai_response.lower() or "charter" in ai_response.lower():
                 embed.add_field(
                     name="📖 Full League Charter",
                     value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
                     inline=False
                 )
+        else:
+            embed.description = "Well, you stumped me! But check our charter below - it has all the official CFB 26 league rules, recruiting policies, and dynasty management guidelines!"
+            # Always add charter link for generic responses
+            embed.add_field(
+                name="📖 Full League Charter",
+                value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+                inline=False
+            )
         
         embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
         
@@ -350,7 +364,7 @@ Keep responses concise and helpful. Do NOT mention "charter" unless you truly do
         await message.channel.send(embed=embed)
     
     else:
-        logger.info(f"❌ Bot will NOT respond to message: '{message.content}' (Server: {guild_name})")
+        logger.info(f"❌ No response triggers met")
     
     # Process other bot commands
     await bot.process_commands(message)
