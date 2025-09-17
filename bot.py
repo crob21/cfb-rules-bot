@@ -71,11 +71,16 @@ async def on_message(message):
     if message.author == bot.user:
         return
     
+    # Debug logging
+    print(f"📨 Message received: '{message.content}' from {message.author}")
+    
     # Check if the bot is mentioned or if message contains league-related keywords
     bot_mentioned = bot.user.mentioned_in(message)
     league_keywords = ['rule', 'rules', 'charter', 'league', 'recruiting', 'transfer', 'penalty', 'difficulty', 'sim']
     contains_keywords = any(keyword in message.content.lower() for keyword in league_keywords)
     is_question = message.content.strip().endswith('?')
+    
+    print(f"🔍 Debug: bot_mentioned={bot_mentioned}, contains_keywords={contains_keywords}, is_question={is_question}")
     
     # Check for greetings
     greetings = ['hi harry', 'hello harry', 'hey harry', 'harry', 'hi bot', 'hello bot']
@@ -122,8 +127,11 @@ async def on_message(message):
             rivalry_response = response
             break
     
+    print(f"🔍 Debug: is_greeting={is_greeting}, rivalry_response={rivalry_response is not None}")
+    
     # Respond if mentioned, contains league keywords, is a direct question, is a greeting, or has rivalry keywords
     if bot_mentioned or contains_keywords or is_question or is_greeting or rivalry_response:
+        print(f"✅ Bot will respond to message: '{message.content}'")
         # Don't respond to slash commands
         if message.content.startswith('/'):
             return
@@ -219,6 +227,9 @@ async def on_message(message):
         
         # Send the response
         await message.channel.send(embed=embed)
+    
+    else:
+        print(f"❌ Bot will NOT respond to message: '{message.content}'")
     
     # Process other bot commands
     await bot.process_commands(message)
