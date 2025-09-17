@@ -167,6 +167,7 @@ async def on_message(message):
     IGNORE_CHANNEL_NAME = "general"
     
     # Check if we're in the channel to ignore
+    logger.info(f"🔍 Channel check: current='{message.channel.name}', ignore='{IGNORE_CHANNEL_NAME}'")
     if message.channel.name == IGNORE_CHANNEL_NAME:
         logger.info(f"⏭️ Ignoring message in #{IGNORE_CHANNEL_NAME} channel")
         return
