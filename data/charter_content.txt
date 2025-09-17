@@ -58,6 +58,11 @@ There is no requirement to stream games, but you may do so if you wish.
 
 There are no restrictions on play style, plays run, or user preferences. If it is in the game and within league settings, it is allowed.
 
+### 1.7. Offseason
+Owners should target 1 day for 1 week of offseason. If it goes faster, thats awesome! 
+
+Owners may request their offseason tasks are simmed and can rejoin in Week 1.
+
 ## 2. Commissioner Roles & Expectations
 - Oversee league operations: Scheduling, rule enforcement, and conflict resolution.
 - Advance the league: On schedule, or as soon as all games are played.
@@ -88,7 +93,7 @@ There are no restrictions on play style, plays run, or user preferences. If it i
 
 ### Retired Members
 - **SpartyMO** - Michigan State
-- **BALK3** - USC 🙁
+- **BALK3** - USC 🙁 (RIP to the former Commish)
 
 ## 5. League History
 
@@ -96,10 +101,13 @@ There are no restrictions on play style, plays run, or user preferences. If it i
 - **National Champion:** havron24 - Nebraska CornHuskies
 - **Playoff Participants:**
   - havron24 - Nebraska Cornhuskers
-  - BoozeRob - Washington
-  - Sedelhammer - Pittsburgh
-  - wustyman - USF
+  - BoozeRob - Washington Huskies
+  - Sedelhammer - Pittsburgh Panthers
+  - wustyman - USF Bulls
 
 ### Job Changes
 - wustyman - USF -> Ole Miss
 - robinsonn1 - Boise State -> Texas
+
+### Retirements
+- BALK3 - The Commish retired from the league and USC
