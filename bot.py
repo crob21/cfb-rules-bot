@@ -172,16 +172,6 @@ async def on_message(message):
         # Handle greetings specially
         elif is_greeting and not contains_keywords and not is_question:
             embed.description = f"Hi {message.author.display_name}! 👋 I'm Harry, your CFB 26 league assistant! I'm here to help with any questions about league rules, recruiting, transfers, or anything else in our charter. Just ask me anything!"
-            embed.add_field(
-                name="💬 Responding to:",
-                value=f"*{message.content}*",
-                inline=False
-            )
-            embed.add_field(
-                name="💡 Try asking:",
-                value="• What are the league rules?\n• How does recruiting work?\n• What's the transfer policy?\n• What difficulty should I use?",
-                inline=False
-            )
         elif AI_AVAILABLE and ai_assistant:
             try:
                 # Make the question more conversational
@@ -196,43 +186,40 @@ async def on_message(message):
                 
                 if response:
                     embed.description = response
-                    embed.add_field(
-                        name="💬 Responding to:",
-                        value=f"*{message.content}*",
-                        inline=False
-                    )
-                    embed.add_field(
-                        name="💡 Need More Info?",
-                        value="Ask me anything about league rules, or check the full charter below!",
-                        inline=False
-                    )
+                    # Only add charter link if asking about rules
+                    if any(keyword in message.content.lower() for keyword in ['rule', 'rules', 'charter', 'league']):
+                        embed.add_field(
+                            name="📖 Full League Charter",
+                            value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+                            inline=False
+                        )
                 else:
                     embed.description = "Hi! I'm Harry, your CFB 26 league assistant! I can help with general questions, but for the complete and official rules, please check our charter below!"
-                    embed.add_field(
-                        name="💬 Responding to:",
-                        value=f"*{message.content}*",
-                        inline=False
-                    )
+                    # Only add charter link if asking about rules
+                    if any(keyword in message.content.lower() for keyword in ['rule', 'rules', 'charter', 'league']):
+                        embed.add_field(
+                            name="📖 Full League Charter",
+                            value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+                            inline=False
+                        )
             except Exception as e:
                 embed.description = f"Hi! I'm Harry, your CFB 26 league assistant! I can help with general questions, but for the complete and official rules, please check our charter below!"
-                embed.add_field(
-                    name="💬 Responding to:",
-                    value=f"*{message.content}*",
-                    inline=False
-                )
+                # Only add charter link if asking about rules
+                if any(keyword in message.content.lower() for keyword in ['rule', 'rules', 'charter', 'league']):
+                    embed.add_field(
+                        name="📖 Full League Charter",
+                        value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+                        inline=False
+                    )
         else:
             embed.description = "Hi! I'm Harry, your CFB 26 league assistant! I can help with general questions, but for the complete and official rules, please check our charter below!"
-            embed.add_field(
-                name="💬 Responding to:",
-                value=f"*{message.content}*",
-                inline=False
-            )
-        
-        embed.add_field(
-            name="📖 Full League Charter",
-            value="[Open Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
-            inline=False
-        )
+            # Only add charter link if asking about rules
+            if any(keyword in message.content.lower() for keyword in ['rule', 'rules', 'charter', 'league']):
+                embed.add_field(
+                    name="📖 Full League Charter",
+                    value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+                    inline=False
+                )
         
         embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
         
