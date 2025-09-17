@@ -63,7 +63,7 @@ logger = setup_logging()
 # Bot configuration
 intents = discord.Intents.default()
 intents.guilds = True
-# Remove message_content intent to avoid privileged intents requirement
+intents.message_content = True  # Required to read message content
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
@@ -104,7 +104,14 @@ async def on_message(message):
         return
     
     # Comprehensive logging
-    logger.info(f"📨 Message received: '{message.content}' from {message.author} in #{message.channel}")
+    guild_name = message.guild.name if message.guild else "DM"
+    logger.info(f"📨 Message received: '{message.content}' from {message.author} in #{message.channel} (Server: {guild_name})")
+    logger.info(f"📊 Message details: length={len(message.content)}, type={type(message.content)}, repr={repr(message.content)}")
+    
+    # Skip empty messages
+    if not message.content or message.content.strip() == '':
+        logger.info(f"⏭️ Skipping empty message from {message.author}")
+        return
     
     # Check if the bot is mentioned or if message contains league-related keywords
     bot_mentioned = bot.user.mentioned_in(message)
@@ -163,7 +170,7 @@ async def on_message(message):
     
     # Respond if mentioned, contains league keywords, is a direct question, is a greeting, or has rivalry keywords
     if bot_mentioned or contains_keywords or is_question or is_greeting or rivalry_response:
-        logger.info(f"✅ Bot will respond to message: '{message.content}'")
+        logger.info(f"✅ Bot will respond to message: '{message.content}' (Server: {guild_name})")
         # Don't respond to slash commands
         if message.content.startswith('/'):
             return
@@ -261,7 +268,7 @@ async def on_message(message):
         await message.channel.send(embed=embed)
     
     else:
-        logger.info(f"❌ Bot will NOT respond to message: '{message.content}'")
+        logger.info(f"❌ Bot will NOT respond to message: '{message.content}' (Server: {guild_name})")
     
     # Process other bot commands
     await bot.process_commands(message)
