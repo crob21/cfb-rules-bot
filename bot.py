@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 """
 CFB 26 League Bot - A Discord bot for the CFB 26 online dynasty league
+
+This bot provides AI-powered assistance for league members, including:
+- Natural language processing for league questions
+- Slash commands for quick access to rules and information
+- Rivalry responses and fun interactions
+- Integration with the official league charter
+
+Author: CFB 26 League
+License: MIT
+Version: 1.0.0
 """
 
 import os
@@ -33,7 +43,15 @@ load_dotenv()
 
 # Set up comprehensive logging
 def setup_logging():
-    """Set up comprehensive logging for Render"""
+    """
+    Set up comprehensive logging for Render deployment.
+    
+    Configures logging to both file and console output with proper formatting.
+    Creates logs directory if it doesn't exist.
+    
+    Returns:
+        logging.Logger: Configured logger instance
+    """
     # Create logs directory if it doesn't exist
     os.makedirs('logs', exist_ok=True)
     
@@ -79,7 +97,14 @@ if AI_AVAILABLE:
 
 @bot.event
 async def on_ready():
-    """Called when the bot is ready"""
+    """
+    Called when the bot is ready and connected to Discord.
+    
+    Performs initial setup including:
+    - Loading league data
+    - Syncing slash commands
+    - Logging connection status
+    """
     logger.info(f'🏈 CFB 26 League Bot ({bot.user}) has connected to Discord!')
     logger.info(f'📊 Connected to {len(bot.guilds)} guilds')
     logger.info(f'👋 Harry is ready to help with league questions!')
@@ -98,7 +123,19 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    """Handle regular chat messages"""
+    """
+    Handle regular chat messages and provide intelligent responses.
+    
+    Processes messages for:
+    - Bot mentions
+    - League-related keywords
+    - Direct questions
+    - Greetings
+    - Rivalry responses
+    
+    Args:
+        message (discord.Message): The message received
+    """
     # Ignore messages from the bot itself
     if message.author == bot.user:
         return
@@ -115,9 +152,15 @@ async def on_message(message):
     
     # Check if the bot is mentioned or if message contains league-related keywords
     bot_mentioned = bot.user.mentioned_in(message)
-    league_keywords = ['rule', 'rules', 'charter', 'league', 'recruiting', 'transfer', 'penalty', 'difficulty', 'sim']
+    # More specific league keywords that indicate actual questions about league topics
+    league_keywords = ['league rules', 'recruiting rules', 'transfer rules', 'charter rules', 'league policy', 'recruiting policy', 'transfer policy']
     contains_keywords = any(keyword in message.content.lower() for keyword in league_keywords)
     is_question = message.content.strip().endswith('?')
+    
+    # Debug: show which keyword was matched
+    matched_keywords = [keyword for keyword in league_keywords if keyword in message.content.lower()]
+    if matched_keywords:
+        logger.info(f"🔍 Matched keywords: {matched_keywords}")
     
     logger.info(f"🔍 Message analysis: bot_mentioned={bot_mentioned}, contains_keywords={contains_keywords}, is_question={is_question}")
     

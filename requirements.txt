@@ -1,9 +1,19 @@
-discord.py>=2.3.0
-aiohttp>=3.8.0
-python-dotenv>=1.0.0
-requests>=2.28.0
+# Core Discord Bot Dependencies
+discord.py==2.3.2
+aiohttp==3.9.1
+python-dotenv==1.0.0
+requests==2.31.0
 
-# Optional Google Docs integration
-google-api-python-client>=2.0.0
-google-auth-httplib2>=0.1.0
-google-auth-oauthlib>=0.5.0
+# Optional AI Integration
+openai==1.6.1
+anthropic==0.7.8
+
+# Optional Google Docs Integration
+google-api-python-client==2.110.0
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.0
+
+# Development Dependencies (optional)
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
