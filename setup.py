@@ -3,52 +3,41 @@
 Setup script for CFB Rules Bot
 """
 
-import os
-import subprocess
-import sys
+from setuptools import setup, find_packages
 
-def run_command(command, description):
-    """Run a command and handle errors"""
-    print(f"🔄 {description}...")
-    try:
-        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
-        print(f"✅ {description} completed")
-        return True
-    except subprocess.CalledProcessError as e:
-        print(f"❌ {description} failed: {e}")
-        print(f"Error output: {e.stderr}")
-        return False
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
 
-def main():
-    """Main setup function"""
-    print("🏈 Setting up CFB Rules Bot...")
-    
-    # Check if .env file exists
-    if not os.path.exists('.env'):
-        print("📝 Creating .env file from template...")
-        try:
-            with open('env.example', 'r') as f:
-                content = f.read()
-            with open('.env', 'w') as f:
-                f.write(content)
-            print("✅ .env file created")
-            print("⚠️  Please edit .env file with your Discord bot token")
-        except FileNotFoundError:
-            print("❌ env.example file not found")
-            return False
-    
-    # Install dependencies
-    if not run_command("pip install -r requirements.txt", "Installing dependencies"):
-        return False
-    
-    print("\n🎉 Setup complete!")
-    print("\n📋 Next steps:")
-    print("1. Edit .env file with your Discord bot token")
-    print("2. Run: python bot.py")
-    print("3. Use /help_cfb in Discord to see available commands")
-    
-    return True
+with open("requirements.txt", "r", encoding="utf-8") as fh:
+    requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
 
-if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+setup(
+    name="cfb-rules-bot",
+    version="1.0.0",
+    author="CFB 26 League",
+    description="A Discord bot for College Football 26 Online Dynasty League",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: End Users/Desktop",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+    ],
+    python_requires=">=3.8",
+    install_requires=requirements,
+    entry_points={
+        "console_scripts": [
+            "cfb-bot=cfb_bot.bot:main",
+        ],
+    },
+)
