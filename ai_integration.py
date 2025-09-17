@@ -29,7 +29,19 @@ class AICharterAssistant:
         
     async def get_charter_content(self) -> Optional[str]:
         """Get charter content for AI context"""
-        # Try to get content from Google Docs first
+        # Try to get content from local file first
+        try:
+            charter_file = "data/charter_content.txt"
+            if os.path.exists(charter_file):
+                with open(charter_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    if content:
+                        logger.info(f"📄 Loaded local charter content ({len(content)} characters)")
+                        return content
+        except Exception as e:
+            logger.warning(f"⚠️  Local charter file failed: {e}")
+        
+        # Try to get content from Google Docs as fallback
         try:
             from google_docs_integration import GoogleDocsIntegration
             google_docs = GoogleDocsIntegration()
@@ -40,8 +52,8 @@ class AICharterAssistant:
         except Exception as e:
             logger.warning(f"⚠️  Google Docs integration failed: {e}")
         
-        # No fallback content - always direct to the real charter
-        logger.info("📄 No charter content available - directing users to Google Doc")
+        # No charter content available
+        logger.info("📄 No charter content available - using fallback context")
         return None
     
     async def ask_openai(self, question: str, context: str) -> Optional[str]:
