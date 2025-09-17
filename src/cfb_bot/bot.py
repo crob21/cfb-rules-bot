@@ -166,6 +166,7 @@ async def on_message(message):
     guild_name = message.guild.name if message.guild else "DM"
     logger.info(f"📨 Message received: '{message.content}' from {message.author} in #{message.channel} (Server: {guild_name})")
     logger.info(f"📊 Message details: length={len(message.content)}, type={type(message.content)}, repr={repr(message.content)}")
+    logger.info(f"🔍 DEBUG: Starting message processing for: '{message.content}'")
     
     # Skip empty messages
     if not message.content or message.content.strip() == '':
@@ -300,6 +301,8 @@ async def on_message(message):
     ]
     
     league_related_question = is_question and any(f' {keyword} ' in f' {message.content.lower()} ' for keyword in league_keywords)
+    
+    logger.info(f"🔍 DEBUG: bot_mentioned={bot_mentioned}, is_question={is_question}, league_related_question={league_related_question}")
     
     # Direct mentions get AI responses regardless of content
     if bot_mentioned or league_related_question:
