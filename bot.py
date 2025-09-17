@@ -221,32 +221,42 @@ async def on_message(message):
         elif is_greeting and not contains_keywords and not is_question:
             embed.description = f"Hi {message.author.display_name}! 👋 I'm Harry, your CFB 26 league assistant! I'm here to help with any questions about league rules, recruiting, transfers, or anything else in our charter. Just ask me anything!"
         else:
-            # Try AI first for all other responses
+            # Step 1: Try AI with charter content first
             ai_response = None
             if AI_AVAILABLE and ai_assistant:
                 try:
-                    # Make the question more conversational
                     question = message.content
                     if bot_mentioned:
                         # Remove the mention from the question
                         question = question.replace(f'<@{bot.user.id}>', '').strip()
                     
-                    # Improved prompt to handle both league and non-league questions
-                    conversational_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question in a conversational way:
+                    # Step 1: Try AI with charter content
+                    charter_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question using ONLY the league charter content:
 
 Question: {question}
 
-If it's about CFB 26 league rules, recruiting, transfers, or dynasty management, provide helpful information and mention the league charter.
-If it's not about the league (like Netflix, weather, etc.), politely redirect to league topics while being friendly.
+If the charter contains relevant information, provide a helpful answer. If not, respond with "NO_CHARTER_INFO"."""
+
+                    ai_response = await ai_assistant.ask_ai(charter_question)
+                    
+                    # Step 2: If no charter info, try general AI search
+                    if ai_response and "NO_CHARTER_INFO" in ai_response:
+                        logger.info("No charter info found, trying general AI search")
+                        general_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question about CFB 26 league rules, recruiting, transfers, or dynasty management:
+
+Question: {question}
+
+If it's not about the league, politely redirect to league topics while being friendly.
 Keep responses concise and helpful."""
 
-                    ai_response = await ai_assistant.ask_ai(conversational_question)
+                        ai_response = await ai_assistant.ask_ai(general_question)
+                        
                 except Exception as e:
                     logger.error(f"AI error: {e}")
                     ai_response = None
             
             # Use AI response if available, otherwise fall back to generic
-            if ai_response:
+            if ai_response and "NO_CHARTER_INFO" not in ai_response:
                 embed.description = ai_response
                 # Always add charter link for AI responses
                 embed.add_field(
@@ -255,7 +265,7 @@ Keep responses concise and helpful."""
                     inline=False
                 )
             else:
-                embed.description = "Hi! I'm Harry, your CFB 26 league assistant! I can help with general questions, but for the complete and official rules, please check our charter below!"
+                embed.description = "Well, you stumped me! But check our charter below - it has all the official CFB 26 league rules, recruiting policies, and dynasty management guidelines!"
                 # Always add charter link for generic responses
                 embed.add_field(
                     name="📖 Full League Charter",
