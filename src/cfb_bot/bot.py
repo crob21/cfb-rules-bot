@@ -163,14 +163,11 @@ async def on_message(message):
     if message.author == bot.user:
         return
     
-    # Ignore #general channel but respond in all other channels
-    IGNORE_CHANNEL_NAME = "general"
+    # Route #general channel to general AI (no league context)
+    GENERAL_CHANNEL_NAME = "general"
+    is_general_channel = message.channel.name == GENERAL_CHANNEL_NAME
     
-    # Check if we're in the channel to ignore
-    logger.info(f"🔍 Channel check: current='{message.channel.name}', ignore='{IGNORE_CHANNEL_NAME}'")
-    if message.channel.name == IGNORE_CHANNEL_NAME:
-        logger.info(f"⏭️ Ignoring message in #{IGNORE_CHANNEL_NAME} channel")
-        return
+    logger.info(f"🔍 Channel check: current='{message.channel.name}', general_channel={is_general_channel}")
     
     # Comprehensive logging
     guild_name = message.guild.name if message.guild else "DM"
@@ -345,27 +342,41 @@ async def on_message(message):
                     # Remove the mention from the question
                     question = question.replace(f'<@{bot.user.id}>', '').strip()
                 
-                # Determine if this is a league-related question
-                is_league_related = any(f' {keyword} ' in f' {question.lower()} ' for keyword in league_keywords)
-                
-                if is_league_related:
-                    # Step 1: Try AI with charter content for league questions
-                    charter_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question using ONLY the league charter content:
+                # For #general channel, always use general AI (no league context)
+                if is_general_channel:
+                    general_question = f"""You are Harry, a friendly assistant. Answer this question helpfully and accurately:
+
+Question: {question}
+
+Please provide a helpful, accurate answer. Be conversational and friendly. This is a general conversation, not about league rules."""
+
+                    logger.info(f"🤖 General Channel AI Question from {message.author} ({message.author.id}): {question}")
+                    logger.info(f"📝 General AI prompt: {general_question[:200]}...")
+
+                    ai_response = await ai_assistant.ask_ai(general_question, f"{message.author} ({message.author.id})")
+                else:
+                    # For other channels, use league-specific AI logic
+                    # Determine if this is a league-related question
+                    is_league_related = any(f' {keyword} ' in f' {question.lower()} ' for keyword in league_keywords)
+                    
+                    if is_league_related:
+                        # Step 1: Try AI with charter content for league questions
+                        charter_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question using ONLY the league charter content:
 
 Question: {question}
 
 If the charter contains relevant information, provide a helpful answer. If not, respond with "NO_CHARTER_INFO"."""
 
-                    # Log the question and who asked it
-                    logger.info(f"🤖 League AI Question from {message.author} ({message.author.id}): {question}")
-                    logger.info(f"📝 Full AI prompt: {charter_question[:200]}...")
+                        # Log the question and who asked it
+                        logger.info(f"🤖 League AI Question from {message.author} ({message.author.id}): {question}")
+                        logger.info(f"📝 Full AI prompt: {charter_question[:200]}...")
 
-                    ai_response = await ai_assistant.ask_ai(charter_question, f"{message.author} ({message.author.id})")
-                    
-                    # Step 2: If no charter info, try general AI search
-                    if ai_response and "NO_CHARTER_INFO" in ai_response:
-                        logger.info("No charter info found, trying general AI search")
-                        general_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question about CFB 26 league rules, recruiting, transfers, or dynasty management:
+                        ai_response = await ai_assistant.ask_ai(charter_question, f"{message.author} ({message.author.id})")
+                        
+                        # Step 2: If no charter info, try general AI search
+                        if ai_response and "NO_CHARTER_INFO" in ai_response:
+                            logger.info("No charter info found, trying general AI search")
+                            general_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question about CFB 26 league rules, recruiting, transfers, or dynasty management:
 
 Question: {question}
 
@@ -373,24 +384,24 @@ IMPORTANT: Only provide a direct answer if you're confident about CFB 26 league 
 
 Keep responses concise and helpful. Do NOT mention "charter" unless you truly don't know the answer."""
 
-                        # Log the general AI question
-                        logger.info(f"🤖 General AI Question from {message.author} ({message.author.id}): {question}")
-                        logger.info(f"📝 General AI prompt: {general_question[:200]}...")
+                            # Log the general AI question
+                            logger.info(f"🤖 General AI Question from {message.author} ({message.author.id}): {question}")
+                            logger.info(f"📝 General AI prompt: {general_question[:200]}...")
 
-                        ai_response = await ai_assistant.ask_ai(general_question, f"{message.author} ({message.author.id})")
-                else:
-                    # For non-league questions, use general AI search directly
-                    general_question = f"""You are Harry, a friendly assistant. Answer this question helpfully and accurately:
+                            ai_response = await ai_assistant.ask_ai(general_question, f"{message.author} ({message.author.id})")
+                    else:
+                        # For non-league questions, use general AI search directly
+                        general_question = f"""You are Harry, a friendly assistant. Answer this question helpfully and accurately:
 
 Question: {question}
 
 Please provide a helpful, accurate answer. Be conversational and friendly."""
 
-                    # Log the general AI question
-                    logger.info(f"🤖 General AI Question from {message.author} ({message.author.id}): {question}")
-                    logger.info(f"📝 General AI prompt: {general_question[:200]}...")
+                        # Log the general AI question
+                        logger.info(f"🤖 General AI Question from {message.author} ({message.author.id}): {question}")
+                        logger.info(f"📝 General AI prompt: {general_question[:200]}...")
 
-                    ai_response = await ai_assistant.ask_ai(general_question, f"{message.author} ({message.author.id})")
+                        ai_response = await ai_assistant.ask_ai(general_question, f"{message.author} ({message.author.id})")
                         
             except Exception as e:
                 logger.error(f"AI error: {e}")
