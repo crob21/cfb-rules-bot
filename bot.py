@@ -98,6 +98,9 @@ ai_assistant = None
 if AI_AVAILABLE:
     ai_assistant = AICharterAssistant()
 
+# Simple rate limiting to prevent duplicate responses
+last_message_time = {}
+
 @bot.event
 async def on_ready():
     """
@@ -164,6 +167,14 @@ async def on_message(message):
         logger.info(f"⏭️ Skipping empty message from {message.author}")
         return
     
+    # Simple rate limiting to prevent duplicate responses (5 second cooldown per user)
+    current_time = asyncio.get_event_loop().time()
+    user_id = message.author.id
+    if user_id in last_message_time and current_time - last_message_time[user_id] < 5:
+        logger.info(f"⏭️ Rate limiting: skipping message from {message.author} (too recent)")
+        return
+    last_message_time[user_id] = current_time
+    
     # Check if the bot is mentioned or if message contains league-related keywords
     bot_mentioned = bot.user.mentioned_in(message)
     # Very specific rule-related phrases that indicate actual questions about league rules
@@ -209,8 +220,10 @@ async def on_message(message):
     
     logger.info(f"🔍 Response triggers: is_greeting={is_greeting}, rivalry_response={rivalry_response is not None}")
     
-    # Only respond to direct mentions, direct questions, or rivalry keywords
-    if bot_mentioned or is_question or rivalry_response:
+    # Only respond to direct mentions, league-related questions, or rivalry keywords
+    league_related_question = is_question and any(keyword in message.content.lower() for keyword in ['rule', 'rules', 'charter', 'league', 'recruiting', 'transfer', 'dynasty', 'cfb'])
+    
+    if bot_mentioned or league_related_question or rivalry_response:
         logger.info(f"✅ Bot will respond to message: '{message.content}' (Server: {guild_name})")
         # Don't respond to slash commands
         if message.content.startswith('/'):
