@@ -13,6 +13,9 @@ License: MIT
 Version: 1.0.0
 """
 
+# Fix for Python 3.13 audioop compatibility
+import audioop_fix
+
 import os
 import discord
 from discord.ext import commands
