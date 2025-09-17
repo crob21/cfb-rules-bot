@@ -21,8 +21,18 @@ class AICharterAssistant:
         
     async def get_charter_content(self) -> Optional[str]:
         """Get charter content for AI context"""
-        # For now, we'll use a placeholder. In a real implementation,
-        # you'd fetch the actual content from Google Docs or provide it manually
+        # Try to get content from Google Docs first
+        try:
+            from google_docs_integration import GoogleDocsIntegration
+            google_docs = GoogleDocsIntegration()
+            if google_docs.authenticate():
+                content = google_docs.get_document_content()
+                if content:
+                    return content
+        except Exception as e:
+            print(f"⚠️  Google Docs integration failed: {e}")
+        
+        # Fallback to placeholder content if Google Docs fails
         return """
         CFB 26 League Charter - Key Rules and Policies:
         
@@ -50,6 +60,8 @@ class AICharterAssistant:
         - Respectful communication in Discord required
         - No trash talking during games
         - Report disputes to commissioners within 24 hours
+        
+        Note: This is placeholder content. For the full charter, visit: https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit
         """
     
     async def ask_openai(self, question: str, context: str) -> Optional[str]:
