@@ -64,9 +64,12 @@ class AICharterAssistant:
         
         Question: {question}
         
-        Please provide a helpful, accurate answer based on the charter. Be friendly and conversational, 
-        as if you're a knowledgeable league member helping out a friend. If the information isn't in the 
-        charter, say so and suggest checking the full charter. Keep responses informative but not too formal.
+        IMPORTANT INSTRUCTIONS:
+        - If you can answer the question based on the charter content, provide a direct, helpful answer
+        - Do NOT mention "check the full charter" or "charter" unless you truly don't know the answer
+        - Be conversational and friendly, like a knowledgeable league member
+        - If the information isn't in the charter, then say "I don't have that specific information in our charter, but you can check the full charter for more details"
+        - Keep responses informative but not too formal
         """
         
         data = {

@@ -280,8 +280,9 @@ If the charter contains relevant information, provide a helpful answer. If not, 
 
 Question: {question}
 
-If it's not about the league, politely redirect to league topics while being friendly.
-Keep responses concise and helpful."""
+IMPORTANT: Only provide a direct answer if you're confident about CFB 26 league specifics. If you're not sure about the exact league rules, say "I don't have that specific information about our league rules, but you can check our full charter for the official details."
+
+Keep responses concise and helpful. Do NOT mention "charter" unless you truly don't know the answer."""
 
                         ai_response = await ai_assistant.ask_ai(general_question)
                         
@@ -292,12 +293,13 @@ Keep responses concise and helpful."""
             # Use AI response if available, otherwise fall back to generic
             if ai_response and "NO_CHARTER_INFO" not in ai_response:
                 embed.description = ai_response
-                # Always add charter link for AI responses
-                embed.add_field(
-                    name="📖 Full League Charter",
-                    value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
-                    inline=False
-                )
+                # Only add charter link if AI indicates it doesn't know the answer
+                if "check the full charter" in ai_response.lower() or "charter" in ai_response.lower():
+                    embed.add_field(
+                        name="📖 Full League Charter",
+                        value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+                        inline=False
+                    )
             else:
                 embed.description = "Well, you stumped me! But check our charter below - it has all the official CFB 26 league rules, recruiting policies, and dynasty management guidelines!"
                 # Always add charter link for generic responses
