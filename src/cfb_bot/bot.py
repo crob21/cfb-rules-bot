@@ -286,6 +286,11 @@ async def on_message(message):
             rivalry_response = response
             break
     
+    # Don't trigger rivalry response if it's a clear question (especially with "harry" mentioned)
+    if rivalry_response and (is_question or (bot_mentioned and len(message.content.split()) > 2)):
+        rivalry_response = None
+        logger.info(f"🔍 Rivalry response overridden: question detected or harry mentioned with context")
+    
     logger.info(f"🔍 Response triggers: is_greeting={is_greeting}, rivalry_response={rivalry_response is not None}")
     
     # PRIORITY 1: Handle rivalry responses immediately (no AI processing needed)
