@@ -177,6 +177,11 @@ async def on_message(message):
     rivalry_keywords = {
         'oregon': 'Fuck Oregon! 🦆💩',
         'ducks': 'Ducks are assholes! 🦆💩',
+        'detroit lions': 'Go Lions! 🦁',
+        'lions': 'Go Lions! 🦁',
+        'tampa bay buccaneers': 'Go Bucs! 🏴‍☠️',
+        'buccaneers': 'Go Bucs! 🏴‍☠️',
+        'bucs': 'Go Bucs! 🏴‍☠️',
         'rules': 'Here are the CFB 26 league rules! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
     }
     
