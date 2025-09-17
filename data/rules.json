@@ -1,45 +1,5 @@
 {
-  "note": "This file contains CFB 26 league-specific rules only. General NCAA football rules have been removed to focus on dynasty league policies.",
-  "league_rules": {
-    "recruiting": {
-      "description": "CFB 26 recruiting rules and policies",
-      "key_points": [
-        "Follow NCAA recruiting guidelines",
-        "Respect recruiting dead periods",
-        "No excessive recruiting violations"
-      ]
-    },
-    "transfers": {
-      "description": "CFB 26 transfer portal rules",
-      "key_points": [
-        "Transfer portal opens after bowl season",
-        "Follow NCAA transfer eligibility rules",
-        "Report all transfers to commissioners"
-      ]
-    },
-    "gameplay": {
-      "description": "CFB 26 gameplay rules",
-      "key_points": [
-        "Use All-American difficulty",
-        "Custom sliders: CPU QB accuracy 25, User pass coverage 75",
-        "No simming without commissioner approval"
-      ]
-    },
-    "scheduling": {
-      "description": "CFB 26 scheduling policies",
-      "key_points": [
-        "Advance schedule every 48 hours",
-        "Conference games first",
-        "Bye weeks only mid-season"
-      ]
-    },
-    "conduct": {
-      "description": "CFB 26 conduct expectations",
-      "key_points": [
-        "Respectful Discord communication",
-        "No trash talking during games",
-        "Report disputes within 24 hours"
-      ]
-    }
-  }
+  "note": "This file is intentionally empty. All CFB 26 league rules are in the official Google Doc charter.",
+  "charter_url": "https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit",
+  "message": "For all league rules, please refer to the official charter linked above. This bot directs users to the real charter instead of using placeholder content."
 }

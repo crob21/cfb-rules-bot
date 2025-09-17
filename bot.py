@@ -378,7 +378,7 @@ async def rule(interaction: discord.Interaction, rule_name: str):
         color=0x1e90ff
     )
     
-    # Search through league rules
+    # Search through league rules (if any exist)
     if hasattr(bot, 'league_data') and 'rules' in bot.league_data:
         for category, rules in bot.league_data['rules'].items():
             if rule_name.lower() in category.lower():
@@ -389,8 +389,9 @@ async def rule(interaction: discord.Interaction, rule_name: str):
                 rule_found = True
                 break
     
+    # If no specific rule found, provide general guidance
     if not rule_found:
-        embed.description = "Rule not found in league data. Check the league charter for more details."
+        embed.description = f"Specific rule '{rule_name}' not found in local data. All CFB 26 league rules are in the official charter."
     
     # Always add the charter link
     embed.add_field(
