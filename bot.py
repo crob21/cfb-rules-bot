@@ -114,6 +114,9 @@ async def on_ready():
     - Logging connection status
     """
     logger.info(f'🏈 CFB 26 League Bot ({bot.user}) has connected to Discord!')
+    logger.info(f'🔗 Bot ID: {bot.user.id}')
+    logger.info(f'📛 Bot Username: {bot.user.name}')
+    logger.info(f'🏷️ Bot Display Name: {bot.user.display_name}')
     logger.info(f'📊 Connected to {len(bot.guilds)} guilds')
     logger.info(f'👋 Harry is ready to help with league questions!')
     
@@ -187,9 +190,15 @@ async def on_message(message):
     bot_mentioned = False
     if message.mentions:
         for mention in message.mentions:
+            logger.info(f"🔍 Mention found: {mention} (ID: {mention.id}) vs bot ID: {bot.user.id}")
             if mention.id == bot.user.id:
                 bot_mentioned = True
                 break
+    
+    # Also check for "harry" in the message content as a fallback
+    if not bot_mentioned and 'harry' in message.content.lower():
+        bot_mentioned = True
+        logger.info(f"🔍 Harry mentioned by name in message: '{message.content}'")
     # Very specific rule-related phrases that indicate actual questions about league rules
     rule_keywords = [
         'what are the rules', 'league rules', 'recruiting rules', 'transfer rules', 'charter rules',
