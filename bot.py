@@ -100,6 +100,7 @@ if AI_AVAILABLE:
 
 # Simple rate limiting to prevent duplicate responses
 last_message_time = {}
+processed_messages = set()  # Track processed message IDs
 
 @bot.event
 async def on_ready():
@@ -167,6 +168,12 @@ async def on_message(message):
         logger.info(f"⏭️ Skipping empty message from {message.author}")
         return
     
+    # Prevent duplicate processing of the same message
+    if message.id in processed_messages:
+        logger.info(f"⏭️ Duplicate message detected: skipping message {message.id} from {message.author}")
+        return
+    processed_messages.add(message.id)
+    
     # Simple rate limiting to prevent duplicate responses (5 second cooldown per user)
     current_time = asyncio.get_event_loop().time()
     user_id = message.author.id
@@ -175,8 +182,13 @@ async def on_message(message):
         return
     last_message_time[user_id] = current_time
     
-    # Check if the bot is mentioned or if message contains league-related keywords
-    bot_mentioned = bot.user.mentioned_in(message)
+    # Check if the bot is specifically mentioned (not @everyone)
+    bot_mentioned = False
+    if message.mentions:
+        for mention in message.mentions:
+            if mention.id == bot.user.id:
+                bot_mentioned = True
+                break
     # Very specific rule-related phrases that indicate actual questions about league rules
     rule_keywords = [
         'what are the rules', 'league rules', 'recruiting rules', 'transfer rules', 'charter rules',
