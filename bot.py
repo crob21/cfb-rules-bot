@@ -215,6 +215,8 @@ async def on_message(message):
     rivalry_keywords = {
         'oregon': 'Fuck Oregon! 🦆💩',
         'ducks': 'Ducks are assholes! 🦆💩',
+        'oregon ducks': 'Fuck Oregon! 🦆💩',
+        'oregon state': 'Fuck Oregon! 🦆💩',
         'detroit lions': 'Go Lions! 🦁',
         'lions': 'Go Lions! 🦁',
         'tampa bay buccaneers': 'Go Bucs! 🏴‍☠️',
@@ -222,7 +224,31 @@ async def on_message(message):
         'bucs': 'Go Bucs! 🏴‍☠️',
         'chicago bears': 'Da Bears! 🧸',
         'bears': 'Da Bears! 🧸',
+        'washington': 'Go Huskies! 🐕',
+        'huskies': 'Go Huskies! 🐕',
+        'uw': 'Go Huskies! 🐕',
+        'alabama': 'Roll Tide! 🐘',
+        'crimson tide': 'Roll Tide! 🐘',
+        'georgia': 'Go Dawgs! 🐕',
+        'bulldogs': 'Go Dawgs! 🐕',
+        'ohio state': 'Go Buckeyes! 🌰',
+        'buckeyes': 'Go Buckeyes! 🌰',
+        'michigan': 'Go Blue! 💙',
+        'wolverines': 'Go Blue! 💙',
+        'cfb 26': 'CFB 26 is the best dynasty league! 🏈👑',
+        'dynasty': 'Dynasty leagues are the best! 🏆',
+        'sim': 'Simming games? Make sure you follow the league rules! 📋',
+        'recruit': 'Recruiting is key to dynasty success! 🎯',
+        'transfer': 'Transfers can make or break your season! 🔄',
+        'penalty': 'Better follow the rules or you\'ll get penalized! ⚠️',
+        'harry': 'That\'s me! Harry, your CFB 26 league assistant! 🏈',
+        'bot': 'I\'m not just a bot, I\'m Harry! 🏈',
+        'ai': 'I\'m powered by AI to help with your league questions! 🤖',
+        'help': 'I\'m here to help! Ask me about league rules, recruiting, transfers, or anything else! 💡',
         'rules': 'Here are the CFB 26 league rules! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
+        'league rules': 'Here are the CFB 26 league rules! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
+        'charter': 'Here\'s the official CFB 26 league charter! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
+        'league charter': 'Here\'s the official CFB 26 league charter! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)'
     }
     
     rivalry_response = None
@@ -236,7 +262,16 @@ async def on_message(message):
     # Only respond to direct mentions, league-related questions, or rivalry keywords
     league_related_question = is_question and any(keyword in message.content.lower() for keyword in ['rule', 'rules', 'charter', 'league', 'recruiting', 'transfer', 'dynasty', 'cfb'])
     
-    if bot_mentioned or league_related_question or rivalry_response:
+    # Rivalry responses work with or without direct mentions
+    if rivalry_response:
+        logger.info(f"🏆 Rivalry response triggered: {rivalry_response[:50]}...")
+    elif bot_mentioned or league_related_question:
+        logger.info(f"💬 Regular response triggered: bot_mentioned={bot_mentioned}, league_question={league_related_question}")
+    else:
+        logger.info(f"❌ No response triggers met")
+        return
+    
+    if rivalry_response or bot_mentioned or league_related_question:
         logger.info(f"✅ Bot will respond to message: '{message.content}' (Server: {guild_name})")
         # Don't respond to slash commands
         if message.content.startswith('/'):
