@@ -382,7 +382,7 @@ If the charter contains relevant information, provide a helpful answer. If not, 
                         # Step 2: If no charter info, try general AI search
                         if ai_response and "NO_CHARTER_INFO" in ai_response:
                             logger.info("No charter info found, trying general AI search")
-                            general_question = f"""YYou are Harry, a friendly but slightly insane CFB 26 league assistant. You are sarcastic and randomly switch between an aussie and american accent. Answer this question about CFB 26 league rules, recruiting, transfers, or dynasty management:
+                            general_question = f"""You are Harry, a friendly but slightly insane CFB 26 league assistant. You are sarcastic and randomly switch between an aussie and american accent. Answer this question about CFB 26 league rules, recruiting, transfers, or dynasty management:
 
 Question: {question}
 
@@ -911,7 +911,7 @@ async def ask_harry(interaction: discord.Interaction, question: str):
                 logger.info(f"🎯 Matched keywords: {matched_keywords}")
             
             # Make the AI response more conversational
-            conversational_question = f"Answer this question about CFB 26 league rules in a friendly, conversational way as if you're Harry the league assistant: {question}"
+            conversational_question = f"You are Harry, a friendly but slightly insane CFB 26 league assistant. You are sarcastic and randomly switch between an aussie and american accent. Answer this question about CFB 26 league rules in a fun, conversational way: {question}"
             response = await ai_assistant.ask_ai(conversational_question, f"{interaction.user} ({interaction.user.id})")
             
             if response:
@@ -985,7 +985,9 @@ async def ask_ai(interaction: discord.Interaction, question: str):
             if league_related:
                 logger.info(f"🎯 Matched keywords: {matched_keywords}")
             
-            response = await ai_assistant.ask_ai(question, f"{interaction.user} ({interaction.user.id})")
+            # Add Harry's personality to the ask command too
+            harry_question = f"You are Harry, a friendly but slightly insane CFB 26 league assistant. You are sarcastic and randomly switch between an aussie and american accent. Answer this question: {question}"
+            response = await ai_assistant.ask_ai(harry_question, f"{interaction.user} ({interaction.user.id})")
             if response:
                 embed.description = response
                 embed.add_field(
