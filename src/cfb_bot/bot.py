@@ -171,16 +171,25 @@ async def on_message(message):
     if message.author == bot.user:
         return
     
-    # Ignore regular messages in #general channel (slash commands still work)
-    GENERAL_CHANNEL_NAME = "general"
-    is_general_channel = message.channel.name == GENERAL_CHANNEL_NAME
+    # Define allowed channels for regular message responses
+    ALLOWED_CHANNELS = {
+        # Channel ID 1417663211292852244 for #Booze's-Playground
+        1417663211292852244: "Booze's-Playground",
+        # #bot-test in BoozeRob's Beerhall (we'll check by name since we don't have the ID)
+    }
     
-    logger.info(f"🔍 Channel check: current='{message.channel.name}', general_channel={is_general_channel}")
+    # Check if this is an allowed channel
+    is_allowed_channel = (
+        message.channel.id in ALLOWED_CHANNELS or 
+        (message.channel.name == "bot-test" and message.guild and "BoozeRob's Beerhall" in message.guild.name)
+    )
     
-    # Skip regular messages in #general (slash commands bypass this)
-    logger.info(f"🔍 Ignore check: is_general_channel={is_general_channel}, starts_with_slash={message.content.startswith('/')}")
-    if is_general_channel and not message.content.startswith('/'):
-        logger.info(f"⏭️ Ignoring regular message in #{GENERAL_CHANNEL_NAME} channel (slash commands allowed)")
+    logger.info(f"🔍 Channel check: current='{message.channel.name}' (ID: {message.channel.id}), allowed={is_allowed_channel}")
+    
+    # Skip regular messages unless in allowed channels (slash commands bypass this)
+    logger.info(f"🔍 Ignore check: is_allowed_channel={is_allowed_channel}, starts_with_slash={message.content.startswith('/')}")
+    if not is_allowed_channel and not message.content.startswith('/'):
+        logger.info(f"⏭️ Ignoring regular message in #{message.channel.name} (not in allowed channels, slash commands allowed)")
         return
     
     # Comprehensive logging
@@ -264,16 +273,7 @@ async def on_message(message):
         'buckeyes': 'Ohio sucks! 🌰',
         'michigan': 'Go Blue! 💙',
         'wolverines': 'Go Blue! 💙',
-        'cfb 26': 'CFB 26 is the best dynasty league! 🏈👑',
-        'dynasty': 'Dynasty leagues are the best! 🏆',
-        'sim': 'Simming games? Make sure you follow the league rules! 📋',
-        'recruit': 'Recruiting is key to dynasty success! 🎯',
-        'transfer': 'Transfers can make or break your season! 🔄',
-        'penalty': 'Better follow the rules or you\'ll get penalized! ⚠️',
-        'harry': 'That\'s me! Harry, your CFB 26 league assistant! 🏈',
-        'bot': 'I\'m not just a bot, I\'m Harry! 🏈',
-        'ai': 'I\'m powered by AI to help with your league questions! 🤖',
-        'help': 'I\'m here to help! Ask me about league rules, recruiting, transfers, or anything else! 💡',
+
         'rules': 'Here are the CFB 26 league rules! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
         'league rules': 'Here are the CFB 26 league rules! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
         'charter': 'Here\'s the official CFB 26 league charter! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
@@ -359,19 +359,8 @@ async def on_message(message):
                     # Remove the mention from the question
                     question = question.replace(f'<@{bot.user.id}>', '').strip()
                 
-                # For #general channel, always use general AI (no league context)
-                if is_general_channel:
-                    general_question = f"""You are Harry, a friendly assistant. Answer this question helpfully and accurately:
-
-Question: {question}
-
-Please provide a helpful, accurate answer. Be conversational and friendly. This is a general conversation, not about league rules."""
-
-                    logger.info(f"🤖 General Channel AI Question from {message.author} ({message.author.id}): {question}")
-                    logger.info(f"📝 General AI prompt: {general_question[:200]}...")
-
-                    ai_response = await ai_assistant.ask_ai(general_question, f"{message.author} ({message.author.id})")
-                else:
+                # For allowed channels, use league-specific AI logic
+                if is_allowed_channel:
                     # For other channels, use league-specific AI logic
                     # Determine if this is a league-related question
                     is_league_related = any(f' {keyword} ' in f' {question.lower()} ' for keyword in LEAGUE_KEYWORDS)
