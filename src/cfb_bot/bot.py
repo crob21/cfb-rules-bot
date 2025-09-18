@@ -114,6 +114,7 @@ if AI_AVAILABLE:
 # Simple rate limiting to prevent duplicate responses
 last_message_time = {}
 processed_messages = set()  # Track processed message IDs
+processed_content = set()  # Track processed content+author combinations
 
 @bot.event
 async def on_ready():
@@ -160,12 +161,15 @@ async def on_message(message):
         message (discord.Message): The message received
     """
     # Prevent duplicate processing of the same message (check first!)
-    logger.info(f"🔍 Message ID check: {message.id} in processed_messages: {message.id in processed_messages}")
     if message.id in processed_messages:
-        logger.info(f"⏭️ Duplicate message detected: skipping message {message.id} from {message.author}")
         return
     processed_messages.add(message.id)
-    logger.info(f"✅ Added message {message.id} to processed_messages (total: {len(processed_messages)})")
+    
+    # Also check for duplicate content from the same author (in case Discord sends same message with different IDs)
+    content_key = f"{message.author.id}:{message.content}:{message.channel.id}"
+    if content_key in processed_content:
+        return
+    processed_content.add(content_key)
     
     # Ignore messages from the bot itself
     if message.author == bot.user:
@@ -184,19 +188,17 @@ async def on_message(message):
         (message.channel.name == "bot-test" and message.guild and "BoozeRob's Beerhall" in message.guild.name)
     )
     
-    logger.info(f"🔍 Channel check: current='{message.channel.name}' (ID: {message.channel.id}), allowed={is_allowed_channel}")
-    
     # Skip regular messages unless in allowed channels (slash commands bypass this)
-    logger.info(f"🔍 Ignore check: is_allowed_channel={is_allowed_channel}, starts_with_slash={message.content.startswith('/')}")
     if not is_allowed_channel and not message.content.startswith('/'):
-        logger.info(f"⏭️ Ignoring regular message in #{message.channel.name} (not in allowed channels, slash commands allowed)")
         return
     
-    # Comprehensive logging
+    # Comprehensive logging (only after deduplication and channel checks)
     guild_name = message.guild.name if message.guild else "DM"
     logger.info(f"📨 Message received: '{message.content}' from {message.author} in #{message.channel} (Server: {guild_name})")
     logger.info(f"📊 Message details: length={len(message.content)}, type={type(message.content)}, repr={repr(message.content)}")
     logger.info(f"🔍 DEBUG: Starting message processing for: '{message.content}'")
+    logger.info(f"🔍 Channel check: current='{message.channel.name}' (ID: {message.channel.id}), allowed={is_allowed_channel}")
+    logger.info(f"🔍 Ignore check: is_allowed_channel={is_allowed_channel}, starts_with_slash={message.content.startswith('/')}")
     
     # Skip empty messages
     if not message.content or message.content.strip() == '':
@@ -273,7 +275,6 @@ async def on_message(message):
         'buckeyes': 'Ohio sucks! 🌰',
         'michigan': 'Go Blue! 💙',
         'wolverines': 'Go Blue! 💙',
-
         'rules': 'Here are the CFB 26 league rules! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
         'league rules': 'Here are the CFB 26 league rules! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
         'charter': 'Here\'s the official CFB 26 league charter! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
