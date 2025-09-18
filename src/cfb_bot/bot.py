@@ -361,7 +361,6 @@ async def on_message(message):
                 
                 # For allowed channels, use league-specific AI logic
                 if is_allowed_channel:
-                    # For other channels, use league-specific AI logic
                     # Determine if this is a league-related question
                     is_league_related = any(f' {keyword} ' in f' {question.lower()} ' for keyword in LEAGUE_KEYWORDS)
                     
@@ -408,6 +407,19 @@ Please provide a helpful, accurate answer. Be conversational and friendly."""
                         logger.info(f"📝 General AI prompt: {general_question[:200]}...")
 
                         ai_response = await ai_assistant.ask_ai(general_question, f"{message.author} ({message.author.id})")
+                else:
+                    # For non-allowed channels, this should only happen with slash commands
+                    # Use general AI without league context
+                    general_question = f"""You are Harry, a friendly assistant. Answer this question helpfully and accurately:
+
+Question: {question}
+
+Please provide a helpful, accurate answer. Be conversational and friendly. This is a general conversation, not about league rules."""
+
+                    logger.info(f"🤖 General AI Question from {message.author} ({message.author.id}): {question}")
+                    logger.info(f"📝 General AI prompt: {general_question[:200]}...")
+
+                    ai_response = await ai_assistant.ask_ai(general_question, f"{message.author} ({message.author.id})")
                         
             except Exception as e:
                 logger.error(f"AI error: {e}")
