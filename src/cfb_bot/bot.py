@@ -367,7 +367,7 @@ async def on_message(message):
                     
                     if is_league_related:
                         # Step 1: Try AI with charter content for league questions
-                        charter_question = f"""You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. Answer this question using ONLY the league charter content:
+                        charter_question = f"""You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Answer this question using ONLY the league charter content:
 
 Question: {question}
 
@@ -382,7 +382,7 @@ If the charter contains relevant information, provide a helpful answer. If not, 
                         # Step 2: If no charter info, try general AI search
                         if ai_response and "NO_CHARTER_INFO" in ai_response:
                             logger.info("No charter info found, trying general AI search")
-                            general_question = f"""You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. Answer this question about CFB 26 league rules, recruiting, transfers, or dynasty management:
+                            general_question = f"""You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Answer this question about CFB 26 league rules, recruiting, transfers, or dynasty management:
 
 Question: {question}
 
@@ -397,11 +397,11 @@ Keep responses concise and helpful. Do NOT mention "charter" unless you truly do
                             ai_response = await ai_assistant.ask_ai(general_question, f"{message.author} ({message.author.id})")
                     else:
                         # For non-league questions, use general AI search directly
-                        general_question = f"""You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. Answer this question helpfully and accurately:
+                        general_question = f"""You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Answer this question helpfully and accurately:
 
 Question: {question}
 
-Please provide a helpful, accurate answer. Be conversational and friendly."""
+Please provide a helpful, accurate answer with maximum sarcasm and wit."""
 
                         # Log the general AI question
                         logger.info(f"🤖 General AI Question from {message.author} ({message.author.id}): {question}")
@@ -411,11 +411,11 @@ Please provide a helpful, accurate answer. Be conversational and friendly."""
                 else:
                     # For non-allowed channels, this should only happen with slash commands
                     # Use general AI without league context
-                    general_question = f"""You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. Answer this question helpfully and accurately:
+                    general_question = f"""You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Answer this question helpfully and accurately:
 
 Question: {question}
 
-Please provide a helpful, accurate answer. Be conversational and friendly. This is a general conversation, not about league rules."""
+Please provide a helpful, accurate answer with maximum sarcasm and wit. This is a general conversation, not about league rules."""
 
                     logger.info(f"🤖 General AI Question from {message.author} ({message.author.id}): {question}")
                     logger.info(f"📝 General AI prompt: {general_question[:200]}...")
@@ -911,7 +911,7 @@ async def ask_harry(interaction: discord.Interaction, question: str):
                 logger.info(f"🎯 Matched keywords: {matched_keywords}")
             
             # Make the AI response more conversational
-            conversational_question = f"You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. Answer this question about CFB 26 league rules in a hilariously sarcastic way: {question}"
+            conversational_question = f"You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Answer this question about CFB 26 league rules in a hilariously sarcastic way: {question}"
             response = await ai_assistant.ask_ai(conversational_question, f"{interaction.user} ({interaction.user.id})")
             
             if response:
@@ -986,7 +986,7 @@ async def ask_ai(interaction: discord.Interaction, question: str):
                 logger.info(f"🎯 Matched keywords: {matched_keywords}")
             
             # Add Harry's personality to the ask command too
-            harry_question = f"You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. Answer this question with maximum sarcasm: {question}"
+            harry_question = f"You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Answer this question with maximum sarcasm: {question}"
             response = await ai_assistant.ask_ai(harry_question, f"{interaction.user} ({interaction.user.id})")
             if response:
                 embed.description = response

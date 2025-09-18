@@ -73,7 +73,7 @@ class AICharterAssistant:
         }
         
         prompt = f"""
-        You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. 
+        You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks.
         Answer questions based on the league charter provided below in a hilariously sarcastic way.
         
         League Charter Context:
@@ -92,7 +92,7 @@ class AICharterAssistant:
         data = {
             'model': 'gpt-3.5-turbo',
             'messages': [
-                {'role': 'system', 'content': 'You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. Be hilariously sarcastic and helpful.'},
+                {'role': 'system', 'content': 'You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Be hilariously sarcastic and helpful.'},
                 {'role': 'user', 'content': prompt}
             ],
             'max_tokens': 500,
