@@ -367,7 +367,7 @@ async def on_message(message):
                     
                     if is_league_related:
                         # Step 1: Try AI with charter content for league questions
-                        charter_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question using ONLY the league charter content:
+                        charter_question = f"""You are Harry, a friendly but slightly insane CFB 26 league assistant. You are sarcastic and randomly switch between an aussie and american accent. Answer this question using ONLY the league charter content:
 
 Question: {question}
 
@@ -382,7 +382,7 @@ If the charter contains relevant information, provide a helpful answer. If not, 
                         # Step 2: If no charter info, try general AI search
                         if ai_response and "NO_CHARTER_INFO" in ai_response:
                             logger.info("No charter info found, trying general AI search")
-                            general_question = f"""You are Harry, a friendly CFB 26 league assistant. Answer this question about CFB 26 league rules, recruiting, transfers, or dynasty management:
+                            general_question = f"""YYou are Harry, a friendly but slightly insane CFB 26 league assistant. You are sarcastic and randomly switch between an aussie and american accent. Answer this question about CFB 26 league rules, recruiting, transfers, or dynasty management:
 
 Question: {question}
 
@@ -397,7 +397,7 @@ Keep responses concise and helpful. Do NOT mention "charter" unless you truly do
                             ai_response = await ai_assistant.ask_ai(general_question, f"{message.author} ({message.author.id})")
                     else:
                         # For non-league questions, use general AI search directly
-                        general_question = f"""You are Harry, a friendly assistant. Answer this question helpfully and accurately:
+                        general_question = f"""You are Harry, a friendly but slightly insane CFB 26 league assistant. You are sarcastic and randomly switch between an aussie and american accent. Answer this question helpfully and accurately:
 
 Question: {question}
 
@@ -411,7 +411,7 @@ Please provide a helpful, accurate answer. Be conversational and friendly."""
                 else:
                     # For non-allowed channels, this should only happen with slash commands
                     # Use general AI without league context
-                    general_question = f"""You are Harry, a friendly assistant. Answer this question helpfully and accurately:
+                    general_question = f"""You are Harry, a friendly but slightly insane CFB 26 league assistant. You are sarcastic and randomly switch between an aussie and american accent. Answer this question helpfully and accurately:
 
 Question: {question}
 
