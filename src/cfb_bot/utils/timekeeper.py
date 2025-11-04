@@ -2,15 +2,22 @@
 """
 Timekeeper Module for CFB 26 League Bot
 Manages advance countdown timers with notifications
+Includes persistence to survive restarts/deployments
 """
 
 import asyncio
 import logging
+import json
+import os
 from datetime import datetime, timedelta
 from typing import Optional, Dict
+from pathlib import Path
 import discord
 
 logger = logging.getLogger('CFB26Bot.Timekeeper')
+
+# Timer state file location
+TIMER_STATE_FILE = Path(__file__).parent.parent.parent.parent / "data" / "timer_state.json"
 
 class AdvanceTimer:
     """Manages advance countdown timers with custom durations"""
@@ -30,6 +37,35 @@ class AdvanceTimer:
             1: False
         }
 
+    def save_state(self):
+        """Save timer state to disk for persistence"""
+        if not self.is_active:
+            # Clear saved state if timer is not active
+            if TIMER_STATE_FILE.exists():
+                TIMER_STATE_FILE.unlink()
+                logger.info("💾 Cleared timer state (no active timer)")
+            return
+        
+        try:
+            # Ensure data directory exists
+            TIMER_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            
+            state = {
+                'channel_id': self.channel.id,
+                'start_time': self.start_time.isoformat() if self.start_time else None,
+                'end_time': self.end_time.isoformat() if self.end_time else None,
+                'duration_hours': self.duration_hours,
+                'is_active': self.is_active,
+                'notifications_sent': self.notifications_sent
+            }
+            
+            with open(TIMER_STATE_FILE, 'w') as f:
+                json.dump(state, f, indent=2)
+            
+            logger.info(f"💾 Timer state saved to {TIMER_STATE_FILE}")
+        except Exception as e:
+            logger.error(f"❌ Failed to save timer state: {e}")
+    
     def start_countdown(self, hours: int = 48) -> bool:
         """Start a countdown with custom duration"""
         if self.is_active:
@@ -41,6 +77,9 @@ class AdvanceTimer:
         self.end_time = self.start_time + timedelta(hours=hours)
         self.is_active = True
         self.notifications_sent = {24: False, 12: False, 6: False, 1: False}
+
+        # Save state to disk
+        self.save_state()
 
         # Start the monitoring task
         self.task = asyncio.create_task(self._monitor_countdown())
@@ -58,6 +97,9 @@ class AdvanceTimer:
         self.is_active = False
         if self.task and not self.task.done():
             self.task.cancel()
+
+        # Clear saved state
+        self.save_state()
 
         logger.info("⏹️ Countdown stopped")
         return True
@@ -115,23 +157,28 @@ class AdvanceTimer:
                 if total_hours <= 24 and not self.notifications_sent[24]:
                     await self._send_notification(24)
                     self.notifications_sent[24] = True
+                    self.save_state()  # Save after notification
 
                 elif total_hours <= 12 and not self.notifications_sent[12]:
                     await self._send_notification(12)
                     self.notifications_sent[12] = True
+                    self.save_state()  # Save after notification
 
                 elif total_hours <= 6 and not self.notifications_sent[6]:
                     await self._send_notification(6)
                     self.notifications_sent[6] = True
+                    self.save_state()  # Save after notification
 
                 elif total_hours <= 1 and not self.notifications_sent[1]:
                     await self._send_notification(1)
                     self.notifications_sent[1] = True
+                    self.save_state()  # Save after notification
 
                 # Check if time is up
                 if total_hours <= 0:
                     await self._send_times_up()
                     self.is_active = False
+                    self.save_state()  # Clear state when timer ends
                     break
 
                 # Check every minute
@@ -181,6 +228,83 @@ class TimekeeperManager:
     def __init__(self, bot: discord.Client):
         self.bot = bot
         self.timers: Dict[int, AdvanceTimer] = {}  # channel_id -> timer
+
+    async def load_saved_state(self):
+        """Load and restore any saved timer state from disk"""
+        if not TIMER_STATE_FILE.exists():
+            logger.info("📂 No saved timer state found")
+            return
+        
+        try:
+            with open(TIMER_STATE_FILE, 'r') as f:
+                state = json.load(f)
+            
+            channel_id = state.get('channel_id')
+            if not channel_id:
+                logger.warning("⚠️ Invalid timer state: no channel_id")
+                return
+            
+            # Get the channel
+            channel = self.bot.get_channel(channel_id)
+            if not channel:
+                logger.warning(f"⚠️ Could not find channel {channel_id}, clearing saved state")
+                TIMER_STATE_FILE.unlink()
+                return
+            
+            # Parse timestamps
+            start_time = datetime.fromisoformat(state['start_time']) if state.get('start_time') else None
+            end_time = datetime.fromisoformat(state['end_time']) if state.get('end_time') else None
+            
+            if not start_time or not end_time:
+                logger.warning("⚠️ Invalid timer state: missing timestamps")
+                return
+            
+            # Check if timer already expired
+            if end_time < datetime.now():
+                logger.info(f"⏰ Saved timer already expired, clearing state")
+                TIMER_STATE_FILE.unlink()
+                return
+            
+            # Restore the timer
+            timer = AdvanceTimer(channel, self.bot)
+            timer.start_time = start_time
+            timer.end_time = end_time
+            timer.duration_hours = state.get('duration_hours', 48)
+            timer.is_active = True
+            timer.notifications_sent = state.get('notifications_sent', {24: False, 12: False, 6: False, 1: False})
+            
+            # Start monitoring task
+            timer.task = asyncio.create_task(timer._monitor_countdown())
+            
+            # Store in manager
+            self.timers[channel_id] = timer
+            
+            time_remaining = end_time - datetime.now()
+            hours_remaining = time_remaining.total_seconds() / 3600
+            
+            logger.info(f"✅ Restored timer for #{channel.name}")
+            logger.info(f"⏰ Time remaining: {hours_remaining:.1f} hours")
+            logger.info(f"⏰ End time: {end_time}")
+            
+            # Send a notification that timer was restored
+            embed = discord.Embed(
+                title="⏰ Timer Restored!",
+                description=f"Right then! I've restored the advance countdown after a restart.\n\n**Time Remaining:** {int(hours_remaining)}h {int((time_remaining.total_seconds() % 3600) / 60)}m\n**Ends At:** {end_time.strftime('%I:%M %p')}",
+                color=0x00ff00
+            )
+            embed.set_footer(text="Harry's Advance Timer 🏈 | Back online!")
+            
+            try:
+                await channel.send(embed=embed)
+            except Exception as e:
+                logger.error(f"❌ Failed to send restoration message: {e}")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to load timer state: {e}")
+            # Clear corrupted state file
+            if TIMER_STATE_FILE.exists():
+                TIMER_STATE_FILE.unlink()
+                logger.info("💾 Cleared corrupted timer state file")
 
     def get_timer(self, channel: discord.TextChannel) -> AdvanceTimer:
         """Get or create a timer for a channel"""

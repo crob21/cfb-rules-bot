@@ -167,6 +167,9 @@ async def on_ready():
     timekeeper_manager = TimekeeperManager(bot)
     logger.info('⏰ Timekeeper manager initialized')
 
+    # Restore any saved timer state
+    await timekeeper_manager.load_saved_state()
+
     # Initialize channel summarizer (with AI if available)
     channel_summarizer = ChannelSummarizer(ai_assistant if AI_AVAILABLE else None)
     logger.info('📊 Channel summarizer initialized')
@@ -232,17 +235,13 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
-    # Check if the bot is mentioned
+    # Check if the bot is @mentioned (only responds to @CFB Bot, not just "harry" in text)
     bot_mentioned = False
     if message.mentions:
         for mention in message.mentions:
             if mention.id == bot.user.id:
                 bot_mentioned = True
                 break
-
-    # Also check for "harry" in the message content
-    if not bot_mentioned and f' {message.content.lower()} '.find(' harry ') != -1:
-        bot_mentioned = True
 
     # Check if unprompted responses are allowed in this channel
     channel_allows_unprompted = True
@@ -283,10 +282,6 @@ async def on_message(message):
                 bot_mentioned = True
                 break
 
-    # Also check for "harry" in the message content as a fallback (whole word matching)
-    if not bot_mentioned and f' {message.content.lower()} '.find(' harry ') != -1:
-        bot_mentioned = True
-        logger.info(f"🔍 Harry mentioned by name in message: '{message.content}'")
     # Very specific rule-related phrases that indicate actual questions about league rules
     rule_keywords = [
         'what are the rules', 'league rules', 'recruiting rules', 'transfer rules', 'charter rules',
@@ -304,13 +299,9 @@ async def on_message(message):
 
     logger.info(f"🔍 Message analysis: bot_mentioned={bot_mentioned}, contains_keywords={contains_keywords}, is_question={is_question}")
 
-    # Check for greetings (more specific patterns to avoid false positives)
-    greetings = ['hi harry', 'hello harry', 'hey harry', 'hi bot', 'hello bot']
-    is_greeting = any(greeting in message.content.lower() for greeting in greetings)
-
-    # Also check for standalone "harry" but only if it's the only word or at the start
-    if not is_greeting and message.content.lower().strip() == 'harry':
-        is_greeting = True
+    # Check for greetings (only when bot is @mentioned)
+    greetings = ['hi', 'hello', 'hey']
+    is_greeting = bot_mentioned and any(greeting in message.content.lower() for greeting in greetings)
 
     # Check for rivalry/fun responses
     rivalry_keywords = {
