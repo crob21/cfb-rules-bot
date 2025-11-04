@@ -88,7 +88,10 @@ GOOGLE_DOCS_DOCUMENT_ID=your_document_id_here
 - `/tokens` - Show AI token usage statistics
 
 #### Advance Timer
-- `/advance` - Start 48-hour countdown with auto-reminders
+- `/advance [hours]` - Start countdown with auto-reminders (default: 48 hours)
+  - Example: `/advance` - 48 hour countdown
+  - Example: `/advance 24` - 24 hour countdown
+  - Example: `/advance 72` - 72 hour countdown
 - `/time_status` - Check countdown progress
 - `/stop_countdown` - Stop timer (Admin only)
 

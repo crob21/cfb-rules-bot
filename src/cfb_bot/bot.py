@@ -797,7 +797,9 @@ async def help_cfb(interaction: discord.Interaction):
     embed.add_field(
         name="⏰ **Advance Timer Commands**",
         value=(
-            "• `/advance` - Start 48-hour countdown!\n"
+            "• `/advance [hours]` - Start countdown (default: 48 hours)\n"
+            "  Example: `/advance` = 48 hours\n"
+            "  Example: `/advance 24` = 24 hours\n"
             "• `/time_status` - Check countdown progress\n"
             "• `/stop_countdown` - Stop timer (Admin only)"
         ),
@@ -1064,20 +1066,33 @@ async def ask_ai(interaction: discord.Interaction, question: str):
     # Send the actual response
     await interaction.followup.send(embed=embed)
 
-@bot.tree.command(name="advance", description="Start the 48-hour advance countdown timer")
-async def start_advance(interaction: discord.Interaction):
-    """Start the 48-hour advance countdown timer"""
+@bot.tree.command(name="advance", description="Start advance countdown timer (default: 48 hours)")
+async def start_advance(interaction: discord.Interaction, hours: int = 48):
+    """
+    Start the advance countdown timer
+    
+    Args:
+        hours: Number of hours for the countdown (default: 48)
+    """
     if not timekeeper_manager:
         await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
         return
-
+    
+    # Validate hours (minimum 1, maximum 336 = 2 weeks)
+    if hours < 1:
+        await interaction.response.send_message("❌ Hours must be at least 1, ya numpty!", ephemeral=True)
+        return
+    if hours > 336:
+        await interaction.response.send_message("❌ Maximum is 336 hours (2 weeks), mate!", ephemeral=True)
+        return
+    
     # Start the countdown
-    success = timekeeper_manager.start_timer(interaction.channel)
-
+    success = timekeeper_manager.start_timer(interaction.channel, hours)
+    
     if success:
         embed = discord.Embed(
             title="⏰ Advance Countdown Started!",
-            description="Right then, listen up ya wankers!\n\n🏈 **48 HOUR COUNTDOWN STARTED** 🏈\n\nYou got **48 hours** to get your bleedin' games done!\n\nI'll be remindin' you lot at:\n• 24 hours remaining\n• 12 hours remaining\n• 6 hours remaining\n• 1 hour remaining\n\nAnd when time's up... well, you'll know! 😈",
+            description=f"Right then, listen up ya wankers!\n\n🏈 **{hours} HOUR COUNTDOWN STARTED** 🏈\n\nYou got **{hours} hours** to get your bleedin' games done!\n\nI'll be remindin' you lot at:\n• 24 hours remaining (if applicable)\n• 12 hours remaining (if applicable)\n• 6 hours remaining (if applicable)\n• 1 hour remaining\n\nAnd when time's up... well, you'll know! 😈",
             color=0x00ff00
         )
         status = timekeeper_manager.get_status(interaction.channel)
@@ -1088,7 +1103,7 @@ async def start_advance(interaction: discord.Interaction):
         )
         embed.set_footer(text="Harry's Advance Timer 🏈 | Use /time_status to check progress")
         await interaction.response.send_message(embed=embed)
-        logger.info(f"⏰ Advance countdown started by {interaction.user} in {interaction.channel}")
+        logger.info(f"⏰ Advance countdown started by {interaction.user} in {interaction.channel} - {hours} hours")
     else:
         embed = discord.Embed(
             title="❌ Countdown Already Active!",
@@ -1150,21 +1165,22 @@ async def check_time_status(interaction: discord.Interaction):
             value=status['end_time'].strftime('%I:%M %p on %B %d'),
             inline=True
         )
-
+        
         # Add progress bar
-        total_seconds = 48 * 3600
+        timer = timekeeper_manager.get_timer(interaction.channel)
+        total_seconds = timer.duration_hours * 3600
         remaining_seconds = status['remaining'].total_seconds()
         progress = 1 - (remaining_seconds / total_seconds)
         bar_length = 20
         filled = int(bar_length * progress)
         bar = '█' * filled + '░' * (bar_length - filled)
-
+        
         embed.add_field(
             name="📊 Progress",
             value=f"{bar} {int(progress * 100)}%",
             inline=False
         )
-
+        
         embed.set_footer(text="Harry's Advance Timer 🏈")
         await interaction.response.send_message(embed=embed)
 
