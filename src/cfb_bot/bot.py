@@ -1276,11 +1276,11 @@ async def summarize_channel(
     if not channel_summarizer:
         await interaction.response.send_message("❌ Channel summarizer not available", ephemeral=True)
         return
-
-    # Send initial response
-    await interaction.response.defer()
-
+    
     try:
+        # Send initial response IMMEDIATELY to avoid timeout
+        await interaction.response.defer()
+        
         # Validate hours input
         if hours < 1:
             hours = 1
@@ -1338,10 +1338,10 @@ async def summarize_channel(
     except discord.Forbidden:
         embed = discord.Embed(
             title="❌ Permission Denied",
-            description="Oi! I don't 'ave permission to read messages in this channel, ya muppet!",
+            description="Oi! I don't 'ave permission to read message history in this channel, ya muppet!\n\n**To fix:** Give me 'Read Message History' permission in channel settings.",
             color=0xff0000
         )
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed)
     except Exception as e:
         logger.error(f"❌ Error generating summary: {e}")
         embed = discord.Embed(
