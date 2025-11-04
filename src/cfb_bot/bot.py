@@ -222,17 +222,21 @@ async def on_message(message):
         message (discord.Message): The message received
     """
     # Prevent duplicate processing of the same message (check first!)
-    if message.id in processed_messages:
-        logger.debug(f"⏭️ Skipping duplicate message ID: {message.id}")
-        return
-    processed_messages.add(message.id)
-
-    # Also check for duplicate content from the same author (in case Discord sends same message with different IDs)
+    # Check both message ID and content key before processing
     content_key = f"{message.author.id}:{message.content}:{message.channel.id}"
-    if content_key in processed_content:
-        logger.debug(f"⏭️ Skipping duplicate content: {content_key[:50]}...")
+    
+    if message.id in processed_messages:
+        logger.info(f"⏭️ Skipping duplicate message ID: {message.id}")
         return
+    
+    if content_key in processed_content:
+        logger.info(f"⏭️ Skipping duplicate content: {content_key[:50]}...")
+        return
+    
+    # Add to both sets atomically (before processing)
+    processed_messages.add(message.id)
     processed_content.add(content_key)
+    logger.debug(f"✅ Processing new message: ID={message.id}, Content={content_key[:50]}...")
 
     # Ignore messages from the bot itself
     if message.author == bot.user:
@@ -414,12 +418,12 @@ async def on_message(message):
             if tell_pattern:
                 target_user_id = int(tell_pattern.group(1))
                 relay_message = tell_pattern.group(2).strip()
-                
+
                 # Get the target user
                 target_user = message.guild.get_member(target_user_id) if message.guild else None
                 if target_user:
                     logger.info(f"📨 Relay request: {message.author} wants to tell {target_user} '{relay_message}'")
-                    
+
                     # Send the relay message
                     embed = discord.Embed(
                         title=f"📨 Message from {message.author.display_name}",
