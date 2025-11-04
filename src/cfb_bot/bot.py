@@ -259,8 +259,7 @@ async def on_message(message):
     logger.info(f"📨 Message received: '{message.content}' from {message.author} in #{message.channel} (Server: {guild_name})")
     logger.info(f"📊 Message details: length={len(message.content)}, type={type(message.content)}, repr={repr(message.content)}")
     logger.info(f"🔍 DEBUG: Starting message processing for: '{message.content}'")
-    logger.info(f"🔍 Channel check: current='{message.channel.name}' (ID: {message.channel.id}), allowed={is_allowed_channel}")
-    logger.info(f"🔍 Ignore check: is_allowed_channel={is_allowed_channel}, starts_with_slash={message.content.startswith('/')}")
+    logger.info(f"🔍 Channel check: current='{message.channel.name}' (ID: {message.channel.id}), bot_mentioned={bot_mentioned}, unprompted_allowed={channel_allows_unprompted}")
 
     # Skip empty messages
     if not message.content or message.content.strip() == '':
