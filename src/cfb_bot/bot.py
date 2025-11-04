@@ -421,8 +421,9 @@ async def on_message(message):
                     # Remove the mention from the question
                     question = question.replace(f'<@{bot.user.id}>', '').strip()
 
-                # For allowed channels, use league-specific AI logic
-                if is_allowed_channel:
+                # Use league-specific AI logic for mentions or allowed channels
+                # Bot was mentioned or channel allows unprompted responses
+                if bot_mentioned or channel_allows_unprompted:
                     # Determine if this is a league-related question
                     is_league_related = any(f' {keyword} ' in f' {question.lower()} ' for keyword in LEAGUE_KEYWORDS)
 
