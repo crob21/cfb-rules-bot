@@ -240,13 +240,20 @@ async def on_message(message):
     if content_key in recent_content_times:
         time_diff = current_time - recent_content_times[content_key]
         if time_diff < 2.0:  # Within 2 seconds
-            logger.info(f"⏭️ Skipping duplicate content (time-based): {content_key[:50]}... (seen {time_diff:.2f}s ago)")
+            logger.info(f"⏭️ Skipping duplicate content (time-based): {content_key[:50]}... (seen {time_diff:.2f}s ago, msg_id={message.id})")
             return
-
+    
     # Add to all tracking sets atomically (before processing)
+    # IMPORTANT: Add to recent_content_times FIRST, then check again to prevent race conditions
+    recent_content_times[content_key] = current_time
+    
+    # Double-check after adding (race condition protection)
+    if message.id in processed_messages or content_key in processed_content:
+        logger.info(f"⏭️ Skipping duplicate (race condition caught): msg_id={message.id}, content={content_key[:50]}...")
+        return
+    
     processed_messages.add(message.id)
     processed_content.add(content_key)
-    recent_content_times[content_key] = current_time
 
     # Clean up old entries from recent_content_times (keep last 100 entries)
     if len(recent_content_times) > 100:
