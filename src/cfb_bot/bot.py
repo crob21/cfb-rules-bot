@@ -179,18 +179,18 @@ async def on_ready():
             1261662233109205144,  # Main server
             780882032867803168,   # Second server
         ]
-        
+
         # Sync to each guild (instant)
         for guild_id in guild_ids:
             guild = discord.Object(id=guild_id)
             bot.tree.copy_global_to(guild=guild)
             synced_guild = await bot.tree.sync(guild=guild)
             logger.info(f'✅ Synced {len(synced_guild)} command(s) to guild {guild_id} (instant!)')
-        
+
         # Also sync globally for other servers (takes up to 1 hour)
         synced_global = await bot.tree.sync()
         logger.info(f'✅ Synced {len(synced_global)} command(s) globally (may take up to 1 hour)')
-        
+
         logger.info(f'🎯 Try: /harry what are the league rules?')
         logger.info(f'💬 Or mention @Harry in chat for natural conversations!')
     except Exception as e:
