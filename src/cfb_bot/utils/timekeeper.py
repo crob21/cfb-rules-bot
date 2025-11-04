@@ -22,9 +22,10 @@ TIMER_STATE_FILE = Path(__file__).parent.parent.parent.parent / "data" / "timer_
 class AdvanceTimer:
     """Manages advance countdown timers with custom durations"""
 
-    def __init__(self, channel: discord.TextChannel, bot: discord.Client):
+    def __init__(self, channel: discord.TextChannel, bot: discord.Client, manager=None):
         self.channel = channel
         self.bot = bot
+        self.manager = manager  # Reference to TimekeeperManager for Discord persistence
         self.start_time: Optional[datetime] = None
         self.end_time: Optional[datetime] = None
         self.duration_hours: int = 48
@@ -37,19 +38,25 @@ class AdvanceTimer:
             1: False
         }
 
-    def save_state(self):
-        """Save timer state to disk for persistence"""
+    async def save_state(self):
+        """Save timer state to disk, environment variable, and Discord for persistence"""
         if not self.is_active:
             # Clear saved state if timer is not active
             if TIMER_STATE_FILE.exists():
                 TIMER_STATE_FILE.unlink()
-                logger.info("💾 Cleared timer state (no active timer)")
+            # Clear environment variable
+            if 'TIMER_STATE' in os.environ:
+                del os.environ['TIMER_STATE']
+            # Clear Discord state
+            if self.manager:
+                await self.manager._save_state_to_discord({
+                    'channel_id': self.channel.id,
+                    'is_active': False
+                })
+            logger.info("💾 Cleared timer state (no active timer)")
             return
 
         try:
-            # Ensure data directory exists
-            TIMER_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-
             state = {
                 'channel_id': self.channel.id,
                 'start_time': self.start_time.isoformat() if self.start_time else None,
@@ -59,14 +66,32 @@ class AdvanceTimer:
                 'notifications_sent': self.notifications_sent
             }
 
-            with open(TIMER_STATE_FILE, 'w') as f:
-                json.dump(state, f, indent=2)
+            state_json = json.dumps(state)
+            
+            # Save to file (for local development)
+            try:
+                TIMER_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+                with open(TIMER_STATE_FILE, 'w') as f:
+                    json.dump(state, f, indent=2)
+                logger.info(f"💾 Timer state saved to {TIMER_STATE_FILE}")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to save timer state to file: {e}")
 
-            logger.info(f"💾 Timer state saved to {TIMER_STATE_FILE}")
+            # Save to environment variable (for Render/Railway if manually set)
+            try:
+                os.environ['TIMER_STATE'] = state_json
+                logger.debug("💾 Timer state saved to environment variable")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to save timer state to environment variable: {e}")
+
+            # Save to Discord (persists across deployments!)
+            if self.manager:
+                await self.manager._save_state_to_discord(state)
+            
         except Exception as e:
             logger.error(f"❌ Failed to save timer state: {e}")
 
-    def start_countdown(self, hours: int = 48) -> bool:
+    async def start_countdown(self, hours: int = 48) -> bool:
         """Start a countdown with custom duration"""
         if self.is_active:
             logger.warning("⚠️ Countdown already active")
@@ -78,8 +103,8 @@ class AdvanceTimer:
         self.is_active = True
         self.notifications_sent = {24: False, 12: False, 6: False, 1: False}
 
-        # Save state to disk
-        self.save_state()
+        # Save state to disk, env var, and Discord
+        await self.save_state()
 
         # Start the monitoring task
         self.task = asyncio.create_task(self._monitor_countdown())
@@ -89,7 +114,7 @@ class AdvanceTimer:
         logger.info(f"⏰ Countdown will end at {self.end_time}")
         return True
 
-    def stop_countdown(self) -> bool:
+    async def stop_countdown(self) -> bool:
         """Stop the countdown"""
         if not self.is_active:
             return False
@@ -99,7 +124,7 @@ class AdvanceTimer:
             self.task.cancel()
 
         # Clear saved state
-        self.save_state()
+        await self.save_state()
 
         logger.info("⏹️ Countdown stopped")
         return True
@@ -157,28 +182,28 @@ class AdvanceTimer:
                 if total_hours <= 24 and not self.notifications_sent[24]:
                     await self._send_notification(24)
                     self.notifications_sent[24] = True
-                    self.save_state()  # Save after notification
+                    await self.save_state()  # Save after notification
 
                 elif total_hours <= 12 and not self.notifications_sent[12]:
                     await self._send_notification(12)
                     self.notifications_sent[12] = True
-                    self.save_state()  # Save after notification
+                    await self.save_state()  # Save after notification
 
                 elif total_hours <= 6 and not self.notifications_sent[6]:
                     await self._send_notification(6)
                     self.notifications_sent[6] = True
-                    self.save_state()  # Save after notification
+                    await self.save_state()  # Save after notification
 
                 elif total_hours <= 1 and not self.notifications_sent[1]:
                     await self._send_notification(1)
                     self.notifications_sent[1] = True
-                    self.save_state()  # Save after notification
+                    await self.save_state()  # Save after notification
 
                 # Check if time is up
                 if total_hours <= 0:
                     await self._send_times_up()
                     self.is_active = False
-                    self.save_state()  # Clear state when timer ends
+                    await self.save_state()  # Clear state when timer ends
                     break
 
                 # Check every minute
@@ -228,16 +253,124 @@ class TimekeeperManager:
     def __init__(self, bot: discord.Client):
         self.bot = bot
         self.timers: Dict[int, AdvanceTimer] = {}  # channel_id -> timer
+        self.state_message_id: Optional[int] = None  # Discord message ID for state storage
+        self.state_channel_id: Optional[int] = None  # Channel ID for state storage
+
+    async def _save_state_to_discord(self, state: Dict):
+        """Save timer state to a Discord channel message (persists across deployments)"""
+        try:
+            # Use the timer's channel or a default channel
+            channel_id = state.get('channel_id')
+            if not channel_id:
+                return False
+            
+            channel = self.bot.get_channel(channel_id)
+            if not channel:
+                return False
+            
+            # Store state as JSON in message content
+            state_json = json.dumps(state)
+            
+            # Try to find existing state message
+            if self.state_message_id:
+                try:
+                    message = await channel.fetch_message(self.state_message_id)
+                    await message.edit(content=f"```json\n{state_json}\n```")
+                    logger.info("💾 Updated timer state message in Discord")
+                    return True
+                except discord.NotFound:
+                    # Message was deleted, create new one
+                    self.state_message_id = None
+            
+            # Create new state message (hidden from users)
+            message = await channel.send(
+                content=f"```json\n{state_json}\n```",
+                silent=True  # Don't notify users
+            )
+            self.state_message_id = message.id
+            self.state_channel_id = channel_id
+            logger.info("💾 Created timer state message in Discord")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to save timer state to Discord: {e}")
+            return False
+
+    async def _load_state_from_discord(self) -> Optional[Dict]:
+        """Load timer state from Discord channel messages"""
+        try:
+            # Search for state messages in all channels the bot can access
+            for guild in self.bot.guilds:
+                for channel in guild.text_channels:
+                    if not channel.permissions_for(guild.me).read_message_history:
+                        continue
+                    
+                    # Search recent messages for state (look for JSON in code blocks)
+                    try:
+                        async for message in channel.history(limit=100):
+                            if message.author == self.bot.user and message.content.startswith("```json"):
+                                # Extract JSON from code block
+                                content = message.content.strip()
+                                if content.startswith("```json"):
+                                    content = content[7:]  # Remove ```json
+                                if content.endswith("```"):
+                                    content = content[:-3]  # Remove ```
+                                content = content.strip()
+                                
+                                try:
+                                    state = json.loads(content)
+                                    # Validate it's a timer state
+                                    if 'channel_id' in state and 'end_time' in state:
+                                        self.state_message_id = message.id
+                                        self.state_channel_id = channel.id
+                                        logger.info(f"📂 Found timer state message in #{channel.name}")
+                                        return state
+                                except json.JSONDecodeError:
+                                    continue
+                    except discord.Forbidden:
+                        continue
+                    except Exception as e:
+                        logger.debug(f"Error searching channel {channel.name}: {e}")
+                        continue
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to load timer state from Discord: {e}")
+            return None
 
     async def load_saved_state(self):
-        """Load and restore any saved timer state from disk"""
-        if not TIMER_STATE_FILE.exists():
+        """Load and restore any saved timer state from Discord, environment variable, or file"""
+        state = None
+        
+        # Try loading from Discord first (most reliable for ephemeral file systems)
+        state = await self._load_state_from_discord()
+        if state:
+            logger.info("📂 Loaded timer state from Discord")
+        
+        # Fallback to environment variable (for Render/Railway if manually set)
+        if not state and 'TIMER_STATE' in os.environ:
+            try:
+                state_json = os.environ['TIMER_STATE']
+                state = json.loads(state_json)
+                logger.info("📂 Loaded timer state from environment variable")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to load timer state from environment variable: {e}")
+        
+        # Fallback to file system (for local development)
+        if not state and TIMER_STATE_FILE.exists():
+            try:
+                with open(TIMER_STATE_FILE, 'r') as f:
+                    state = json.load(f)
+                logger.info("📂 Loaded timer state from file")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to load timer state from file: {e}")
+        
+        if not state:
             logger.info("📂 No saved timer state found")
             return
 
         try:
-            with open(TIMER_STATE_FILE, 'r') as f:
-                state = json.load(f)
 
             channel_id = state.get('channel_id')
             if not channel_id:
@@ -262,11 +395,18 @@ class TimekeeperManager:
             # Check if timer already expired
             if end_time < datetime.now():
                 logger.info(f"⏰ Saved timer already expired, clearing state")
-                TIMER_STATE_FILE.unlink()
+                # Clear file
+                if TIMER_STATE_FILE.exists():
+                    TIMER_STATE_FILE.unlink()
+                # Clear Discord state
+                await self._save_state_to_discord({
+                    'channel_id': channel_id,
+                    'is_active': False
+                })
                 return
 
             # Restore the timer
-            timer = AdvanceTimer(channel, self.bot)
+            timer = AdvanceTimer(channel, self.bot, manager=self)
             timer.start_time = start_time
             timer.end_time = end_time
             timer.duration_hours = state.get('duration_hours', 48)
@@ -309,19 +449,19 @@ class TimekeeperManager:
     def get_timer(self, channel: discord.TextChannel) -> AdvanceTimer:
         """Get or create a timer for a channel"""
         if channel.id not in self.timers:
-            self.timers[channel.id] = AdvanceTimer(channel, self.bot)
+            self.timers[channel.id] = AdvanceTimer(channel, self.bot, manager=self)
         return self.timers[channel.id]
 
-    def start_timer(self, channel: discord.TextChannel, hours: int = 48) -> bool:
+    async def start_timer(self, channel: discord.TextChannel, hours: int = 48) -> bool:
         """Start a timer for a channel with custom duration"""
         timer = self.get_timer(channel)
-        return timer.start_countdown(hours)
+        return await timer.start_countdown(hours)
 
-    def stop_timer(self, channel: discord.TextChannel) -> bool:
+    async def stop_timer(self, channel: discord.TextChannel) -> bool:
         """Stop a timer for a channel"""
         if channel.id not in self.timers:
             return False
-        return self.timers[channel.id].stop_countdown()
+        return await self.timers[channel.id].stop_countdown()
 
     def get_status(self, channel: discord.TextChannel) -> Dict:
         """Get timer status for a channel"""

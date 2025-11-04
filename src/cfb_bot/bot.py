@@ -1437,7 +1437,7 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
         return
 
     # Start the countdown
-    success = timekeeper_manager.start_timer(interaction.channel, hours)
+    success = await timekeeper_manager.start_timer(interaction.channel, hours)
 
     if success:
         embed = discord.Embed(
@@ -1558,7 +1558,7 @@ async def stop_countdown(interaction: discord.Interaction):
         await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
         return
 
-    success = timekeeper_manager.stop_timer(interaction.channel)
+    success = await timekeeper_manager.stop_timer(interaction.channel)
 
     if success:
         embed = discord.Embed(
