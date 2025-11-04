@@ -1179,7 +1179,7 @@ async def ask_ai(interaction: discord.Interaction, question: str):
 
             # Add Harry's personality to the ask command
             harry_question = f"You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Answer this question with maximum sarcasm: {question}"
-            
+
             # For league-related questions, use charter context
             # For general questions, use general AI without charter context
             if league_related:
@@ -1198,13 +1198,13 @@ async def ask_ai(interaction: discord.Interaction, question: str):
                 # For general questions, use AI without charter context
                 logger.info("🌍 General question detected - using AI without charter context")
                 general_context = "You are Harry, a helpful assistant. Answer general questions helpfully and accurately with your signature sarcasm and wit."
-                
+
                 # Call OpenAI directly with general context
                 response = await ai_assistant.ask_openai(harry_question, general_context)
                 if not response:
                     # Fallback to Anthropic
                     response = await ai_assistant.ask_anthropic(harry_question, general_context)
-                
+
                 if response:
                     embed.description = response
                     embed.add_field(
