@@ -45,11 +45,11 @@ class AdvanceTimer:
                 TIMER_STATE_FILE.unlink()
                 logger.info("💾 Cleared timer state (no active timer)")
             return
-        
+
         try:
             # Ensure data directory exists
             TIMER_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-            
+
             state = {
                 'channel_id': self.channel.id,
                 'start_time': self.start_time.isoformat() if self.start_time else None,
@@ -58,14 +58,14 @@ class AdvanceTimer:
                 'is_active': self.is_active,
                 'notifications_sent': self.notifications_sent
             }
-            
+
             with open(TIMER_STATE_FILE, 'w') as f:
                 json.dump(state, f, indent=2)
-            
+
             logger.info(f"💾 Timer state saved to {TIMER_STATE_FILE}")
         except Exception as e:
             logger.error(f"❌ Failed to save timer state: {e}")
-    
+
     def start_countdown(self, hours: int = 48) -> bool:
         """Start a countdown with custom duration"""
         if self.is_active:
@@ -234,37 +234,37 @@ class TimekeeperManager:
         if not TIMER_STATE_FILE.exists():
             logger.info("📂 No saved timer state found")
             return
-        
+
         try:
             with open(TIMER_STATE_FILE, 'r') as f:
                 state = json.load(f)
-            
+
             channel_id = state.get('channel_id')
             if not channel_id:
                 logger.warning("⚠️ Invalid timer state: no channel_id")
                 return
-            
+
             # Get the channel
             channel = self.bot.get_channel(channel_id)
             if not channel:
                 logger.warning(f"⚠️ Could not find channel {channel_id}, clearing saved state")
                 TIMER_STATE_FILE.unlink()
                 return
-            
+
             # Parse timestamps
             start_time = datetime.fromisoformat(state['start_time']) if state.get('start_time') else None
             end_time = datetime.fromisoformat(state['end_time']) if state.get('end_time') else None
-            
+
             if not start_time or not end_time:
                 logger.warning("⚠️ Invalid timer state: missing timestamps")
                 return
-            
+
             # Check if timer already expired
             if end_time < datetime.now():
                 logger.info(f"⏰ Saved timer already expired, clearing state")
                 TIMER_STATE_FILE.unlink()
                 return
-            
+
             # Restore the timer
             timer = AdvanceTimer(channel, self.bot)
             timer.start_time = start_time
@@ -272,20 +272,20 @@ class TimekeeperManager:
             timer.duration_hours = state.get('duration_hours', 48)
             timer.is_active = True
             timer.notifications_sent = state.get('notifications_sent', {24: False, 12: False, 6: False, 1: False})
-            
+
             # Start monitoring task
             timer.task = asyncio.create_task(timer._monitor_countdown())
-            
+
             # Store in manager
             self.timers[channel_id] = timer
-            
+
             time_remaining = end_time - datetime.now()
             hours_remaining = time_remaining.total_seconds() / 3600
-            
+
             logger.info(f"✅ Restored timer for #{channel.name}")
             logger.info(f"⏰ Time remaining: {hours_remaining:.1f} hours")
             logger.info(f"⏰ End time: {end_time}")
-            
+
             # Send a notification that timer was restored
             embed = discord.Embed(
                 title="⏰ Timer Restored!",
@@ -293,12 +293,12 @@ class TimekeeperManager:
                 color=0x00ff00
             )
             embed.set_footer(text="Harry's Advance Timer 🏈 | Back online!")
-            
+
             try:
                 await channel.send(embed=embed)
             except Exception as e:
                 logger.error(f"❌ Failed to send restoration message: {e}")
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to load timer state: {e}")
             # Clear corrupted state file
