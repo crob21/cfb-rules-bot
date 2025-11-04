@@ -408,24 +408,24 @@ async def on_message(message):
         summary_keywords = ['summarize', 'summary', 'what happened', 'tell me what happened', 'recap', 'what\'s been going on']
         question_lower = message.content.lower()
         is_summary_request = any(keyword in question_lower for keyword in summary_keywords)
-        
+
         # Extract hours if mentioned (e.g., "last 3 hours", "past 24 hours")
         hours_match = re.search(r'(\d+)\s*(?:hour|hr|h)', question_lower)
         summary_hours = int(hours_match.group(1)) if hours_match else None
-        
+
         # If it's a summary request and bot is mentioned, use the summarizer
         if is_summary_request and bot_mentioned and channel_summarizer:
             try:
                 hours = summary_hours or 24  # Default to 24 hours if not specified
                 logger.info(f"📊 Summary requested via @mention by {message.author} - {hours} hours")
-                
+
                 # Use summarizer to generate summary
                 summary = await channel_summarizer.summarize_channel(
                     message.channel,
                     hours=hours,
                     focus=None  # Could extract focus from message if needed
                 )
-                
+
                 if summary:
                     embed = discord.Embed(
                         title=f"📊 Channel Summary - Last {hours} {'Hour' if hours == 1 else 'Hours'}",
@@ -452,7 +452,7 @@ async def on_message(message):
             except Exception as e:
                 logger.error(f"❌ Error generating summary via @mention: {e}")
                 # Fall through to AI response
-        
+
         # Step 2: Try AI with charter content first
         ai_response = None
         if AI_AVAILABLE and ai_assistant:
