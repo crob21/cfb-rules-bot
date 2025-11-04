@@ -133,6 +133,7 @@ last_message_time = {}
 processed_messages = set()  # Track processed message IDs
 processed_content = set()  # Track processed content+author combinations
 recent_content_times = {}  # Track content + timestamp for time-based deduplication
+processing_lock = asyncio.Lock()  # Lock for atomic message processing checks
 
 @bot.event
 async def on_ready():
@@ -223,37 +224,37 @@ async def on_message(message):
         message (discord.Message): The message received
     """
     # Prevent duplicate processing of the same message (check first!)
-    # Check both message ID and content key before processing
-    global recent_content_times
+    # Use atomic check-and-add with lock to prevent race conditions
+    global recent_content_times, processing_lock
     content_key = f"{message.author.id}:{message.content}:{message.channel.id}"
     current_time = asyncio.get_event_loop().time()
 
-    if message.id in processed_messages:
-        logger.info(f"⏭️ Skipping duplicate message ID: {message.id}")
-        return
-
-    if content_key in processed_content:
-        logger.info(f"⏭️ Skipping duplicate content: {content_key[:50]}...")
-        return
-
-    # Time-based deduplication: check if same content was processed in last 2 seconds
-    if content_key in recent_content_times:
-        time_diff = current_time - recent_content_times[content_key]
-        if time_diff < 2.0:  # Within 2 seconds
-            logger.info(f"⏭️ Skipping duplicate content (time-based): {content_key[:50]}... (seen {time_diff:.2f}s ago, msg_id={message.id})")
+    # Use lock to make check-and-add atomic
+    async with processing_lock:
+        # ATOMIC: Check and add message ID immediately to prevent race conditions
+        # If it's already in the set, another handler is processing it
+        if message.id in processed_messages:
+            logger.info(f"⏭️ Skipping duplicate message ID: {message.id}")
+            return
+        
+        # Add message ID FIRST before any other checks (atomic operation)
+        processed_messages.add(message.id)
+        
+        # Now check content-based deduplication
+        if content_key in processed_content:
+            logger.info(f"⏭️ Skipping duplicate content: {content_key[:50]}...")
             return
 
-    # Add to all tracking sets atomically (before processing)
-    # IMPORTANT: Add to recent_content_times FIRST, then check again to prevent race conditions
-    recent_content_times[content_key] = current_time
+        # Time-based deduplication: check if same content was processed in last 2 seconds
+        if content_key in recent_content_times:
+            time_diff = current_time - recent_content_times[content_key]
+            if time_diff < 2.0:  # Within 2 seconds
+                logger.info(f"⏭️ Skipping duplicate content (time-based): {content_key[:50]}... (seen {time_diff:.2f}s ago, msg_id={message.id})")
+                return
 
-    # Double-check after adding (race condition protection)
-    if message.id in processed_messages or content_key in processed_content:
-        logger.info(f"⏭️ Skipping duplicate (race condition caught): msg_id={message.id}, content={content_key[:50]}...")
-        return
-
-    processed_messages.add(message.id)
-    processed_content.add(content_key)
+        # Add to content tracking sets
+        processed_content.add(content_key)
+        recent_content_times[content_key] = current_time
 
     # Clean up old entries from recent_content_times (keep last 100 entries)
     if len(recent_content_times) > 100:
@@ -1469,7 +1470,7 @@ async def check_time_status(interaction: discord.Interaction):
     except:
         # If already responded, skip
         pass
-    
+
     if not timekeeper_manager:
         await interaction.followup.send("❌ Timekeeper not available", ephemeral=True)
         return
