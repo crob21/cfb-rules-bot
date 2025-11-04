@@ -67,7 +67,7 @@ class AdvanceTimer:
             }
 
             state_json = json.dumps(state)
-            
+
             # Save to file (for local development)
             try:
                 TIMER_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -87,7 +87,7 @@ class AdvanceTimer:
             # Save to Discord (persists across deployments!)
             if self.manager:
                 await self.manager._save_state_to_discord(state)
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to save timer state: {e}")
 
@@ -263,14 +263,14 @@ class TimekeeperManager:
             channel_id = state.get('channel_id')
             if not channel_id:
                 return False
-            
+
             channel = self.bot.get_channel(channel_id)
             if not channel:
                 return False
-            
+
             # Store state as JSON in message content
             state_json = json.dumps(state)
-            
+
             # Try to find existing state message
             if self.state_message_id:
                 try:
@@ -281,7 +281,7 @@ class TimekeeperManager:
                 except discord.NotFound:
                     # Message was deleted, create new one
                     self.state_message_id = None
-            
+
             # Create new state message (hidden from users)
             message = await channel.send(
                 content=f"```json\n{state_json}\n```",
@@ -291,7 +291,7 @@ class TimekeeperManager:
             self.state_channel_id = channel_id
             logger.info("💾 Created timer state message in Discord")
             return True
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to save timer state to Discord: {e}")
             return False
@@ -304,7 +304,7 @@ class TimekeeperManager:
                 for channel in guild.text_channels:
                     if not channel.permissions_for(guild.me).read_message_history:
                         continue
-                    
+
                     # Search recent messages for state (look for JSON in code blocks)
                     try:
                         async for message in channel.history(limit=100):
@@ -316,7 +316,7 @@ class TimekeeperManager:
                                 if content.endswith("```"):
                                     content = content[:-3]  # Remove ```
                                 content = content.strip()
-                                
+
                                 try:
                                     state = json.loads(content)
                                     # Validate it's a timer state
@@ -332,9 +332,9 @@ class TimekeeperManager:
                     except Exception as e:
                         logger.debug(f"Error searching channel {channel.name}: {e}")
                         continue
-            
+
             return None
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to load timer state from Discord: {e}")
             return None
@@ -342,12 +342,12 @@ class TimekeeperManager:
     async def load_saved_state(self):
         """Load and restore any saved timer state from Discord, environment variable, or file"""
         state = None
-        
+
         # Try loading from Discord first (most reliable for ephemeral file systems)
         state = await self._load_state_from_discord()
         if state:
             logger.info("📂 Loaded timer state from Discord")
-        
+
         # Fallback to environment variable (for Render/Railway if manually set)
         if not state and 'TIMER_STATE' in os.environ:
             try:
@@ -356,7 +356,7 @@ class TimekeeperManager:
                 logger.info("📂 Loaded timer state from environment variable")
             except Exception as e:
                 logger.warning(f"⚠️ Failed to load timer state from environment variable: {e}")
-        
+
         # Fallback to file system (for local development)
         if not state and TIMER_STATE_FILE.exists():
             try:
@@ -365,7 +365,7 @@ class TimekeeperManager:
                 logger.info("📂 Loaded timer state from file")
             except Exception as e:
                 logger.warning(f"⚠️ Failed to load timer state from file: {e}")
-        
+
         if not state:
             logger.info("📂 No saved timer state found")
             return

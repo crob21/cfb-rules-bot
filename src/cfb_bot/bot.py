@@ -1539,6 +1539,14 @@ async def check_time_status(interaction: discord.Interaction):
                     value=f"{bar} {int(progress * 100)}%",
                     inline=False
                 )
+                
+                # Add persistence status (for verification)
+                persistence_status = "✅ Persisted" if timekeeper_manager.state_message_id else "⚠️ Not persisted"
+                embed.add_field(
+                    name="💾 Persistence",
+                    value=f"{persistence_status}\nTimer state saved to Discord for deployment survival",
+                    inline=False
+                )
 
             embed.set_footer(text="Harry's Advance Timer 🏈")
             await interaction.followup.send(embed=embed)
