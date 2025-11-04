@@ -6,6 +6,9 @@ A Discord bot for College Football 26 Online Dynasty League that provides league
 
 - 🤖 **AI-Powered Responses** - Get intelligent answers about league rules and policies
 - 📋 **League Charter Access** - Quick access to league rules and regulations
+- ⏰ **Advance Timer** - 48-hour countdown with automatic reminders at 24h, 12h, 6h, 1h
+- 📊 **Channel Summarization** - AI-powered summaries of channel discussions
+- 📝 **Charter Management** - Edit and update league rules directly from Discord
 - 🏆 **Team Information** - Player rosters, team histories, and league standings
 - 😄 **Fun Interactions** - Rivalry responses and engaging conversations
 - ⚡ **Slash Commands** - Easy-to-use Discord slash commands
@@ -78,10 +81,27 @@ GOOGLE_DOCS_DOCUMENT_ID=your_document_id_here
 
 ### Slash Commands
 
+#### Core Commands
 - `/help_cfb` - Show available commands
 - `/rules` - Get league rules information
 - `/charter` - Link to the full league charter
 - `/tokens` - Show AI token usage statistics
+
+#### Advance Timer
+- `/advance` - Start 48-hour countdown with auto-reminders
+- `/time_status` - Check countdown progress
+- `/stop_countdown` - Stop timer (Admin only)
+
+#### Channel Summarization
+- `/summarize [hours] [focus]` - Summarize channel activity
+  - Example: `/summarize 24` - Last 24 hours
+  - Example: `/summarize 48 recruiting` - Last 48h focused on recruiting
+
+#### Charter Management (Admin Only)
+- `/add_rule <title> <content>` - Add new rule to charter
+- `/update_rule <section> <content>` - Update existing rule
+- `/view_charter_backups` - View available backups
+- `/restore_charter_backup <file>` - Restore from backup
 
 ### Chat Interactions
 

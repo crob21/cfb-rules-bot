@@ -40,4 +40,4 @@ setup(
             "cfb-bot=cfb_bot.bot:main",
         ],
     },
-)
+) 
