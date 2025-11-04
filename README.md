@@ -6,11 +6,13 @@ A Discord bot for College Football 26 Online Dynasty League that provides league
 
 - 🤖 **AI-Powered Responses** - Get intelligent answers about league rules and policies
 - 📋 **League Charter Access** - Quick access to league rules and regulations
-- ⏰ **Advance Timer** - 48-hour countdown with automatic reminders at 24h, 12h, 6h, 1h
-- 📊 **Channel Summarization** - AI-powered summaries of channel discussions
+- ⏰ **Advance Timer** - Custom countdown timers with automatic reminders (persists across deployments!)
+- 📊 **Channel Summarization** - AI-powered summaries of channel discussions with optional focus
 - 📝 **Charter Management** - Edit and update league rules directly from Discord
+- 👔 **Commissioner Updates** - Natural language updates to league officers
 - 🔇 **Channel Management** - Control where Harry makes unprompted responses (@mentions work everywhere)
 - 🔐 **Bot Admin System** - Separate admin permissions for bot-specific features
+- 📨 **Message Relay** - Relay messages between users
 - 🏆 **Team Information** - Player rosters, team histories, and league standings
 - 😄 **Fun Interactions** - Rivalry responses and engaging conversations
 - ⚡ **Slash Commands** - Easy-to-use Discord slash commands
@@ -87,26 +89,50 @@ GOOGLE_DOCS_DOCUMENT_ID=your_document_id_here
 - `/help_cfb` - Show available commands
 - `/rules` - Get league rules information
 - `/charter` - Link to the full league charter
+- `/harry <question>` - Ask Harry league-specific questions
+- `/ask <question>` - Ask Harry general questions (not league-specific)
 - `/tokens` - Show AI token usage statistics
 
 #### Advance Timer (Admin Only)
 - `/advance [hours]` - Start countdown with auto-reminders **(Admin only)**
-  - Example: `/advance` - 48 hour countdown
+  - Example: `/advance` - 48 hour countdown (default)
   - Example: `/advance 24` - 24 hour countdown
   - Example: `/advance 72` - 72 hour countdown
+  - **Persistence**: Timer state persists across deployments via Discord messages!
 - `/time_status` - Check countdown progress (Anyone can view)
+  - Shows time remaining, progress bar, and persistence status
 - `/stop_countdown` - Stop timer **(Admin only)**
 
 #### Channel Summarization
 - `/summarize [hours] [focus]` - Summarize channel activity
   - Example: `/summarize 24` - Last 24 hours
   - Example: `/summarize 48 recruiting` - Last 48h focused on recruiting
+  - Example: `/summarize 24 rules` - Last 24h focused on rules discussions
+  - `hours` (optional, default: 24): 1-168 hours
+  - `focus` (optional): Filter summary to specific topic
+- **Natural Language**: `@Harry what happened in this channel for the last 3 hours?`
+  - Detects summary requests via @mention
+  - Automatically extracts time period from question
 
 #### Charter Management (Admin Only)
 - `/add_rule <title> <content>` - Add new rule to charter
 - `/update_rule <section> <content>` - Update existing rule
 - `/view_charter_backups` - View available backups
 - `/restore_charter_backup <file>` - Restore from backup
+
+#### Natural Language Features
+- **Commissioner Updates**: `@Harry update the league commish to Wusty`
+  - Supports multiple phrasings: update/change/set/make commish
+  - Handles @mentions: `@Harry update commish to @Wusty`
+  - Admin-only feature
+  - Automatically backs up charter before updating
+- **Message Relay**: `@Harry tell @User to message`
+  - Relay messages between users
+  - Example: `@Harry tell @wustyman to fuck off`
+- **Channel Summaries**: `@Harry what happened in this channel for the last 3 hours?`
+  - Natural language summary requests
+  - Automatically extracts time period
+  - Works in any channel where @Harry is mentioned
 
 #### Bot Admin Management
 - `/add_bot_admin @user` - Add a user as bot admin **(Admin only)**
@@ -132,16 +158,25 @@ GOOGLE_DOCS_DOCUMENT_ID=your_document_id_here
 
 ### Chat Interactions
 
-- **Mention the bot** - `@CFB Bot` or just type `harry` in your message
+- **Mention the bot** - `@Harry` works in **any channel** (even blocked ones)
 - **Ask questions** - "What are the recruiting rules?"
+- **Natural language commands**:
+  - `@Harry update the league commish to Wusty` - Update commissioner (admin only)
+  - `@Harry tell @User to message` - Relay messages
+  - `@Harry what happened in this channel for the last 3 hours?` - Channel summary
 - **Get help** - "harry help me with the league rules"
+- **Unprompted responses** - Only in channels that allow them (use `/block_channel` to control)
 
 ### AI Features
 
 The bot uses AI to provide intelligent responses about league rules and policies. It can:
-- Answer specific questions about league rules
-- Provide general information about college football
-- Help with league management questions
+- Answer specific questions about league rules (via `/harry`)
+- Provide general information (via `/ask` - no league context)
+- Summarize channel discussions with optional focus
+- Format charter rules professionally
+- Natural language understanding for commands
+
+**Note**: `/ask` always provides general AI answers without league charter context. Use `/harry` for league-specific questions.
 
 ## Project Structure
 

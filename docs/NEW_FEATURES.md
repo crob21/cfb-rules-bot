@@ -1,9 +1,9 @@
 # New Harry Features 🏈
 
-This document outlines the major features added to Harry, the CFB 26 League Bot in version 1.1.0.
+This document outlines the major features added to Harry, the CFB 26 League Bot.
 
-**Current Version:** 1.1.0
-**Release Date:** November 4, 2025
+**Current Version:** 1.1.1  
+**Release Date:** November 4, 2025  
 **Status:** ✅ Production Ready
 
 ## 1. ⏰ Advance Timer / Timekeeper
@@ -11,7 +11,7 @@ This document outlines the major features added to Harry, the CFB 26 League Bot 
 Harry can now manage 48-hour advance countdowns for your league!
 
 ### Commands:
-- **`/advance`** - Starts a 48-hour countdown timer
+- **`/advance [hours]`** - Starts a countdown timer with custom duration (default: 48 hours)
   - Announces when started
   - Sends automatic reminders at:
     - 24 hours remaining
@@ -19,18 +19,20 @@ Harry can now manage 48-hour advance countdowns for your league!
     - 6 hours remaining
     - 1 hour remaining
   - Announces "TIME'S UP! LET'S ADVANCE!" when countdown finishes
+  - **Admin only** - Requires bot admin permissions
 
 - **`/time_status`** - Check the current countdown status
   - Shows time remaining
   - Displays start and end times
   - Includes a visual progress bar
   - Color-coded urgency levels
+  - Shows persistence status (whether timer will survive deployments)
 
 - **`/stop_countdown`** (Admin only) - Stops the current countdown
 
 ### How It Works:
 - Each channel can have its own independent countdown timer
-- Timers run in the background and persist during bot restarts (note: requires implementation of persistence)
+- Timers run in the background and **persist across deployments** using Discord messages
 - Automatic notifications keep everyone informed
 - Visual progress tracking with colors:
   - 🟢 Green: 24+ hours remaining (plenty of time!)
@@ -39,6 +41,14 @@ Harry can now manage 48-hour advance countdowns for your league!
   - 🔴 Red: 1-6 hours (almost up!)
   - 🔴 Bright Red: <1 hour (LAST HOUR!)
 
+### Timer Persistence:
+**NEW in v1.1.1+**: Timer state now persists across deployments!
+- Timer state stored in Discord messages (free, no paid storage needed!)
+- Automatically restored on bot restart/deployment
+- Searches all channels for saved timer state
+- Falls back to environment variable or file system if needed
+- See `docs/TIMER_PERSISTENCE_TESTING.md` for verification guide
+
 ## 2. 📊 Channel Summarization
 
 Harry can now read and summarize channel activity!
@@ -46,7 +56,13 @@ Harry can now read and summarize channel activity!
 ### Commands:
 - **`/summarize [hours] [focus]`** - Summarize channel messages
   - `hours` (optional, default: 24): How many hours to look back (1-168 max)
-  - `focus` (optional): Specific topic to focus on
+  - `focus` (optional): Specific topic to focus on (e.g., "rules", "voting", "recruiting")
+
+### Natural Language:
+- **`@Harry what happened in this channel for the last 3 hours?`**
+  - Detects summary requests via @mention
+  - Automatically extracts time period from question
+  - Works in any channel where @Harry is mentioned
 
 ### Examples:
 ```
@@ -54,6 +70,11 @@ Harry can now read and summarize channel activity!
 /summarize 48
 /summarize 24 recruiting
 /summarize 72 penalties
+/summarize 12 rules
+
+@Harry what happened in this channel for the last 6 hours?
+@Harry summarize the last 24 hours
+@Harry what rules were approved in the last 48 hours?
 ```
 
 ### Features:
@@ -211,7 +232,80 @@ BOT_ADMIN_IDS=123456789012345678,987654321098765432
 **Option 3: Hardcoded**
 Edit `src/cfb_bot/utils/admin_check.py` and add User IDs to `HARDCODED_ADMINS` list
 
-## 5. 📜 Version Control & Changelog
+## 5. 👔 Natural Language Commissioner Updates
+
+Update league officers using natural language commands!
+
+### Commands:
+- **`@Harry update the league commish to Wusty`**
+- **`@Harry change commish to @Wusty`**
+- **`@Harry set commissioner to Wustyman`**
+- **`@Harry make Wusty the commish`**
+
+### Features:
+- **Multiple Phrasings**: Supports update/change/set/make variations
+- **@Mention Support**: Handles Discord user mentions
+- **Admin Only**: Requires bot admin permissions
+- **Automatic Backup**: Creates charter backup before updating
+- **Charter Integration**: Updates `data/charter_content.txt` automatically
+
+### Examples:
+```
+@Harry update the league commish to Wusty
+@Harry change commish to @Wusty
+@Harry set commissioner to Wustyman
+@Harry make @Wusty the commish
+```
+
+### How It Works:
+- Detects natural language patterns via @mention
+- Extracts commissioner name from message
+- Resolves @mentions to display names
+- Updates charter file automatically
+- Creates backup before changes
+
+## 6. 📨 Message Relay
+
+Relay messages between users using natural language!
+
+### Commands:
+- **`@Harry tell @User to message`**
+- **`@Harry tell @User message`** (without "to")
+
+### Examples:
+```
+@Harry tell @wustyman to fuck off
+@Harry tell @boozerob that the game is ready
+@Harry tell @user what I did
+```
+
+### Features:
+- **Natural Language**: Just ask Harry to relay a message
+- **@Mention Support**: Works with Discord user mentions
+- **Flexible Syntax**: "to" is optional
+- **Embeds**: Messages formatted as nice embeds
+
+## 7. 🔇 Channel Management
+
+Control where Harry makes unprompted responses!
+
+### Commands:
+- **`/block_channel #channel`** (Admin only) - Block unprompted responses
+- **`/unblock_channel #channel`** (Admin only) - Allow unprompted responses
+- **`/list_blocked_channels`** - Show all blocked channels
+
+### How It Works:
+- **@mentions always work** - Harry responds when mentioned, even in blocked channels
+- **No unprompted replies** - Harry won't jump into conversations in blocked channels
+- **Slash commands work** - All `/` commands function normally in blocked channels
+
+### Use Cases:
+- Keep general channels clean
+- Control where Harry interrupts conversations
+- Allow @mentions for questions anywhere
+- Maintain command functionality everywhere
+
+## 8. 📜 Version Control & Changelog
 
 Track bot versions and view update history!
 
@@ -304,13 +398,15 @@ All features use existing dependencies:
 ## Future Enhancements (Potential)
 
 ### Timekeeper:
-- Persistent timers (survive bot restarts)
-- Custom countdown durations
+- ✅ ~~Persistent timers (survive bot restarts)~~ **IMPLEMENTED in v1.1.1+**
+- ✅ ~~Custom countdown durations~~ **IMPLEMENTED**
 - Multiple simultaneous timers per channel
 - Scheduled automatic advances
 - Integration with Google Calendar
 
 ### Summarization:
+- ✅ ~~Optional focus parameter~~ **IMPLEMENTED**
+- ✅ ~~Natural language requests~~ **IMPLEMENTED**
 - Export summaries to files
 - Email summaries to league members
 - Compare summaries across time periods
@@ -318,6 +414,7 @@ All features use existing dependencies:
 - Sentiment analysis
 
 ### Charter Editing:
+- ✅ ~~Commissioner updates via natural language~~ **IMPLEMENTED**
 - GitHub integration for version control
 - Diff view for changes
 - Approval workflow (propose → vote → implement)
@@ -353,7 +450,7 @@ See `docs/VERSION_MANAGEMENT.md` for complete instructions on:
 
 ---
 
-**Implemented**: November 4, 2025
-**Version**: 1.1.0
-**Author**: Harry (with assistance from Craig's AI assistant, innit!)
+**Implemented**: November 4, 2025  
+**Current Version**: 1.1.1  
+**Author**: Harry (with assistance from Craig's AI assistant, innit!)  
 **Last Updated**: November 4, 2025

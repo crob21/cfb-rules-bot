@@ -8,15 +8,88 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Comprehensive documentation and setup guides
-- Contributing guidelines and code of conduct
-- MIT License
-- Changelog for tracking changes
+- Comprehensive documentation updates
+- Timer persistence testing guide
+- Natural language command examples
+
+## [1.1.1] - 2025-11-04
+
+### Added
+- **Timer Persistence**
+  - Timer state persists across deployments via Discord messages
+  - Automatic restoration on bot restart/deployment
+  - Falls back to environment variable and file system
+  - Persistence status displayed in `/time_status` command
+  
+- **Natural Language Features**
+  - Commissioner updates via @mention: `@Harry update commish to Wusty`
+  - Message relay: `@Harry tell @User to message`
+  - Channel summary requests: `@Harry what happened in the last 3 hours?`
+  
+- **Focus Parameter for Summaries**
+  - Optional focus filter for `/summarize` command
+  - Example: `/summarize 24 rules` - filters to rules discussions
+  - Enhanced AI prompts for better filtering
 
 ### Changed
-- Improved README with better structure and examples
-- Enhanced setup guide with step-by-step instructions
-- Cleaner code organization and documentation
+- `/ask` command now always uses general AI (no league context)
+- `/harry` command for league-specific questions
+- Improved error handling and logging
+- Better deduplication for message processing
+
+### Fixed
+- Timer persistence across deployments
+- Duplicate message processing race condition
+- `/time_status` command interaction timeout
+- Focus parameter not working in `/summarize`
+- Summary detection for natural language requests
+
+## [1.1.0] - 2025-11-04
+
+### Added
+- **Advance Timer**
+  - Custom countdown timers (1-336 hours)
+  - Automatic reminders at 24h, 12h, 6h, 1h
+  - Progress bar with color-coded urgency
+  - Commands: `/advance [hours]`, `/time_status`, `/stop_countdown`
+  
+- **Channel Summarization**
+  - AI-powered channel message summaries
+  - Customizable time periods (1-168 hours)
+  - Structured output with topics, decisions, participants
+  - Command: `/summarize [hours] [focus]`
+  
+- **Charter Management**
+  - Direct charter editing from Discord
+  - Add/update rules with AI formatting
+  - Automatic backups before changes
+  - View and restore backups
+  - Commands: `/add_rule`, `/update_rule`, `/view_charter_backups`, `/restore_charter_backup`
+  
+- **Bot Admin System**
+  - Manage bot admins via Discord
+  - Add/remove/list bot admins
+  - Discord Administrators have automatic access
+  - Commands: `/add_bot_admin`, `/remove_bot_admin`, `/list_bot_admins`
+  
+- **Channel Management**
+  - Block/unblock channels for unprompted responses
+  - @mentions work everywhere (even in blocked channels)
+  - Commands: `/block_channel`, `/unblock_channel`, `/list_blocked_channels`
+  
+- **Version Control**
+  - `/version` - Show current version
+  - `/changelog [version]` - View version history
+  - `/whats_new` - Showcase latest features
+
+### Changed
+- Guild-specific command sync for instant updates
+- Improved admin permission checking
+- Better error messages and logging
+
+### Security
+- Admin-only commands for timer and charter management
+- Hardcoded admin support for permanent admins
 
 ## [1.0.0] - 2024-09-17
 
