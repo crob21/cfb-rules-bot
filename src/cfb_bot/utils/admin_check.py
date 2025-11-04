@@ -34,8 +34,8 @@ class AdminManager:
         # Hardcoded fallback admins (you can add your user ID here!)
         # To find your user ID: Enable Developer Mode in Discord → Right-click your name → Copy User ID
         HARDCODED_ADMINS = [
-            # Add your Discord User IDs here:
-            # 123456789012345678,  # Example: YourUsername
+            357591392358236161,  # Craig - Main Admin
+            # Add more admins below as needed
         ]
 
         if HARDCODED_ADMINS:
