@@ -223,12 +223,14 @@ async def on_message(message):
     """
     # Prevent duplicate processing of the same message (check first!)
     if message.id in processed_messages:
+        logger.debug(f"⏭️ Skipping duplicate message ID: {message.id}")
         return
     processed_messages.add(message.id)
 
     # Also check for duplicate content from the same author (in case Discord sends same message with different IDs)
     content_key = f"{message.author.id}:{message.content}:{message.channel.id}"
     if content_key in processed_content:
+        logger.debug(f"⏭️ Skipping duplicate content: {content_key[:50]}...")
         return
     processed_content.add(content_key)
 
@@ -404,6 +406,32 @@ async def on_message(message):
         )
 
         # Handle AI responses
+        # Step 0: Check if this is a "tell X to Y" relay request
+        if bot_mentioned:
+            # Check for "tell <user> to <message>" pattern
+            tell_pattern = re.search(r'tell\s+<@!?(\d+)>\s+to\s+(.+)', message.content, re.IGNORECASE)
+            if tell_pattern:
+                target_user_id = int(tell_pattern.group(1))
+                relay_message = tell_pattern.group(2).strip()
+                
+                # Get the target user
+                target_user = message.guild.get_member(target_user_id) if message.guild else None
+                if target_user:
+                    logger.info(f"📨 Relay request: {message.author} wants to tell {target_user} '{relay_message}'")
+                    
+                    # Send the relay message
+                    embed = discord.Embed(
+                        title=f"📨 Message from {message.author.display_name}",
+                        description=f"Oi {target_user.mention}! {relay_message}",
+                        color=0xff9900
+                    )
+                    embed.set_footer(text=f"Relayed by Harry 🏈")
+                    await message.channel.send(embed=embed)
+                    logger.info(f"✅ Relay message sent to {target_user}")
+                    return  # Don't continue with AI response
+                else:
+                    logger.warning(f"⚠️ Could not find target user {target_user_id} for relay")
+
         # Step 1: Check if this is a channel summary request
         question_lower = message.content.lower()
 
