@@ -1111,7 +1111,7 @@ async def ask_ai(interaction: discord.Interaction, question: str):
 async def start_advance(interaction: discord.Interaction, hours: int = 48):
     """
     Start the advance countdown timer
-    
+
     Args:
         hours: Number of hours for the countdown (default: 48)
     """
@@ -1119,11 +1119,11 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
     if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
         await interaction.response.send_message("❌ You need to be a bot admin to start countdowns, ya muppet!", ephemeral=True)
         return
-    
+
     if not timekeeper_manager:
         await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
         return
-    
+
     # Validate hours (minimum 1, maximum 336 = 2 weeks)
     if hours < 1:
         await interaction.response.send_message("❌ Hours must be at least 1, ya numpty!", ephemeral=True)
@@ -1237,7 +1237,7 @@ async def stop_countdown(interaction: discord.Interaction):
     if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
         await interaction.response.send_message("❌ You need to be a bot admin to stop countdowns!", ephemeral=True)
         return
-    
+
     if not timekeeper_manager:
         await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
         return

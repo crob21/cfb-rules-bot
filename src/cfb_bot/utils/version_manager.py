@@ -11,10 +11,56 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.1.0"
+CURRENT_VERSION = "1.1.1"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.1.1": {
+        "date": "2025-11-04",
+        "title": "Bug Fixes & Improvements",
+        "emoji": "🐛",
+        "features": [
+            {
+                "category": "Bug Fixes",
+                "emoji": "🐛",
+                "changes": [
+                    "Fixed summarizer timezone compatibility issue (discord.utils.utc → timezone.utc)",
+                    "Channel summarization now works with all discord.py versions",
+                    "Guild-specific command sync for instant updates (5 seconds vs 1 hour)",
+                    "Commands now appear immediately in configured servers"
+                ]
+            },
+            {
+                "category": "Security & Permissions",
+                "emoji": "🔐",
+                "changes": [
+                    "Advance timer commands now require admin permissions",
+                    "/advance restricted to admins only",
+                    "/stop_countdown now uses bot admin system",
+                    "Added hardcoded admin support for permanent admins",
+                    "Both Discord Administrators and Bot Admins can manage timers"
+                ]
+            },
+            {
+                "category": "Configuration",
+                "emoji": "⚙️",
+                "changes": [
+                    "Added support for multiple guild instant sync",
+                    "Configured two servers for instant command updates",
+                    "Improved admin permission checking across all commands"
+                ]
+            },
+            {
+                "category": "Documentation",
+                "emoji": "📖",
+                "changes": [
+                    "Updated help command with admin-only labels",
+                    "Clarified which commands require admin access",
+                    "Updated README with permission requirements"
+                ]
+            }
+        ]
+    },
     "1.1.0": {
         "date": "2025-11-04",
         "title": "Major Feature Update",
