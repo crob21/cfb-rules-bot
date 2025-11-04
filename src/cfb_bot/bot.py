@@ -141,18 +141,18 @@ async def on_ready():
     - Logging connection status
     """
     global timekeeper_manager, channel_summarizer, charter_editor, admin_manager, version_manager
-    
+
     # Initialize version manager first to get version
     version_manager = VersionManager()
     current_version = version_manager.get_current_version()
-    
+
     logger.info(f'🏈 CFB 26 League Bot ({bot.user}) v{current_version} has connected to Discord!')
     logger.info(f'🔗 Bot ID: {bot.user.id}')
     logger.info(f'📛 Bot Username: {bot.user.name}')
     logger.info(f'🏷️ Bot Display Name: {bot.user.display_name}')
     logger.info(f'📊 Connected to {len(bot.guilds)} guilds')
     logger.info(f'👋 Harry is ready to help with league questions!')
-    
+
     # Initialize admin manager
     admin_manager = AdminManager()
     logger.info(f'🔐 Admin manager initialized ({admin_manager.get_admin_count()} admin(s) configured)')
@@ -174,8 +174,19 @@ async def on_ready():
 
     # Sync slash commands
     try:
-        synced = await bot.tree.sync()
-        logger.info(f'✅ Synced {len(synced)} command(s)')
+        # Sync to specific guild for instant command updates (5 seconds instead of 1 hour!)
+        guild_id = 1261662233109205144  # Your Discord server ID
+        guild = discord.Object(id=guild_id)
+        
+        # Sync to guild (instant)
+        bot.tree.copy_global_to(guild=guild)
+        synced_guild = await bot.tree.sync(guild=guild)
+        logger.info(f'✅ Synced {len(synced_guild)} command(s) to guild {guild_id} (instant!)')
+        
+        # Also sync globally for other servers (takes up to 1 hour)
+        synced_global = await bot.tree.sync()
+        logger.info(f'✅ Synced {len(synced_global)} command(s) globally (may take up to 1 hour)')
+        
         logger.info(f'🎯 Try: /harry what are the league rules?')
         logger.info(f'💬 Or mention @Harry in chat for natural conversations!')
     except Exception as e:
@@ -1788,9 +1799,9 @@ async def whats_new(interaction: discord.Interaction):
         embed.set_footer(text=f"Harry v{current_ver} - Your CFB 26 League Assistant 🏈 | Updated November 2025")
     else:
         embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈 | Updated November 2025")
-    
+
     embed.set_thumbnail(url="https://i.imgur.com/3xzKq7L.png")  # Football emoji as thumbnail
-    
+
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="version", description="Show current bot version")
@@ -1799,34 +1810,34 @@ async def show_version(interaction: discord.Interaction):
     if not version_manager:
         await interaction.response.send_message("❌ Version manager not available", ephemeral=True)
         return
-    
+
     current_ver = version_manager.get_current_version()
     version_info = version_manager.get_latest_version_info()
-    
+
     embed = discord.Embed(
         title=f"🏈 Harry v{current_ver}",
         description=f"{version_info.get('emoji', '🎉')} {version_info.get('title', 'Current Version')}",
         color=0x00ff00
     )
-    
+
     embed.add_field(
         name="📅 Release Date",
         value=version_info.get('date', 'Unknown'),
         inline=True
     )
-    
+
     embed.add_field(
         name="📊 Total Versions",
         value=str(len(version_manager.get_all_versions())),
         inline=True
     )
-    
+
     embed.add_field(
         name="📖 View Details",
         value="Use `/changelog` to see all changes!",
         inline=False
     )
-    
+
     embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
     await interaction.response.send_message(embed=embed)
 
@@ -1834,14 +1845,14 @@ async def show_version(interaction: discord.Interaction):
 async def view_changelog(interaction: discord.Interaction, version: str = None):
     """
     View the changelog for a specific version or all versions
-    
+
     Args:
         version: Specific version to view (e.g., "1.1.0") or leave blank for summary
     """
     if not version_manager:
         await interaction.response.send_message("❌ Version manager not available", ephemeral=True)
         return
-    
+
     # If no version specified, show summary of all versions
     if not version:
         embed = discord.Embed(
@@ -1849,29 +1860,29 @@ async def view_changelog(interaction: discord.Interaction, version: str = None):
             description="Here's all the brilliant updates I've had, mate!",
             color=0x00ff00
         )
-        
+
         summary = version_manager.get_version_summary()
         embed.add_field(
             name="📋 All Versions",
             value=summary,
             inline=False
         )
-        
+
         embed.add_field(
             name="🔍 View Specific Version",
             value="Use `/changelog 1.1.0` to see details for a specific version!",
             inline=False
         )
-        
+
         current_ver = version_manager.get_current_version()
         embed.set_footer(text=f"Current Version: v{current_ver}")
-        
+
         await interaction.response.send_message(embed=embed)
         return
-    
+
     # Show specific version details
     embed_data = version_manager.format_version_embed_data(version)
-    
+
     if not embed_data:
         embed = discord.Embed(
             title="❌ Version Not Found",
@@ -1880,26 +1891,26 @@ async def view_changelog(interaction: discord.Interaction, version: str = None):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
-    
+
     # Create embed with version details
     embed = discord.Embed(
         title=embed_data['title'],
         description=embed_data['description'],
         color=0x00ff00
     )
-    
+
     for field in embed_data['fields']:
         embed.add_field(
             name=field['name'],
             value=field['value'],
             inline=field['inline']
         )
-    
+
     current_ver = version_manager.get_current_version()
     is_current = version == current_ver
     footer_text = f"Version v{version}" + (" (Current)" if is_current else "")
     embed.set_footer(text=footer_text)
-    
+
     await interaction.response.send_message(embed=embed)
 
 @bot.event

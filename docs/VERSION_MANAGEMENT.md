@@ -6,7 +6,7 @@ This guide explains how to manage versions and maintain the changelog for the CF
 
 The bot uses **Semantic Versioning** (SemVer) to track releases and changes.
 
-**Current Version:** 1.1.0  
+**Current Version:** 1.1.0
 **Version File:** `src/cfb_bot/utils/version_manager.py`
 
 ---
@@ -288,7 +288,6 @@ Consider adding:
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** November 4, 2025  
+**Document Version:** 1.0
+**Last Updated:** November 4, 2025
 **Maintained By:** CFB Rules Bot Team
-

@@ -2,8 +2,8 @@
 
 This document outlines the major features added to Harry, the CFB 26 League Bot in version 1.1.0.
 
-**Current Version:** 1.1.0  
-**Release Date:** November 4, 2025  
+**Current Version:** 1.1.0
+**Release Date:** November 4, 2025
 **Status:** ✅ Production Ready
 
 ## 1. ⏰ Advance Timer / Timekeeper
@@ -353,7 +353,7 @@ See `docs/VERSION_MANAGEMENT.md` for complete instructions on:
 
 ---
 
-**Implemented**: November 4, 2025  
-**Version**: 1.1.0  
-**Author**: Harry (with assistance from Craig's AI assistant, innit!)  
+**Implemented**: November 4, 2025
+**Version**: 1.1.0
+**Author**: Harry (with assistance from Craig's AI assistant, innit!)
 **Last Updated**: November 4, 2025

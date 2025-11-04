@@ -125,102 +125,101 @@ CHANGELOG: Dict[str, Dict] = {
 
 class VersionManager:
     """Manages version information and changelog"""
-    
+
     def __init__(self):
         self.current_version = CURRENT_VERSION
         self.changelog = CHANGELOG
-    
+
     def get_current_version(self) -> str:
         """Get the current version string"""
         return self.current_version
-    
+
     def get_version_info(self, version: str) -> Optional[Dict]:
         """Get information about a specific version"""
         return self.changelog.get(version)
-    
+
     def get_all_versions(self) -> List[str]:
         """Get list of all versions"""
         return sorted(self.changelog.keys(), reverse=True)
-    
+
     def get_latest_version_info(self) -> Dict:
         """Get information about the latest version"""
         return self.changelog.get(self.current_version, {})
-    
+
     def format_version_embed_data(self, version: str) -> Optional[Dict]:
         """
         Format version data for Discord embed
-        
+
         Returns:
             Dict with title, description, and fields for embed
         """
         version_info = self.get_version_info(version)
         if not version_info:
             return None
-        
+
         embed_data = {
             "title": f"{version_info['emoji']} Version {version} - {version_info['title']}",
             "description": f"Released: {version_info['date']}",
             "fields": []
         }
-        
+
         for feature_group in version_info.get('features', []):
             category = feature_group.get('category', 'Features')
             emoji = feature_group.get('emoji', '•')
             changes = feature_group.get('changes', [])
-            
+
             # Format changes as bullet points
             changes_text = '\n'.join([f"• {change}" for change in changes])
-            
+
             embed_data["fields"].append({
                 "name": f"{emoji} {category}",
                 "value": changes_text,
                 "inline": False
             })
-        
+
         return embed_data
-    
+
     def get_version_summary(self) -> str:
         """Get a summary of all versions"""
         versions = self.get_all_versions()
         summary_lines = []
-        
+
         for version in versions:
             info = self.changelog.get(version, {})
             emoji = info.get('emoji', '📌')
             title = info.get('title', 'Update')
             date = info.get('date', 'Unknown')
             summary_lines.append(f"{emoji} **v{version}** - {title} ({date})")
-        
+
         return '\n'.join(summary_lines)
-    
+
     def compare_versions(self, from_version: str, to_version: str) -> List[str]:
         """
         Get all changes between two versions
-        
+
         Returns:
             List of change descriptions
         """
         all_versions = self.get_all_versions()
-        
+
         try:
             from_idx = all_versions.index(from_version)
             to_idx = all_versions.index(to_version)
-            
+
             # Get versions between (inclusive)
             if from_idx > to_idx:
                 from_idx, to_idx = to_idx, from_idx
-            
+
             versions_between = all_versions[to_idx:from_idx+1]
-            
+
             all_changes = []
             for version in versions_between:
                 version_info = self.changelog.get(version, {})
                 for feature_group in version_info.get('features', []):
                     changes = feature_group.get('changes', [])
                     all_changes.extend(changes)
-            
+
             return all_changes
-            
+
         except ValueError:
             return []
-
