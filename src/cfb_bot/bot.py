@@ -174,14 +174,18 @@ async def on_ready():
 
     # Sync slash commands
     try:
-        # Sync to specific guild for instant command updates (5 seconds instead of 1 hour!)
-        guild_id = 1261662233109205144  # Your Discord server ID
-        guild = discord.Object(id=guild_id)
+        # Sync to specific guilds for instant command updates (5 seconds instead of 1 hour!)
+        guild_ids = [
+            1261662233109205144,  # Main server
+            780882032867803168,   # Second server
+        ]
         
-        # Sync to guild (instant)
-        bot.tree.copy_global_to(guild=guild)
-        synced_guild = await bot.tree.sync(guild=guild)
-        logger.info(f'✅ Synced {len(synced_guild)} command(s) to guild {guild_id} (instant!)')
+        # Sync to each guild (instant)
+        for guild_id in guild_ids:
+            guild = discord.Object(id=guild_id)
+            bot.tree.copy_global_to(guild=guild)
+            synced_guild = await bot.tree.sync(guild=guild)
+            logger.info(f'✅ Synced {len(synced_guild)} command(s) to guild {guild_id} (instant!)')
         
         # Also sync globally for other servers (takes up to 1 hour)
         synced_global = await bot.tree.sync()
