@@ -5,7 +5,7 @@ Fetches and summarizes channel messages using AI
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict
 import discord
 
@@ -35,9 +35,9 @@ class ChannelSummarizer:
             List of discord.Message objects
         """
         logger.info(f"📥 Fetching messages from #{channel.name} (last {hours} hours)")
-
+        
         # Calculate the time threshold
-        time_threshold = datetime.now(tz=discord.utils.utc) - timedelta(hours=hours)
+        time_threshold = datetime.now(tz=timezone.utc) - timedelta(hours=hours)
 
         messages = []
         try:
