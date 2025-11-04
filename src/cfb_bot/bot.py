@@ -242,16 +242,16 @@ async def on_message(message):
         if time_diff < 2.0:  # Within 2 seconds
             logger.info(f"⏭️ Skipping duplicate content (time-based): {content_key[:50]}... (seen {time_diff:.2f}s ago, msg_id={message.id})")
             return
-    
+
     # Add to all tracking sets atomically (before processing)
     # IMPORTANT: Add to recent_content_times FIRST, then check again to prevent race conditions
     recent_content_times[content_key] = current_time
-    
+
     # Double-check after adding (race condition protection)
     if message.id in processed_messages or content_key in processed_content:
         logger.info(f"⏭️ Skipping duplicate (race condition caught): msg_id={message.id}, content={content_key[:50]}...")
         return
-    
+
     processed_messages.add(message.id)
     processed_content.add(content_key)
 
@@ -578,9 +578,9 @@ If the charter contains relevant information, provide a helpful answer. If not, 
 
                         ai_response = await ai_assistant.ask_ai(charter_question, f"{message.author} ({message.author.id})")
 
-                        # Step 2: If no charter info, try general AI search
+                        # Step 2: If no charter info, try general AI search without charter context
                         if ai_response and "NO_CHARTER_INFO" in ai_response:
-                            logger.info("No charter info found, trying general AI search")
+                            logger.info("No charter info found, trying general AI search without charter context")
                             general_question = f"""You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Answer this question about CFB 26 league rules, recruiting, transfers, or dynasty management:
 
 Question: {question}
@@ -592,10 +592,18 @@ Keep responses concise and helpful. Do NOT mention "charter" unless you truly do
                             # Log the general AI question
                             logger.info(f"🤖 General AI Question from {message.author} ({message.author.id}): {question}")
                             logger.info(f"📝 General AI prompt: {general_question[:200]}...")
+                            logger.info("🌍 Fallback to general AI without charter context")
 
-                            ai_response = await ai_assistant.ask_ai(general_question, f"{message.author} ({message.author.id})")
+                            # Use AI without charter context since charter had no info
+                            general_context = "You are Harry, a helpful assistant. Answer general questions helpfully and accurately with your signature sarcasm and wit."
+                            
+                            # Call OpenAI directly with general context
+                            ai_response = await ai_assistant.ask_openai(general_question, general_context)
+                            if not ai_response:
+                                # Fallback to Anthropic
+                                ai_response = await ai_assistant.ask_anthropic(general_question, general_context)
                     else:
-                        # For non-league questions, use general AI search directly
+                        # For non-league questions, use general AI WITHOUT charter context
                         general_question = f"""You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Answer this question helpfully and accurately:
 
 Question: {question}
@@ -605,8 +613,16 @@ Please provide a helpful, accurate answer with maximum sarcasm and wit."""
                         # Log the general AI question
                         logger.info(f"🤖 General AI Question from {message.author} ({message.author.id}): {question}")
                         logger.info(f"📝 General AI prompt: {general_question[:200]}...")
+                        logger.info("🌍 General question - using AI without charter context")
 
-                        ai_response = await ai_assistant.ask_ai(general_question, f"{message.author} ({message.author.id})")
+                        # Use AI without charter context (like /ask command)
+                        general_context = "You are Harry, a helpful assistant. Answer general questions helpfully and accurately with your signature sarcasm and wit."
+                        
+                        # Call OpenAI directly with general context
+                        ai_response = await ai_assistant.ask_openai(general_question, general_context)
+                        if not ai_response:
+                            # Fallback to Anthropic
+                            ai_response = await ai_assistant.ask_anthropic(general_question, general_context)
                 else:
                     # For non-allowed channels, this should only happen with slash commands
                     # Use general AI without league context
@@ -618,8 +634,16 @@ Please provide a helpful, accurate answer with maximum sarcasm and wit. This is 
 
                     logger.info(f"🤖 General AI Question from {message.author} ({message.author.id}): {question}")
                     logger.info(f"📝 General AI prompt: {general_question[:200]}...")
+                    logger.info("🌍 General question - using AI without charter context")
 
-                    ai_response = await ai_assistant.ask_ai(general_question, f"{message.author} ({message.author.id})")
+                    # Use AI without charter context
+                    general_context = "You are Harry, a helpful assistant. Answer general questions helpfully and accurately with your signature sarcasm and wit."
+                    
+                    # Call OpenAI directly with general context
+                    ai_response = await ai_assistant.ask_openai(general_question, general_context)
+                    if not ai_response:
+                        # Fallback to Anthropic
+                        ai_response = await ai_assistant.ask_anthropic(general_question, general_context)
 
             except Exception as e:
                 logger.error(f"AI error: {e}")
@@ -1213,9 +1237,9 @@ async def ask_harry(interaction: discord.Interaction, question: str):
     # Send the actual response
     await interaction.followup.send(embed=embed)
 
-@bot.tree.command(name="ask", description="Ask Harry anything - league rules or general questions")
+@bot.tree.command(name="ask", description="Ask Harry general questions (not league-specific)")
 async def ask_ai(interaction: discord.Interaction, question: str):
-    """Ask AI about league rules or general questions"""
+    """Ask AI general questions (use /harry for league-specific questions)"""
     embed = discord.Embed(
         title="🤖 AI Assistant Response",
         color=0x9b59b6
@@ -1232,50 +1256,28 @@ async def ask_ai(interaction: discord.Interaction, question: str):
             logger.info(f"🔍 Slash command question: '{question}'")
             logger.info(f"🏠 Server: {guild_name} (ID: {interaction.guild.id if interaction.guild else 'DM'})")
 
-            # Classification for slash commands
-            is_question, league_related, matched_keywords = classify_question(question)
-
-            logger.info(f"🔍 CLASSIFICATION: is_question={is_question}, league_related={league_related}")
-            if league_related:
-                logger.info(f"🎯 Matched keywords: {matched_keywords}")
-
             # Add Harry's personality to the ask command
             harry_question = f"You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Answer this question with maximum sarcasm: {question}"
-
-            # For league-related questions, use charter context
-            # For general questions, use general AI without charter context
-            if league_related:
-                # Use charter context for league questions
-                response = await ai_assistant.ask_ai(harry_question, f"{interaction.user} ({interaction.user.id})")
-                if response:
-                    embed.description = response
-                    embed.add_field(
-                        name="💡 Tip",
-                        value="AI responses are based on the league charter. Always verify important rules in the full document.",
-                        inline=False
-                    )
-                else:
-                    embed.description = "Sorry, I couldn't get an AI response right now. Please check the charter directly."
+            
+            # /ask ALWAYS uses general AI without charter context (not league-specific)
+            logger.info("🌍 /ask command - ALWAYS using general AI without charter context")
+            general_context = "You are Harry, a helpful assistant. Answer general questions helpfully and accurately with your signature sarcasm and wit."
+            
+            # Call OpenAI directly with general context
+            response = await ai_assistant.ask_openai(harry_question, general_context)
+            if not response:
+                # Fallback to Anthropic
+                response = await ai_assistant.ask_anthropic(harry_question, general_context)
+            
+            if response:
+                embed.description = response
+                embed.add_field(
+                    name="💡 Note",
+                    value="This is a general question. For league-specific questions, use `/harry` instead!",
+                    inline=False
+                )
             else:
-                # For general questions, use AI without charter context
-                logger.info("🌍 General question detected - using AI without charter context")
-                general_context = "You are Harry, a helpful assistant. Answer general questions helpfully and accurately with your signature sarcasm and wit."
-
-                # Call OpenAI directly with general context
-                response = await ai_assistant.ask_openai(harry_question, general_context)
-                if not response:
-                    # Fallback to Anthropic
-                    response = await ai_assistant.ask_anthropic(harry_question, general_context)
-
-                if response:
-                    embed.description = response
-                    embed.add_field(
-                        name="💡 Note",
-                        value="This is a general question. For league-specific questions, try `/harry` or `/ask` with league keywords!",
-                        inline=False
-                    )
-                else:
-                    embed.description = "Sorry, I couldn't get an AI response right now. Try again later!"
+                embed.description = "Sorry, I couldn't get an AI response right now. Try again later!"
         except Exception as e:
             embed.description = f"Error getting AI response: {str(e)}"
     else:
