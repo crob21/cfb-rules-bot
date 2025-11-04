@@ -35,7 +35,7 @@ class ChannelSummarizer:
             List of discord.Message objects
         """
         logger.info(f"📥 Fetching messages from #{channel.name} (last {hours} hours)")
-        
+
         # Calculate the time threshold
         time_threshold = datetime.now(tz=timezone.utc) - timedelta(hours=hours)
 

@@ -824,11 +824,11 @@ async def help_cfb(interaction: discord.Interaction):
     embed.add_field(
         name="⏰ **Advance Timer Commands**",
         value=(
-            "• `/advance [hours]` - Start countdown (default: 48 hours)\n"
+            "• `/advance [hours]` - Start countdown **(Admin only)**\n"
             "  Example: `/advance` = 48 hours\n"
             "  Example: `/advance 24` = 24 hours\n"
             "• `/time_status` - Check countdown progress\n"
-            "• `/stop_countdown` - Stop timer (Admin only)"
+            "• `/stop_countdown` - Stop timer **(Admin only)**"
         ),
         inline=False
     )
@@ -1107,18 +1107,23 @@ async def ask_ai(interaction: discord.Interaction, question: str):
     # Send the actual response
     await interaction.followup.send(embed=embed)
 
-@bot.tree.command(name="advance", description="Start advance countdown timer (default: 48 hours)")
+@bot.tree.command(name="advance", description="Start advance countdown timer (Admin only)")
 async def start_advance(interaction: discord.Interaction, hours: int = 48):
     """
     Start the advance countdown timer
-
+    
     Args:
         hours: Number of hours for the countdown (default: 48)
     """
+    # Check if user is admin
+    if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
+        await interaction.response.send_message("❌ You need to be a bot admin to start countdowns, ya muppet!", ephemeral=True)
+        return
+    
     if not timekeeper_manager:
         await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
         return
-
+    
     # Validate hours (minimum 1, maximum 336 = 2 weeks)
     if hours < 1:
         await interaction.response.send_message("❌ Hours must be at least 1, ya numpty!", ephemeral=True)
@@ -1228,11 +1233,11 @@ async def check_time_status(interaction: discord.Interaction):
 @bot.tree.command(name="stop_countdown", description="Stop the current advance countdown (Admin only)")
 async def stop_countdown(interaction: discord.Interaction):
     """Stop the current advance countdown"""
-    # Check if user has admin permissions
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ You need administrator permissions to stop the countdown.", ephemeral=True)
+    # Check if user is admin
+    if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
+        await interaction.response.send_message("❌ You need to be a bot admin to stop countdowns!", ephemeral=True)
         return
-
+    
     if not timekeeper_manager:
         await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
         return

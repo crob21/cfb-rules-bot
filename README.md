@@ -87,13 +87,13 @@ GOOGLE_DOCS_DOCUMENT_ID=your_document_id_here
 - `/charter` - Link to the full league charter
 - `/tokens` - Show AI token usage statistics
 
-#### Advance Timer
-- `/advance [hours]` - Start countdown with auto-reminders (default: 48 hours)
+#### Advance Timer (Admin Only)
+- `/advance [hours]` - Start countdown with auto-reminders **(Admin only)**
   - Example: `/advance` - 48 hour countdown
   - Example: `/advance 24` - 24 hour countdown
   - Example: `/advance 72` - 72 hour countdown
-- `/time_status` - Check countdown progress
-- `/stop_countdown` - Stop timer (Admin only)
+- `/time_status` - Check countdown progress (Anyone can view)
+- `/stop_countdown` - Stop timer **(Admin only)**
 
 #### Channel Summarization
 - `/summarize [hours] [focus]` - Summarize channel activity
