@@ -106,6 +106,18 @@ GOOGLE_DOCS_DOCUMENT_ID=your_document_id_here
 - `/view_charter_backups` - View available backups
 - `/restore_charter_backup <file>` - Restore from backup
 
+#### Bot Admin Management
+- `/add_bot_admin @user` - Add a user as bot admin
+- `/remove_bot_admin @user` - Remove a user as bot admin
+- `/list_bot_admins` - List all bot admins
+
+#### Version & Info
+- `/whats_new` - See latest features and updates
+- `/version` - Show current bot version
+- `/changelog [version]` - View version history
+  - Example: `/changelog` - All versions summary
+  - Example: `/changelog 1.1.0` - Details for v1.1.0
+
 ### Chat Interactions
 
 - **Mention the bot** - `@CFB Bot` or just type `harry` in your message
