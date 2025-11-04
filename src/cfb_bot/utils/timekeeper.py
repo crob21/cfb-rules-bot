@@ -14,7 +14,7 @@ logger = logging.getLogger('CFB26Bot.Timekeeper')
 
 class AdvanceTimer:
     """Manages advance countdown timers with custom durations"""
-    
+
     def __init__(self, channel: discord.TextChannel, bot: discord.Client):
         self.channel = channel
         self.bot = bot
@@ -29,22 +29,22 @@ class AdvanceTimer:
             6: False,
             1: False
         }
-        
+
     def start_countdown(self, hours: int = 48) -> bool:
         """Start a countdown with custom duration"""
         if self.is_active:
             logger.warning("⚠️ Countdown already active")
             return False
-            
+
         self.start_time = datetime.now()
         self.duration_hours = hours
         self.end_time = self.start_time + timedelta(hours=hours)
         self.is_active = True
         self.notifications_sent = {24: False, 12: False, 6: False, 1: False}
-        
+
         # Start the monitoring task
         self.task = asyncio.create_task(self._monitor_countdown())
-        
+
         logger.info(f"⏰ Countdown started at {self.start_time}")
         logger.info(f"⏰ Duration: {hours} hours")
         logger.info(f"⏰ Countdown will end at {self.end_time}")
@@ -177,17 +177,17 @@ class AdvanceTimer:
 
 class TimekeeperManager:
     """Manages advance timers across multiple channels"""
-    
+
     def __init__(self, bot: discord.Client):
         self.bot = bot
         self.timers: Dict[int, AdvanceTimer] = {}  # channel_id -> timer
-        
+
     def get_timer(self, channel: discord.TextChannel) -> AdvanceTimer:
         """Get or create a timer for a channel"""
         if channel.id not in self.timers:
             self.timers[channel.id] = AdvanceTimer(channel, self.bot)
         return self.timers[channel.id]
-    
+
     def start_timer(self, channel: discord.TextChannel, hours: int = 48) -> bool:
         """Start a timer for a channel with custom duration"""
         timer = self.get_timer(channel)

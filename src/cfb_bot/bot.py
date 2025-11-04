@@ -27,10 +27,11 @@ import logging
 import sys
 from datetime import datetime, timedelta
 
-# Import timekeeper, summarizer, and charter editor
+# Import timekeeper, summarizer, charter editor, and admin manager
 from .utils.timekeeper import TimekeeperManager
 from .utils.summarizer import ChannelSummarizer
 from .utils.charter_editor import CharterEditor
+from .utils.admin_check import AdminManager
 
 # Optional Google Docs integration
 try:
@@ -116,10 +117,11 @@ ai_assistant = None
 if AI_AVAILABLE:
     ai_assistant = AICharterAssistant()
 
-# Initialize timekeeper manager, summarizer, and charter editor
+# Initialize timekeeper manager, summarizer, charter editor, and admin manager
 timekeeper_manager = None
 channel_summarizer = None
 charter_editor = None
+admin_manager = None
 
 # Simple rate limiting to prevent duplicate responses
 last_message_time = {}
@@ -136,23 +138,27 @@ async def on_ready():
     - Syncing slash commands
     - Logging connection status
     """
-    global timekeeper_manager, channel_summarizer, charter_editor
-
+    global timekeeper_manager, channel_summarizer, charter_editor, admin_manager
+    
     logger.info(f'🏈 CFB 26 League Bot ({bot.user}) has connected to Discord!')
     logger.info(f'🔗 Bot ID: {bot.user.id}')
     logger.info(f'📛 Bot Username: {bot.user.name}')
     logger.info(f'🏷️ Bot Display Name: {bot.user.display_name}')
     logger.info(f'📊 Connected to {len(bot.guilds)} guilds')
     logger.info(f'👋 Harry is ready to help with league questions!')
-
+    
+    # Initialize admin manager
+    admin_manager = AdminManager()
+    logger.info(f'🔐 Admin manager initialized ({admin_manager.get_admin_count()} admin(s) configured)')
+    
     # Initialize timekeeper manager
     timekeeper_manager = TimekeeperManager(bot)
     logger.info('⏰ Timekeeper manager initialized')
-
+    
     # Initialize channel summarizer (with AI if available)
     channel_summarizer = ChannelSummarizer(ai_assistant if AI_AVAILABLE else None)
     logger.info('📊 Channel summarizer initialized')
-
+    
     # Initialize charter editor (with AI if available)
     charter_editor = CharterEditor(ai_assistant if AI_AVAILABLE else None)
     logger.info('📝 Charter editor initialized')
@@ -835,7 +841,19 @@ async def help_cfb(interaction: discord.Interaction):
         value=(
             "• `/team <team_name>` - Team information\n"
             "• `/tokens` - AI usage statistics\n"
+            "• `/whats_new` - See latest features!\n"
             "• `/help_cfb` - Show this message"
+        ),
+        inline=False
+    )
+    
+    # Admin Management Commands
+    embed.add_field(
+        name="🔐 **Admin Management**",
+        value=(
+            "• `/add_bot_admin @user` - Add bot admin\n"
+            "• `/remove_bot_admin @user` - Remove bot admin\n"
+            "• `/list_bot_admins` - List all bot admins"
         ),
         inline=False
     )
@@ -1070,14 +1088,14 @@ async def ask_ai(interaction: discord.Interaction, question: str):
 async def start_advance(interaction: discord.Interaction, hours: int = 48):
     """
     Start the advance countdown timer
-    
+
     Args:
         hours: Number of hours for the countdown (default: 48)
     """
     if not timekeeper_manager:
         await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
         return
-    
+
     # Validate hours (minimum 1, maximum 336 = 2 weeks)
     if hours < 1:
         await interaction.response.send_message("❌ Hours must be at least 1, ya numpty!", ephemeral=True)
@@ -1085,10 +1103,10 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
     if hours > 336:
         await interaction.response.send_message("❌ Maximum is 336 hours (2 weeks), mate!", ephemeral=True)
         return
-    
+
     # Start the countdown
     success = timekeeper_manager.start_timer(interaction.channel, hours)
-    
+
     if success:
         embed = discord.Embed(
             title="⏰ Advance Countdown Started!",
@@ -1165,7 +1183,7 @@ async def check_time_status(interaction: discord.Interaction):
             value=status['end_time'].strftime('%I:%M %p on %B %d'),
             inline=True
         )
-        
+
         # Add progress bar
         timer = timekeeper_manager.get_timer(interaction.channel)
         total_seconds = timer.duration_hours * 3600
@@ -1174,13 +1192,13 @@ async def check_time_status(interaction: discord.Interaction):
         bar_length = 20
         filled = int(bar_length * progress)
         bar = '█' * filled + '░' * (bar_length - filled)
-        
+
         embed.add_field(
             name="📊 Progress",
             value=f"{bar} {int(progress * 100)}%",
             inline=False
         )
-        
+
         embed.set_footer(text="Harry's Advance Timer 🏈")
         await interaction.response.send_message(embed=embed)
 
@@ -1548,6 +1566,218 @@ async def restore_backup(interaction: discord.Interaction, backup_filename: str)
             color=0xff0000
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="add_bot_admin", description="Add a user as bot admin (Admin only)")
+async def add_bot_admin(interaction: discord.Interaction, user: discord.Member):
+    """
+    Add a user as bot admin
+    
+    Args:
+        user: The Discord user to make a bot admin
+    """
+    if not admin_manager:
+        await interaction.response.send_message("❌ Admin manager not available", ephemeral=True)
+        return
+    
+    # Check if command user is admin (either Discord admin or bot admin)
+    if not admin_manager.is_admin(interaction.user, interaction):
+        await interaction.response.send_message("❌ You need to be a bot admin to use this command, ya muppet!", ephemeral=True)
+        return
+    
+    # Add the user as admin
+    success = admin_manager.add_admin(user.id)
+    
+    if success:
+        embed = discord.Embed(
+            title="✅ Bot Admin Added!",
+            description=f"Right then! **{user.display_name}** is now a bot admin!\n\nThey can now use all admin commands.",
+            color=0x00ff00
+        )
+        embed.set_footer(text=f"Added by {interaction.user.display_name}")
+        await interaction.response.send_message(embed=embed)
+        logger.info(f"✅ Bot admin added: {user.display_name} ({user.id}) by {interaction.user.display_name}")
+    else:
+        embed = discord.Embed(
+            title="ℹ️ Already an Admin",
+            description=f"{user.display_name} is already a bot admin, mate!",
+            color=0xffa500
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="remove_bot_admin", description="Remove a user as bot admin (Admin only)")
+async def remove_bot_admin(interaction: discord.Interaction, user: discord.Member):
+    """
+    Remove a user as bot admin
+    
+    Args:
+        user: The Discord user to remove as bot admin
+    """
+    if not admin_manager:
+        await interaction.response.send_message("❌ Admin manager not available", ephemeral=True)
+        return
+    
+    # Check if command user is admin
+    if not admin_manager.is_admin(interaction.user, interaction):
+        await interaction.response.send_message("❌ You need to be a bot admin to use this command!", ephemeral=True)
+        return
+    
+    # Remove the user as admin
+    success = admin_manager.remove_admin(user.id)
+    
+    if success:
+        embed = discord.Embed(
+            title="✅ Bot Admin Removed",
+            description=f"Right then! **{user.display_name}** is no longer a bot admin.",
+            color=0xff0000
+        )
+        embed.set_footer(text=f"Removed by {interaction.user.display_name}")
+        await interaction.response.send_message(embed=embed)
+        logger.info(f"✅ Bot admin removed: {user.display_name} ({user.id}) by {interaction.user.display_name}")
+    else:
+        embed = discord.Embed(
+            title="ℹ️ Not an Admin",
+            description=f"{user.display_name} isn't a bot admin, mate!",
+            color=0x808080
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="list_bot_admins", description="List all bot admins")
+async def list_bot_admins(interaction: discord.Interaction):
+    """List all bot admins"""
+    if not admin_manager:
+        await interaction.response.send_message("❌ Admin manager not available", ephemeral=True)
+        return
+    
+    admin_ids = admin_manager.get_admin_list()
+    
+    if not admin_ids:
+        embed = discord.Embed(
+            title="🔐 Bot Admins",
+            description="No bot-specific admins configured.\n\nAnyone with Discord Administrator permission can use admin commands.\n\nUse `/add_bot_admin @user` to add bot admins!",
+            color=0x808080
+        )
+        await interaction.response.send_message(embed=embed)
+        return
+    
+    embed = discord.Embed(
+        title="🔐 Bot Admins",
+        description=f"Found **{len(admin_ids)}** bot admin{'s' if len(admin_ids) > 1 else ''}:",
+        color=0x00ff00
+    )
+    
+    # Try to fetch user info for each admin
+    admin_info = []
+    for admin_id in admin_ids:
+        try:
+            user = await bot.fetch_user(admin_id)
+            admin_info.append(f"• **{user.display_name}** (`{user.name}`) - ID: {admin_id}")
+        except:
+            admin_info.append(f"• User ID: {admin_id} (user not found)")
+    
+    embed.add_field(
+        name="📋 Admin List",
+        value="\n".join(admin_info) if admin_info else "No admins",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="ℹ️ Note",
+        value="Users with Discord Administrator permission also have bot admin access.",
+        inline=False
+    )
+    
+    embed.set_footer(text="CFB 26 League Bot - Admin Management")
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="whats_new", description="See what's new with Harry!")
+async def whats_new(interaction: discord.Interaction):
+    """Show the latest features and updates"""
+    embed = discord.Embed(
+        title="🎉 What's New with Harry! 🎉",
+        description="Oi! Look at all the brilliant new stuff I can do now, mate!",
+        color=0x00ff00
+    )
+    
+    # Feature 1: Advance Timer
+    embed.add_field(
+        name="⏰ **Advance Timer with Custom Duration** (NEW!)",
+        value=(
+            "I can now manage advance countdowns with **custom durations**!\n"
+            "• `/advance` - Default 48 hour countdown\n"
+            "• `/advance 24` - 24 hour countdown\n"
+            "• `/advance 72` - 3 day countdown\n"
+            "• Automatic reminders at 24h, 12h, 6h, 1h\n"
+            "• \"TIME'S UP! LET'S ADVANCE!\" when done\n"
+            "• `/time_status` - Check progress with fancy progress bar!"
+        ),
+        inline=False
+    )
+    
+    # Feature 2: Channel Summarization
+    embed.add_field(
+        name="📊 **Channel Summarization** (NEW!)",
+        value=(
+            "I can read through channel messages and give you AI-powered summaries!\n"
+            "• `/summarize` - Last 24 hours\n"
+            "• `/summarize 48` - Last 48 hours\n"
+            "• `/summarize 24 recruiting` - Focused summary\n"
+            "• Shows main topics, decisions, key participants, and notable moments\n"
+            "• Perfect for catching up on what you missed!"
+        ),
+        inline=False
+    )
+    
+    # Feature 3: Charter Management
+    embed.add_field(
+        name="📝 **Charter Management** (NEW! - Admin Only)",
+        value=(
+            "I can edit the league charter directly from Discord!\n"
+            "• `/add_rule` - Add new rules to charter\n"
+            "• `/update_rule` - Update existing rules\n"
+            "• `/view_charter_backups` - See all backups\n"
+            "• `/restore_charter_backup` - Restore from backup\n"
+            "• Automatic backups before every change\n"
+            "• AI-assisted rule formatting!"
+        ),
+        inline=False
+    )
+    
+    # Feature 4: Bot Admin System
+    embed.add_field(
+        name="🔐 **Bot Admin System** (NEW!)",
+        value=(
+            "Manage bot admins directly through Discord!\n"
+            "• `/add_bot_admin @user` - Make someone a bot admin\n"
+            "• `/remove_bot_admin @user` - Remove bot admin\n"
+            "• `/list_bot_admins` - See all bot admins\n"
+            "• Bot admins can use all admin commands\n"
+            "• Discord Administrators also have bot admin access"
+        ),
+        inline=False
+    )
+    
+    # Other improvements
+    embed.add_field(
+        name="✨ **Other Improvements**",
+        value=(
+            "• Better error handling\n"
+            "• Improved logging\n"
+            "• More sarcastic responses (you're welcome!)\n"
+            "• All features maintain my cockney personality!"
+        ),
+        inline=False
+    )
+    
+    embed.add_field(
+        name="📖 **Learn More**",
+        value="Use `/help_cfb` to see all available commands!",
+        inline=False
+    )
+    
+    embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈 | Updated November 2025")
+    embed.set_thumbnail(url="https://i.imgur.com/3xzKq7L.png")  # Football emoji as thumbnail
+    
+    await interaction.response.send_message(embed=embed)
 
 @bot.event
 async def on_command_error(ctx, error):
