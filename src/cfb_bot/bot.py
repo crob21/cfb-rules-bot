@@ -413,12 +413,12 @@ async def on_message(message):
             if tell_pattern:
                 target_user_id = int(tell_pattern.group(1))
                 relay_message = tell_pattern.group(2).strip()
-                
+
                 # Get the target user
                 target_user = message.guild.get_member(target_user_id) if message.guild else None
                 if target_user:
                     logger.info(f"📨 Relay request: {message.author} wants to tell {target_user} '{relay_message}'")
-                    
+
                     # Send the relay message
                     embed = discord.Embed(
                         title=f"📨 Message from {message.author.display_name}",
@@ -482,10 +482,11 @@ async def on_message(message):
                 logger.info(f"📊 Summary requested via @mention by {message.author} - {hours} hours")
 
                 # Use summarizer to generate summary
-                summary = await channel_summarizer.summarize_channel(
+                summary = await channel_summarizer.get_channel_summary(
                     message.channel,
                     hours=hours,
-                    focus=None  # Could extract focus from message if needed
+                    focus=None,  # Could extract focus from message if needed
+                    limit=500
                 )
 
                 if summary:
