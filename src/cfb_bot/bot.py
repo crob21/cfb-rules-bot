@@ -1318,14 +1318,14 @@ async def ask_ai(interaction: discord.Interaction, question: str):
         title="🤖 AI Assistant Response",
         color=0x9b59b6
     )
-    
+
     response_sent = False
-    
+
     try:
         # Send initial response immediately
         await interaction.response.send_message("🤖 Thinking...", ephemeral=True)
         response_sent = True
-        
+
         # Log the slash command usage
         guild_name = interaction.guild.name if interaction.guild else "DM"
         logger.info(f"🎯 SLASH COMMAND: /ask from {interaction.user} ({interaction.user.id}) in {guild_name} - '{question}'")
@@ -1463,74 +1463,86 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
 @bot.tree.command(name="time_status", description="Check the current advance countdown status")
 async def check_time_status(interaction: discord.Interaction):
     """Check the current advance countdown status"""
+    # Defer immediately to prevent timeout
+    try:
+        await interaction.response.defer()
+    except:
+        # If already responded, skip
+        pass
+    
     if not timekeeper_manager:
-        await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
+        await interaction.followup.send("❌ Timekeeper not available", ephemeral=True)
         return
 
-    status = timekeeper_manager.get_status(interaction.channel)
+    try:
+        status = timekeeper_manager.get_status(interaction.channel)
 
-    if not status['active']:
-        embed = discord.Embed(
-            title="⏰ No Countdown Active",
-            description="There ain't no countdown runnin' right now, mate.\n\nUse `/advance` to start the 48-hour countdown.",
-            color=0x808080
-        )
-        await interaction.response.send_message(embed=embed)
-    else:
-        hours = status['hours']
-        minutes = status['minutes']
-
-        # Determine urgency color
-        if hours >= 24:
-            color = 0x00ff00  # Green
-            urgency = "Loads of time, but still play your fucking games!"
-        elif hours >= 12:
-            color = 0xffa500  # Orange
-            urgency = "Getting closer now, better get crackin'!"
-        elif hours >= 6:
-            color = 0xff8c00  # Dark orange
-            urgency = "Time's tickin' away! Get your games done!"
-        elif hours >= 1:
-            color = 0xff4500  # Red orange
-            urgency = "BLOODY HELL! Time's almost up!"
+        if not status['active']:
+            embed = discord.Embed(
+                title="⏰ No Countdown Active",
+                description="There ain't no countdown runnin' right now, mate.\n\nUse `/advance` to start the 48-hour countdown.",
+                color=0x808080
+            )
+            await interaction.followup.send(embed=embed)
         else:
-            color = 0xff0000  # Red
-            urgency = "LAST HOUR! GET MOVIN'!"
+            hours = status['hours']
+            minutes = status['minutes']
 
-        embed = discord.Embed(
-            title="⏰ Advance Countdown Status",
-            description=f"**Time Remaining:** {hours}h {minutes}m\n\n{urgency}",
-            color=color
-        )
+            # Determine urgency color
+            if hours >= 24:
+                color = 0x00ff00  # Green
+                urgency = "Loads of time, but still play your fucking games!"
+            elif hours >= 12:
+                color = 0xffa500  # Orange
+                urgency = "Getting closer now, better get crackin'!"
+            elif hours >= 6:
+                color = 0xff8c00  # Dark orange
+                urgency = "Time's tickin' away! Get your games done!"
+            elif hours >= 1:
+                color = 0xff4500  # Red orange
+                urgency = "BLOODY HELL! Time's almost up!"
+            else:
+                color = 0xff0000  # Red
+                urgency = "LAST HOUR! GET MOVIN'!"
 
-        embed.add_field(
-            name="📅 Started",
-            value=status['start_time'].strftime('%I:%M %p on %B %d'),
-            inline=True
-        )
-        embed.add_field(
-            name="⏳ Deadline",
-            value=status['end_time'].strftime('%I:%M %p on %B %d'),
-            inline=True
-        )
+            embed = discord.Embed(
+                title="⏰ Advance Countdown Status",
+                description=f"**Time Remaining:** {hours}h {minutes}m\n\n{urgency}",
+                color=color
+            )
 
-        # Add progress bar
-        timer = timekeeper_manager.get_timer(interaction.channel)
-        total_seconds = timer.duration_hours * 3600
-        remaining_seconds = status['remaining'].total_seconds()
-        progress = 1 - (remaining_seconds / total_seconds)
-        bar_length = 20
-        filled = int(bar_length * progress)
-        bar = '█' * filled + '░' * (bar_length - filled)
+            embed.add_field(
+                name="📅 Started",
+                value=status['start_time'].strftime('%I:%M %p on %B %d'),
+                inline=True
+            )
+            embed.add_field(
+                name="⏳ Deadline",
+                value=status['end_time'].strftime('%I:%M %p on %B %d'),
+                inline=True
+            )
 
-        embed.add_field(
-            name="📊 Progress",
-            value=f"{bar} {int(progress * 100)}%",
-            inline=False
-        )
+            # Add progress bar
+            timer = timekeeper_manager.get_timer(interaction.channel)
+            if timer:
+                total_seconds = timer.duration_hours * 3600
+                remaining_seconds = status['remaining'].total_seconds()
+                progress = 1 - (remaining_seconds / total_seconds)
+                bar_length = 20
+                filled = int(bar_length * progress)
+                bar = '█' * filled + '░' * (bar_length - filled)
 
-        embed.set_footer(text="Harry's Advance Timer 🏈")
-        await interaction.response.send_message(embed=embed)
+                embed.add_field(
+                    name="📊 Progress",
+                    value=f"{bar} {int(progress * 100)}%",
+                    inline=False
+                )
+
+            embed.set_footer(text="Harry's Advance Timer 🏈")
+            await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.error(f"❌ Error in /time_status: {str(e)}", exc_info=True)
+        await interaction.followup.send(f"❌ Error checking timer status: {str(e)}", ephemeral=True)
 
 @bot.tree.command(name="stop_countdown", description="Stop the current advance countdown (Admin only)")
 async def stop_countdown(interaction: discord.Interaction):
