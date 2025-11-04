@@ -6,7 +6,8 @@ Fetches and summarizes channel messages using AI
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
+
 import discord
 
 logger = logging.getLogger('CFB26Bot.Summarizer')

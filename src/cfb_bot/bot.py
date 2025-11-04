@@ -27,12 +27,13 @@ import logging
 import sys
 from datetime import datetime, timedelta
 
-# Import timekeeper, summarizer, charter editor, admin manager, and version manager
+# Import timekeeper, summarizer, charter editor, admin manager, version manager, and channel manager
 from .utils.timekeeper import TimekeeperManager
 from .utils.summarizer import ChannelSummarizer
 from .utils.charter_editor import CharterEditor
 from .utils.admin_check import AdminManager
 from .utils.version_manager import VersionManager
+from .utils.channel_manager import ChannelManager
 
 # Optional Google Docs integration
 try:
@@ -118,12 +119,13 @@ ai_assistant = None
 if AI_AVAILABLE:
     ai_assistant = AICharterAssistant()
 
-# Initialize timekeeper manager, summarizer, charter editor, admin manager, and version manager
+# Initialize timekeeper manager, summarizer, charter editor, admin manager, version manager, and channel manager
 timekeeper_manager = None
 channel_summarizer = None
 charter_editor = None
 admin_manager = None
 version_manager = None
+channel_manager = None
 
 # Simple rate limiting to prevent duplicate responses
 last_message_time = {}
@@ -140,19 +142,23 @@ async def on_ready():
     - Syncing slash commands
     - Logging connection status
     """
-    global timekeeper_manager, channel_summarizer, charter_editor, admin_manager, version_manager
-
+    global timekeeper_manager, channel_summarizer, charter_editor, admin_manager, version_manager, channel_manager
+    
     # Initialize version manager first to get version
     version_manager = VersionManager()
     current_version = version_manager.get_current_version()
-
+    
     logger.info(f'🏈 CFB 26 League Bot ({bot.user}) v{current_version} has connected to Discord!')
     logger.info(f'🔗 Bot ID: {bot.user.id}')
     logger.info(f'📛 Bot Username: {bot.user.name}')
     logger.info(f'🏷️ Bot Display Name: {bot.user.display_name}')
     logger.info(f'📊 Connected to {len(bot.guilds)} guilds')
     logger.info(f'👋 Harry is ready to help with league questions!')
-
+    
+    # Initialize channel manager
+    channel_manager = ChannelManager()
+    logger.info(f'🔇 Channel manager initialized ({channel_manager.get_blocked_count()} blocked channels)')
+    
     # Initialize admin manager
     admin_manager = AdminManager()
     logger.info(f'🔐 Admin manager initialized ({admin_manager.get_admin_count()} admin(s) configured)')
@@ -225,24 +231,27 @@ async def on_message(message):
     # Ignore messages from the bot itself
     if message.author == bot.user:
         return
-
-    # Define allowed channels for regular message responses
-    ALLOWED_CHANNELS = {
-        # Channel ID 1417663211292852244 for #Booze's-Playground
-        1417663211292852244: "Booze's-Playground",
-        # Channel ID 1261662233109205146 for #general
-        1261662233109205146: "general",
-        # #bot-test in BoozeRob's Beerhall (we'll check by name since we don't have the ID)
-    }
-
-    # Check if this is an allowed channel
-    is_allowed_channel = (
-        message.channel.id in ALLOWED_CHANNELS or
-        (message.channel.name == "bot-test" and message.guild and "BoozeRob's Beerhall" in message.guild.name)
-    )
-
-    # Skip regular messages unless in allowed channels (slash commands bypass this)
-    if not is_allowed_channel and not message.content.startswith('/'):
+    
+    # Check if the bot is mentioned
+    bot_mentioned = False
+    if message.mentions:
+        for mention in message.mentions:
+            if mention.id == bot.user.id:
+                bot_mentioned = True
+                break
+    
+    # Also check for "harry" in the message content
+    if not bot_mentioned and f' {message.content.lower()} '.find(' harry ') != -1:
+        bot_mentioned = True
+    
+    # Check if unprompted responses are allowed in this channel
+    channel_allows_unprompted = True
+    if channel_manager:
+        channel_allows_unprompted = channel_manager.can_respond_unprompted(message.channel.id)
+    
+    # If bot is mentioned, ALWAYS respond (works in any channel)
+    # If bot is NOT mentioned, only respond if channel allows unprompted responses
+    if not bot_mentioned and not channel_allows_unprompted:
         return
 
     # Comprehensive logging (only after deduplication and channel checks)
@@ -876,9 +885,21 @@ async def help_cfb(interaction: discord.Interaction):
     embed.add_field(
         name="🔐 **Admin Management**",
         value=(
-            "• `/add_bot_admin @user` - Add bot admin\n"
-            "• `/remove_bot_admin @user` - Remove bot admin\n"
+            "• `/add_bot_admin @user` - Add bot admin **(Admin only)**\n"
+            "• `/remove_bot_admin @user` - Remove bot admin **(Admin only)**\n"
             "• `/list_bot_admins` - List all bot admins"
+        ),
+        inline=False
+    )
+
+    # Channel Management Commands
+    embed.add_field(
+        name="🔇 **Channel Management (Admin Only)**",
+        value=(
+            "• `/block_channel #channel` - Block unprompted responses\n"
+            "• `/unblock_channel #channel` - Allow unprompted responses\n"
+            "• `/list_blocked_channels` - Show blocked channels\n"
+            "\n*Note: @mentions still work in blocked channels!*"
         ),
         inline=False
     )
@@ -1717,6 +1738,134 @@ async def list_bot_admins(interaction: discord.Interaction):
     )
 
     embed.set_footer(text="CFB 26 League Bot - Admin Management")
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="block_channel", description="Block unprompted responses in a channel (Admin only)")
+async def block_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    """
+    Block unprompted responses in a channel (Harry can still be @mentioned)
+    
+    Args:
+        channel: The channel to block
+    """
+    # Check if user is admin
+    if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
+        await interaction.response.send_message("❌ You need to be a bot admin to block channels, ya muppet!", ephemeral=True)
+        return
+    
+    if not channel_manager:
+        await interaction.response.send_message("❌ Channel manager not available", ephemeral=True)
+        return
+    
+    was_blocked = channel_manager.block_channel(channel.id)
+    
+    if was_blocked:
+        embed = discord.Embed(
+            title="🔇 Channel Blocked!",
+            description=f"Right then! I won't make unprompted responses in {channel.mention} anymore.\n\n**But:** You can still @mention me there for questions!\n\nI'll just stay quiet unless you ask, yeah?",
+            color=0xff9900
+        )
+        embed.add_field(
+            name="📋 How It Works",
+            value="• **@mentions still work** - I'll respond when you ping me\n• **No unprompted replies** - I won't jump into conversations\n• **Slash commands work** - All `/` commands still function",
+            inline=False
+        )
+        embed.set_footer(text=f"Blocked by {interaction.user.display_name} 🔇")
+        await interaction.response.send_message(embed=embed)
+        logger.info(f"🔇 {interaction.user} blocked channel #{channel.name} (ID: {channel.id})")
+    else:
+        embed = discord.Embed(
+            title="ℹ️ Already Blocked",
+            description=f"That channel is already blocked, mate!\n\n{channel.mention} is on the blocked list.",
+            color=0x808080
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="unblock_channel", description="Allow unprompted responses in a channel (Admin only)")
+async def unblock_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    """
+    Allow unprompted responses in a channel
+    
+    Args:
+        channel: The channel to unblock
+    """
+    # Check if user is admin
+    if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
+        await interaction.response.send_message("❌ You need to be a bot admin to unblock channels, ya muppet!", ephemeral=True)
+        return
+    
+    if not channel_manager:
+        await interaction.response.send_message("❌ Channel manager not available", ephemeral=True)
+        return
+    
+    was_unblocked = channel_manager.unblock_channel(channel.id)
+    
+    if was_unblocked:
+        embed = discord.Embed(
+            title="🔊 Channel Unblocked!",
+            description=f"Brilliant! I can make unprompted responses in {channel.mention} again!\n\nI'll jump in when I see league questions and interesting conversations!",
+            color=0x00ff00
+        )
+        embed.set_footer(text=f"Unblocked by {interaction.user.display_name} 🔊")
+        await interaction.response.send_message(embed=embed)
+        logger.info(f"🔊 {interaction.user} unblocked channel #{channel.name} (ID: {channel.id})")
+    else:
+        embed = discord.Embed(
+            title="ℹ️ Not Blocked",
+            description=f"That channel wasn't blocked, mate!\n\n{channel.mention} already allows unprompted responses.",
+            color=0x808080
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="list_blocked_channels", description="Show all blocked channels")
+async def list_blocked_channels(interaction: discord.Interaction):
+    """Show all channels where unprompted responses are blocked"""
+    if not channel_manager:
+        await interaction.response.send_message("❌ Channel manager not available", ephemeral=True)
+        return
+    
+    blocked_ids = channel_manager.get_blocked_channels()
+    
+    if not blocked_ids:
+        embed = discord.Embed(
+            title="🔊 No Blocked Channels",
+            description="No channels are blocked!\n\nI can make unprompted responses in all channels.\n\nUse `/block_channel #channel` to block channels (Admin only).",
+            color=0x00ff00
+        )
+        await interaction.response.send_message(embed=embed)
+        return
+    
+    embed = discord.Embed(
+        title="🔇 Blocked Channels",
+        description=f"Found **{len(blocked_ids)}** blocked channel{'s' if len(blocked_ids) > 1 else ''}:\n\n**Note:** I can still be @mentioned in these channels!",
+        color=0xff9900
+    )
+    
+    # Try to fetch channel info for each blocked channel
+    channel_info = []
+    for channel_id in blocked_ids:
+        try:
+            channel = bot.get_channel(channel_id)
+            if channel:
+                channel_info.append(f"• {channel.mention} (`#{channel.name}`) - ID: {channel_id}")
+            else:
+                channel_info.append(f"• Channel ID: {channel_id} (channel not found)")
+        except:
+            channel_info.append(f"• Channel ID: {channel_id} (error fetching info)")
+    
+    embed.add_field(
+        name="📋 Blocked Channels List",
+        value="\n".join(channel_info) if channel_info else "No channels",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="ℹ️ How It Works",
+        value="• **@mentions still work** - I respond when you ping me\n• **No unprompted replies** - I won't jump into conversations\n• **Admins can manage** - Use `/block_channel` or `/unblock_channel`",
+        inline=False
+    )
+    
+    embed.set_footer(text="CFB 26 League Bot - Channel Management")
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="whats_new", description="See what's new with Harry!")

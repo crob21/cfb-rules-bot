@@ -9,6 +9,8 @@ A Discord bot for College Football 26 Online Dynasty League that provides league
 - ⏰ **Advance Timer** - 48-hour countdown with automatic reminders at 24h, 12h, 6h, 1h
 - 📊 **Channel Summarization** - AI-powered summaries of channel discussions
 - 📝 **Charter Management** - Edit and update league rules directly from Discord
+- 🔇 **Channel Management** - Control where Harry makes unprompted responses (@mentions work everywhere)
+- 🔐 **Bot Admin System** - Separate admin permissions for bot-specific features
 - 🏆 **Team Information** - Player rosters, team histories, and league standings
 - 😄 **Fun Interactions** - Rivalry responses and engaging conversations
 - ⚡ **Slash Commands** - Easy-to-use Discord slash commands
@@ -107,9 +109,19 @@ GOOGLE_DOCS_DOCUMENT_ID=your_document_id_here
 - `/restore_charter_backup <file>` - Restore from backup
 
 #### Bot Admin Management
-- `/add_bot_admin @user` - Add a user as bot admin
-- `/remove_bot_admin @user` - Remove a user as bot admin
+- `/add_bot_admin @user` - Add a user as bot admin **(Admin only)**
+- `/remove_bot_admin @user` - Remove a user as bot admin **(Admin only)**
 - `/list_bot_admins` - List all bot admins
+
+#### Channel Management (Admin Only)
+- `/block_channel #channel` - Block unprompted responses in a channel
+- `/unblock_channel #channel` - Allow unprompted responses in a channel
+- `/list_blocked_channels` - Show all blocked channels
+
+**How It Works:**
+- **@mentions always work** - Harry responds when mentioned, even in blocked channels
+- **No unprompted replies** - Harry won't jump into conversations in blocked channels
+- **Slash commands work** - All `/` commands function normally in blocked channels
 
 #### Version & Info
 - `/whats_new` - See latest features and updates
