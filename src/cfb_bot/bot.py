@@ -27,6 +27,7 @@ import logging
 import sys
 import re
 from datetime import datetime, timedelta
+from typing import Optional
 
 # Import timekeeper, summarizer, charter editor, admin manager, version manager, and channel manager
 from .utils.timekeeper import TimekeeperManager
@@ -236,10 +237,10 @@ async def on_message(message):
         if message.id in processed_messages:
             logger.info(f"⏭️ Skipping duplicate message ID: {message.id}")
             return
-        
+
         # Add message ID FIRST before any other checks (atomic operation)
         processed_messages.add(message.id)
-        
+
         # Now check content-based deduplication
         if content_key in processed_content:
             logger.info(f"⏭️ Skipping duplicate content: {content_key[:50]}...")
@@ -1579,14 +1580,14 @@ async def stop_countdown(interaction: discord.Interaction):
 async def summarize_channel(
     interaction: discord.Interaction,
     hours: int = 24,
-    focus: str = None
+    focus: Optional[str] = None
 ):
     """
     Summarize channel activity
 
     Args:
         hours: Number of hours to look back (default: 24)
-        focus: Optional focus area for the summary
+        focus: Optional focus area for the summary (e.g., "rules", "voting", "decisions")
     """
     if not channel_summarizer:
         await interaction.response.send_message("❌ Channel summarizer not available", ephemeral=True)
@@ -1602,26 +1603,34 @@ async def summarize_channel(
         elif hours > 168:  # Max 1 week
             hours = 168
 
+        # Clean up focus parameter
+        focus_text = focus.strip() if focus else None
+        if focus_text:
+            focus_text = focus_text.strip()
+
         # Send "working" message
+        focus_description = f" focusing on **{focus_text}**" if focus_text else ""
         embed = discord.Embed(
             title="📊 Generating Summary...",
-            description=f"Right then, let me 'ave a look through the last **{hours} hours** of messages in this channel...\n\nThis might take a mo', so don't get your knickers in a twist!",
+            description=f"Right then, let me 'ave a look through the last **{hours} hours** of messages in this channel{focus_description}...\n\nThis might take a mo', so don't get your knickers in a twist!",
             color=0xffa500
         )
         await interaction.followup.send(embed=embed)
 
         # Generate the summary
-        logger.info(f"📊 Summary requested by {interaction.user} for #{interaction.channel.name} ({hours} hours)")
+        focus_log = f" (focus: {focus_text})" if focus_text else ""
+        logger.info(f"📊 Summary requested by {interaction.user} for #{interaction.channel.name} ({hours} hours{focus_log})")
         summary = await channel_summarizer.get_channel_summary(
             interaction.channel,
             hours=hours,
-            focus=focus,
+            focus=focus_text,
             limit=500
         )
 
         # Format the response
+        title_focus = f" - {focus_text.title()}" if focus_text else ""
         embed = discord.Embed(
-            title=f"📊 Channel Summary - Last {hours} Hour{'s' if hours > 1 else ''}",
+            title=f"📊 Channel Summary - Last {hours} Hour{'s' if hours > 1 else ''}{title_focus}",
             description=summary,
             color=0x00ff00
         )
@@ -1638,10 +1647,10 @@ async def summarize_channel(
             inline=True
         )
 
-        if focus:
+        if focus_text:
             embed.add_field(
                 name="🎯 Focus",
-                value=focus,
+                value=focus_text,
                 inline=True
             )
 

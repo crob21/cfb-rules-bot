@@ -135,9 +135,11 @@ class ChannelSummarizer:
 
         # Create the AI prompt
         focus_text = f" with a focus on {focus}" if focus else ""
+        focus_instruction = f"\n\n**IMPORTANT:** Focus specifically on discussions related to '{focus}' - filter out irrelevant conversations and highlight only messages that pertain to this topic." if focus else ""
+        
         prompt = f"""You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor.
 
-Please summarize the following Discord channel conversation{focus_text}. Be concise but capture the key points, decisions, discussions, and any important information. Keep your sarcastic personality but make the summary actually useful.
+Please summarize the following Discord channel conversation{focus_text}. Be concise but capture the key points, decisions, discussions, and any important information. Keep your sarcastic personality but make the summary actually useful.{focus_instruction}
 
 Format the summary with:
 - **Main Topics**: What were the key discussion points?
@@ -151,7 +153,8 @@ Channel Messages:
 Provide a helpful summary with maximum sarcasm and wit, but don't be a tosser about it - make it actually useful!"""
 
         try:
-            logger.info(f"🤖 Requesting AI summary for {len(messages)} messages")
+            focus_log = f" (focus: {focus})" if focus else ""
+            logger.info(f"🤖 Requesting AI summary for {len(messages)} messages{focus_log}")
             summary = await self.ai_assistant.ask_ai(prompt, "Channel Summarizer")
 
             if summary:
