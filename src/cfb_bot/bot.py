@@ -406,15 +406,15 @@ async def on_message(message):
         # Handle AI responses
         # Step 1: Check if this is a channel summary request
         question_lower = message.content.lower()
-        
+
         # Keywords that indicate a summary request
         summary_keywords = [
-            'summarize', 'summary', 'what happened', 'tell me what happened', 
+            'summarize', 'summary', 'what happened', 'tell me what happened',
             'recap', 'what\'s been going on', 'what passed', 'what was approved',
             'what was voted', 'what rules passed', 'what rules were approved',
             'what did we vote', 'what did we approve', 'what changed'
         ]
-        
+
         # Check for time references (e.g., "last 3 hours", "past 24 hours", "in the last day")
         time_patterns = [
             r'(\d+)\s*(?:hour|hr|h)',
@@ -423,7 +423,7 @@ async def on_message(message):
             r'in\s+the\s+last\s+(\d+)\s*(?:hour|hr|h)',
             r'over\s+the\s+last\s+(\d+)\s*(?:hour|hr|h)'
         ]
-        
+
         summary_hours = None
         has_time_reference = False
         for pattern in time_patterns:
@@ -432,21 +432,21 @@ async def on_message(message):
                 summary_hours = int(hours_match.group(1))
                 has_time_reference = True
                 break
-        
+
         # Check if it's asking about channel activity/history
         is_asking_about_channel = any(keyword in question_lower for keyword in summary_keywords)
-        
+
         # It's a summary request if:
         # 1. Has explicit summary keywords (summarize, recap, etc.)
         # 2. Has time reference AND asks about what happened/passed/approved (channel activity)
         is_summary_request = is_asking_about_channel or (has_time_reference and any(
             phrase in question_lower for phrase in ['what happened', 'what passed', 'what was', 'what did', 'what changed', 'what rules']
         ))
-        
+
         # Log summary detection for debugging
         if bot_mentioned:
             logger.info(f"🔍 Summary detection: has_time={has_time_reference}, asking_about_channel={is_asking_about_channel}, is_summary={is_summary_request}, hours={summary_hours}")
-        
+
         # If it's a summary request and bot is mentioned, use the summarizer
         if is_summary_request and bot_mentioned and channel_summarizer:
             try:
