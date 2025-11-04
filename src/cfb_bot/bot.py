@@ -464,6 +464,80 @@ async def on_message(message):
                     logger.warning(f"⚠️ Could not find target user {target_user_id} for relay")
             else:
                 logger.debug(f"🔍 No relay pattern matched for: {message.content[:50]}...")
+            
+            # Check if this is a commissioner update request
+            commish_patterns = [
+                (r'update\s+(?:the\s+)?(?:league\s+)?commish(?:ioner)?\s+to\s+(.+)', 1),
+                (r'change\s+(?:the\s+)?(?:league\s+)?commish(?:ioner)?\s+to\s+(.+)', 1),
+                (r'set\s+(?:the\s+)?(?:league\s+)?commish(?:ioner)?\s+to\s+(.+)', 1),
+                (r'make\s+(.+)\s+(?:the\s+)?(?:league\s+)?commish(?:ioner)', 1),
+            ]
+            
+            new_commish_name = None
+            for pattern, group_num in commish_patterns:
+                match = re.search(pattern, message.content, re.IGNORECASE)
+                if match and match.lastindex >= group_num:
+                    new_commish_name = match.group(group_num)
+                    break
+            
+            if new_commish_name and bot_mentioned and admin_manager and admin_manager.is_admin(message.author, message):
+                # Check if charter editor is available
+                if not charter_editor:
+                    embed = discord.Embed(
+                        title="❌ Error",
+                        description="Charter editor not available",
+                        color=0xff0000
+                    )
+                    await message.channel.send(embed=embed)
+                    return
+                
+                # Clean up the name (remove @mentions, extra whitespace)
+                new_commish_name = new_commish_name.strip()
+                
+                # Check if it's a user mention
+                mention_match = re.search(r'<@!?(\d+)>', new_commish_name)
+                if mention_match:
+                    user_id = int(mention_match.group(1))
+                    try:
+                        target_user = await message.guild.fetch_member(user_id) if message.guild else None
+                        if target_user:
+                            new_commish_name = target_user.display_name
+                    except:
+                        pass
+                
+                logger.info(f"👔 Commissioner update requested by {message.author}: {new_commish_name}")
+                
+                # Update the commissioner
+                result = charter_editor.update_commissioner(new_commish_name)
+                
+                if result['success']:
+                    embed = discord.Embed(
+                        title="✅ Commissioner Updated!",
+                        description=f"Right then! I've updated the League Commish to **{new_commish_name}**!\n\nCharter has been updated and backed up automatically.",
+                        color=0x00ff00
+                    )
+                    embed.set_footer(text=f"Updated by {message.author.display_name} 🏈")
+                    await message.channel.send(embed=embed)
+                    logger.info(f"✅ Commissioner updated to: {new_commish_name}")
+                else:
+                    embed = discord.Embed(
+                        title="❌ Update Failed",
+                        description=f"Couldn't update the commissioner, mate!\n\n**Error:** {result['message']}",
+                        color=0xff0000
+                    )
+                    await message.channel.send(embed=embed)
+                    logger.error(f"❌ Failed to update commissioner: {result['message']}")
+                
+                return  # Don't continue with AI response
+            elif new_commish_name and bot_mentioned:
+                # User requested update but isn't admin
+                embed = discord.Embed(
+                    title="❌ Permission Denied",
+                    description="You need to be a bot admin to update the commissioner, ya muppet!",
+                    color=0xff0000
+                )
+                await message.channel.send(embed=embed)
+                return
 
         # Step 1: Check if this is a channel summary request
         question_lower = message.content.lower()
@@ -596,7 +670,7 @@ Keep responses concise and helpful. Do NOT mention "charter" unless you truly do
 
                             # Use AI without charter context since charter had no info
                             general_context = "You are Harry, a helpful assistant. Answer general questions helpfully and accurately with your signature sarcasm and wit."
-                            
+
                             # Call OpenAI directly with general context
                             ai_response = await ai_assistant.ask_openai(general_question, general_context)
                             if not ai_response:
@@ -617,7 +691,7 @@ Please provide a helpful, accurate answer with maximum sarcasm and wit."""
 
                         # Use AI without charter context (like /ask command)
                         general_context = "You are Harry, a helpful assistant. Answer general questions helpfully and accurately with your signature sarcasm and wit."
-                        
+
                         # Call OpenAI directly with general context
                         ai_response = await ai_assistant.ask_openai(general_question, general_context)
                         if not ai_response:
@@ -638,7 +712,7 @@ Please provide a helpful, accurate answer with maximum sarcasm and wit. This is 
 
                     # Use AI without charter context
                     general_context = "You are Harry, a helpful assistant. Answer general questions helpfully and accurately with your signature sarcasm and wit."
-                    
+
                     # Call OpenAI directly with general context
                     ai_response = await ai_assistant.ask_openai(general_question, general_context)
                     if not ai_response:
@@ -1258,17 +1332,17 @@ async def ask_ai(interaction: discord.Interaction, question: str):
 
             # Add Harry's personality to the ask command
             harry_question = f"You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Answer this question with maximum sarcasm: {question}"
-            
+
             # /ask ALWAYS uses general AI without charter context (not league-specific)
             logger.info("🌍 /ask command - ALWAYS using general AI without charter context")
             general_context = "You are Harry, a helpful assistant. Answer general questions helpfully and accurately with your signature sarcasm and wit."
-            
+
             # Call OpenAI directly with general context
             response = await ai_assistant.ask_openai(harry_question, general_context)
             if not response:
                 # Fallback to Anthropic
                 response = await ai_assistant.ask_anthropic(harry_question, general_context)
-            
+
             if response:
                 embed.description = response
                 embed.add_field(

@@ -272,6 +272,76 @@ Just provide the formatted rule text, nothing else."""
             logger.error(f"❌ Error formatting rule with AI: {e}")
             return f"**Rule**: {rule_summary}"
 
+    def update_commissioner(self, new_commish_name: str) -> Dict:
+        """
+        Update the league commissioner in the charter
+
+        Args:
+            new_commish_name: Name of the new commissioner
+
+        Returns:
+            Dict with status and message
+        """
+        try:
+            current_charter = self.read_charter()
+            if not current_charter:
+                return {
+                    'success': False,
+                    'message': 'Could not read current charter'
+                }
+
+            lines = current_charter.split('\n')
+            updated_lines = []
+            commish_updated = False
+
+            for line in lines:
+                # Look for the League Commish line
+                if '**League Commish:**' in line or 'League Commish:' in line:
+                    # Extract the old name (if any) and replace with new one
+                    updated_line = f"- **League Commish:** {new_commish_name}"
+                    updated_lines.append(updated_line)
+                    commish_updated = True
+                    logger.info(f"📝 Updated commissioner: {new_commish_name}")
+                else:
+                    updated_lines.append(line)
+
+            if not commish_updated:
+                # If the section doesn't exist, try to add it after "## Officers"
+                for i, line in enumerate(lines):
+                    updated_lines.append(line)
+                    if '## Officers' in line or 'Officers' in line:
+                        # Add commissioner line after Officers header
+                        updated_lines.append(f"- **League Commish:** {new_commish_name}")
+                        commish_updated = True
+                        break
+
+            if commish_updated:
+                updated_charter = '\n'.join(updated_lines)
+                success = self.write_charter(updated_charter)
+
+                if success:
+                    return {
+                        'success': True,
+                        'message': f'Successfully updated League Commish to: {new_commish_name}'
+                    }
+                else:
+                    return {
+                        'success': False,
+                        'message': 'Failed to write updated charter'
+                    }
+            else:
+                return {
+                    'success': False,
+                    'message': 'Could not find Officers section in charter'
+                }
+
+        except Exception as e:
+            logger.error(f"❌ Error updating commissioner: {e}")
+            return {
+                'success': False,
+                'message': f'Error: {str(e)}'
+            }
+
     def get_backup_list(self) -> List[Dict]:
         """Get a list of available charter backups"""
         try:
