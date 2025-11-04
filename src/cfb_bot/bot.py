@@ -1151,9 +1151,9 @@ async def ask_harry(interaction: discord.Interaction, question: str):
     # Send the actual response
     await interaction.followup.send(embed=embed)
 
-@bot.tree.command(name="ask", description="Ask AI about league rules and policies")
+@bot.tree.command(name="ask", description="Ask Harry anything - league rules or general questions")
 async def ask_ai(interaction: discord.Interaction, question: str):
-    """Ask AI about the league charter"""
+    """Ask AI about league rules or general questions"""
     embed = discord.Embed(
         title="🤖 AI Assistant Response",
         color=0x9b59b6
@@ -1177,18 +1177,43 @@ async def ask_ai(interaction: discord.Interaction, question: str):
             if league_related:
                 logger.info(f"🎯 Matched keywords: {matched_keywords}")
 
-            # Add Harry's personality to the ask command too
+            # Add Harry's personality to the ask command
             harry_question = f"You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Answer this question with maximum sarcasm: {question}"
-            response = await ai_assistant.ask_ai(harry_question, f"{interaction.user} ({interaction.user.id})")
-            if response:
-                embed.description = response
-                embed.add_field(
-                    name="💡 Tip",
-                    value="AI responses are based on the league charter. Always verify important rules in the full document.",
-                    inline=False
-                )
+            
+            # For league-related questions, use charter context
+            # For general questions, use general AI without charter context
+            if league_related:
+                # Use charter context for league questions
+                response = await ai_assistant.ask_ai(harry_question, f"{interaction.user} ({interaction.user.id})")
+                if response:
+                    embed.description = response
+                    embed.add_field(
+                        name="💡 Tip",
+                        value="AI responses are based on the league charter. Always verify important rules in the full document.",
+                        inline=False
+                    )
+                else:
+                    embed.description = "Sorry, I couldn't get an AI response right now. Please check the charter directly."
             else:
-                embed.description = "Sorry, I couldn't get an AI response right now. Please check the charter directly."
+                # For general questions, use AI without charter context
+                logger.info("🌍 General question detected - using AI without charter context")
+                general_context = "You are Harry, a helpful assistant. Answer general questions helpfully and accurately with your signature sarcasm and wit."
+                
+                # Call OpenAI directly with general context
+                response = await ai_assistant.ask_openai(harry_question, general_context)
+                if not response:
+                    # Fallback to Anthropic
+                    response = await ai_assistant.ask_anthropic(harry_question, general_context)
+                
+                if response:
+                    embed.description = response
+                    embed.add_field(
+                        name="💡 Note",
+                        value="This is a general question. For league-specific questions, try `/harry` or `/ask` with league keywords!",
+                        inline=False
+                    )
+                else:
+                    embed.description = "Sorry, I couldn't get an AI response right now. Try again later!"
         except Exception as e:
             embed.description = f"Error getting AI response: {str(e)}"
     else:
