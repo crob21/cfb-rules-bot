@@ -464,7 +464,7 @@ async def on_message(message):
                     logger.warning(f"⚠️ Could not find target user {target_user_id} for relay")
             else:
                 logger.debug(f"🔍 No relay pattern matched for: {message.content[:50]}...")
-            
+
             # Check if this is a commissioner update request
             commish_patterns = [
                 (r'update\s+(?:the\s+)?(?:league\s+)?commish(?:ioner)?\s+to\s+(.+)', 1),
@@ -472,14 +472,14 @@ async def on_message(message):
                 (r'set\s+(?:the\s+)?(?:league\s+)?commish(?:ioner)?\s+to\s+(.+)', 1),
                 (r'make\s+(.+)\s+(?:the\s+)?(?:league\s+)?commish(?:ioner)', 1),
             ]
-            
+
             new_commish_name = None
             for pattern, group_num in commish_patterns:
                 match = re.search(pattern, message.content, re.IGNORECASE)
                 if match and match.lastindex >= group_num:
                     new_commish_name = match.group(group_num)
                     break
-            
+
             if new_commish_name and bot_mentioned and admin_manager and admin_manager.is_admin(message.author, message):
                 # Check if charter editor is available
                 if not charter_editor:
@@ -490,10 +490,10 @@ async def on_message(message):
                     )
                     await message.channel.send(embed=embed)
                     return
-                
+
                 # Clean up the name (remove @mentions, extra whitespace)
                 new_commish_name = new_commish_name.strip()
-                
+
                 # Check if it's a user mention
                 mention_match = re.search(r'<@!?(\d+)>', new_commish_name)
                 if mention_match:
@@ -504,12 +504,12 @@ async def on_message(message):
                             new_commish_name = target_user.display_name
                     except:
                         pass
-                
+
                 logger.info(f"👔 Commissioner update requested by {message.author}: {new_commish_name}")
-                
+
                 # Update the commissioner
                 result = charter_editor.update_commissioner(new_commish_name)
-                
+
                 if result['success']:
                     embed = discord.Embed(
                         title="✅ Commissioner Updated!",
@@ -527,7 +527,7 @@ async def on_message(message):
                     )
                     await message.channel.send(embed=embed)
                     logger.error(f"❌ Failed to update commissioner: {result['message']}")
-                
+
                 return  # Don't continue with AI response
             elif new_commish_name and bot_mentioned:
                 # User requested update but isn't admin
@@ -1318,18 +1318,23 @@ async def ask_ai(interaction: discord.Interaction, question: str):
         title="🤖 AI Assistant Response",
         color=0x9b59b6
     )
+    
+    response_sent = False
+    
+    try:
+        # Send initial response immediately
+        await interaction.response.send_message("🤖 Thinking...", ephemeral=True)
+        response_sent = True
+        
+        # Log the slash command usage
+        guild_name = interaction.guild.name if interaction.guild else "DM"
+        logger.info(f"🎯 SLASH COMMAND: /ask from {interaction.user} ({interaction.user.id}) in {guild_name} - '{question}'")
+        logger.info(f"🔍 Slash command question: '{question}'")
+        logger.info(f"🏠 Server: {guild_name} (ID: {interaction.guild.id if interaction.guild else 'DM'})")
 
-    if AI_AVAILABLE and ai_assistant:
-        try:
-            # Send initial response immediately
-            await interaction.response.send_message("🤖 Thinking...", ephemeral=True)
-
-            # Log the slash command usage
-            guild_name = interaction.guild.name if interaction.guild else "DM"
-            logger.info(f"🎯 SLASH COMMAND: /ask from {interaction.user} ({interaction.user.id}) in {guild_name} - '{question}'")
-            logger.info(f"🔍 Slash command question: '{question}'")
-            logger.info(f"🏠 Server: {guild_name} (ID: {interaction.guild.id if interaction.guild else 'DM'})")
-
+        if not AI_AVAILABLE or not ai_assistant:
+            embed.description = "AI integration not available. Please check the charter directly or use other commands."
+        else:
             # Add Harry's personality to the ask command
             harry_question = f"You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Answer this question with maximum sarcasm: {question}"
 
@@ -1338,12 +1343,15 @@ async def ask_ai(interaction: discord.Interaction, question: str):
             general_context = "You are Harry, a helpful assistant. Answer general questions helpfully and accurately with your signature sarcasm and wit."
 
             # Call OpenAI directly with general context
+            logger.info("🔄 Attempting OpenAI API call...")
             response = await ai_assistant.ask_openai(harry_question, general_context)
             if not response:
                 # Fallback to Anthropic
+                logger.info("⚠️ OpenAI failed, attempting Anthropic fallback...")
                 response = await ai_assistant.ask_anthropic(harry_question, general_context)
 
             if response:
+                logger.info(f"✅ AI response received ({len(response)} characters)")
                 embed.description = response
                 embed.add_field(
                     name="💡 Note",
@@ -1351,12 +1359,38 @@ async def ask_ai(interaction: discord.Interaction, question: str):
                     inline=False
                 )
             else:
-                embed.description = "Sorry, I couldn't get an AI response right now. Try again later!"
-        except Exception as e:
+                logger.error("❌ Both OpenAI and Anthropic failed to respond")
+                embed.description = "Sorry, I couldn't get an AI response right now. Both OpenAI and Anthropic APIs failed. Check your API keys or try again later!"
+                embed.add_field(
+                    name="🔧 Troubleshooting",
+                    value="Make sure OPENAI_API_KEY or ANTHROPIC_API_KEY is set in your environment variables.",
+                    inline=False
+                )
+    except Exception as e:
+        logger.error(f"❌ Exception in /ask command: {str(e)}", exc_info=True)
+        if not response_sent:
+            # If we haven't sent a response yet, send it as the initial response
+            try:
+                embed.description = f"Error getting AI response: {str(e)}"
+                embed.add_field(
+                    name="🔍 Error Details",
+                    value=f"Check the logs for more information. Error type: {type(e).__name__}",
+                    inline=False
+                )
+                await interaction.response.send_message(embed=embed)
+                return
+            except:
+                pass  # If this fails, try followup
+        else:
+            # Already sent initial response, use followup
             embed.description = f"Error getting AI response: {str(e)}"
-    else:
-        embed.description = "AI integration not available. Please check the charter directly or use other commands."
+            embed.add_field(
+                name="🔍 Error Details",
+                value=f"Check the logs for more information. Error type: {type(e).__name__}",
+                inline=False
+            )
 
+    # Add charter link (always)
     embed.add_field(
         name="📖 Full Charter",
         value="[Open League Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
@@ -1366,7 +1400,14 @@ async def ask_ai(interaction: discord.Interaction, question: str):
     embed.set_footer(text="CFB 26 League Bot - AI Assistant")
 
     # Send the actual response
-    await interaction.followup.send(embed=embed)
+    if response_sent:
+        await interaction.followup.send(embed=embed)
+    else:
+        # Fallback: send as initial response if something went wrong
+        try:
+            await interaction.response.send_message(embed=embed)
+        except Exception as e:
+            logger.error(f"❌ Failed to send /ask response: {str(e)}", exc_info=True)
 
 @bot.tree.command(name="advance", description="Start advance countdown timer (Admin only)")
 async def start_advance(interaction: discord.Interaction, hours: int = 48):
