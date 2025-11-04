@@ -227,33 +227,36 @@ async def on_message(message):
     global recent_content_times
     content_key = f"{message.author.id}:{message.content}:{message.channel.id}"
     current_time = asyncio.get_event_loop().time()
-    
+
     if message.id in processed_messages:
         logger.info(f"⏭️ Skipping duplicate message ID: {message.id}")
         return
-    
+
     if content_key in processed_content:
         logger.info(f"⏭️ Skipping duplicate content: {content_key[:50]}...")
         return
-    
+
     # Time-based deduplication: check if same content was processed in last 2 seconds
     if content_key in recent_content_times:
         time_diff = current_time - recent_content_times[content_key]
         if time_diff < 2.0:  # Within 2 seconds
             logger.info(f"⏭️ Skipping duplicate content (time-based): {content_key[:50]}... (seen {time_diff:.2f}s ago)")
             return
-    
+
     # Add to all tracking sets atomically (before processing)
     processed_messages.add(message.id)
     processed_content.add(content_key)
     recent_content_times[content_key] = current_time
-    
+
     # Clean up old entries from recent_content_times (keep last 100 entries)
     if len(recent_content_times) > 100:
         # Remove entries older than 10 seconds
         cutoff_time = current_time - 10.0
-        recent_content_times = {k: v for k, v in recent_content_times.items() if v > cutoff_time}
-    
+        # Filter in place by rebuilding the dict
+        keys_to_remove = [k for k, v in recent_content_times.items() if v <= cutoff_time]
+        for key in keys_to_remove:
+            del recent_content_times[key]
+
     logger.debug(f"✅ Processing new message: ID={message.id}, Content={content_key[:50]}...")
 
     # Ignore messages from the bot itself
@@ -291,21 +294,19 @@ async def on_message(message):
         return
 
     # Simple rate limiting to prevent duplicate responses (5 second cooldown per user)
-    current_time = asyncio.get_event_loop().time()
+    # Reuse current_time from deduplication check above
     user_id = message.author.id
     if user_id in last_message_time and current_time - last_message_time[user_id] < 5:
         logger.info(f"⏭️ Rate limiting: skipping message from {message.author} (too recent)")
         return
     last_message_time[user_id] = current_time
 
-    # Check if the bot is specifically mentioned (not @everyone)
-    bot_mentioned = False
+    # Log mention info (bot_mentioned already set above)
     if message.mentions:
         for mention in message.mentions:
             logger.info(f"🔍 Mention found: {mention} (ID: {mention.id}) vs bot ID: {bot.user.id}")
             if mention.id == bot.user.id:
-                bot_mentioned = True
-                break
+                break  # Already set bot_mentioned above
 
     # Very specific rule-related phrases that indicate actual questions about league rules
     rule_keywords = [
