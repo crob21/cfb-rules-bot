@@ -27,11 +27,12 @@ import logging
 import sys
 from datetime import datetime, timedelta
 
-# Import timekeeper, summarizer, charter editor, and admin manager
+# Import timekeeper, summarizer, charter editor, admin manager, and version manager
 from .utils.timekeeper import TimekeeperManager
 from .utils.summarizer import ChannelSummarizer
 from .utils.charter_editor import CharterEditor
 from .utils.admin_check import AdminManager
+from .utils.version_manager import VersionManager
 
 # Optional Google Docs integration
 try:
@@ -117,11 +118,12 @@ ai_assistant = None
 if AI_AVAILABLE:
     ai_assistant = AICharterAssistant()
 
-# Initialize timekeeper manager, summarizer, charter editor, and admin manager
+# Initialize timekeeper manager, summarizer, charter editor, admin manager, and version manager
 timekeeper_manager = None
 channel_summarizer = None
 charter_editor = None
 admin_manager = None
+version_manager = None
 
 # Simple rate limiting to prevent duplicate responses
 last_message_time = {}
@@ -138,9 +140,13 @@ async def on_ready():
     - Syncing slash commands
     - Logging connection status
     """
-    global timekeeper_manager, channel_summarizer, charter_editor, admin_manager
+    global timekeeper_manager, channel_summarizer, charter_editor, admin_manager, version_manager
     
-    logger.info(f'🏈 CFB 26 League Bot ({bot.user}) has connected to Discord!')
+    # Initialize version manager first to get version
+    version_manager = VersionManager()
+    current_version = version_manager.get_current_version()
+    
+    logger.info(f'🏈 CFB 26 League Bot ({bot.user}) v{current_version} has connected to Discord!')
     logger.info(f'🔗 Bot ID: {bot.user.id}')
     logger.info(f'📛 Bot Username: {bot.user.name}')
     logger.info(f'🏷️ Bot Display Name: {bot.user.display_name}')
@@ -150,15 +156,15 @@ async def on_ready():
     # Initialize admin manager
     admin_manager = AdminManager()
     logger.info(f'🔐 Admin manager initialized ({admin_manager.get_admin_count()} admin(s) configured)')
-    
+
     # Initialize timekeeper manager
     timekeeper_manager = TimekeeperManager(bot)
     logger.info('⏰ Timekeeper manager initialized')
-    
+
     # Initialize channel summarizer (with AI if available)
     channel_summarizer = ChannelSummarizer(ai_assistant if AI_AVAILABLE else None)
     logger.info('📊 Channel summarizer initialized')
-    
+
     # Initialize charter editor (with AI if available)
     charter_editor = CharterEditor(ai_assistant if AI_AVAILABLE else None)
     logger.info('📝 Charter editor initialized')
@@ -842,11 +848,13 @@ async def help_cfb(interaction: discord.Interaction):
             "• `/team <team_name>` - Team information\n"
             "• `/tokens` - AI usage statistics\n"
             "• `/whats_new` - See latest features!\n"
+            "• `/version` - Current bot version\n"
+            "• `/changelog [version]` - View version history\n"
             "• `/help_cfb` - Show this message"
         ),
         inline=False
     )
-    
+
     # Admin Management Commands
     embed.add_field(
         name="🔐 **Admin Management**",
@@ -1571,22 +1579,22 @@ async def restore_backup(interaction: discord.Interaction, backup_filename: str)
 async def add_bot_admin(interaction: discord.Interaction, user: discord.Member):
     """
     Add a user as bot admin
-    
+
     Args:
         user: The Discord user to make a bot admin
     """
     if not admin_manager:
         await interaction.response.send_message("❌ Admin manager not available", ephemeral=True)
         return
-    
+
     # Check if command user is admin (either Discord admin or bot admin)
     if not admin_manager.is_admin(interaction.user, interaction):
         await interaction.response.send_message("❌ You need to be a bot admin to use this command, ya muppet!", ephemeral=True)
         return
-    
+
     # Add the user as admin
     success = admin_manager.add_admin(user.id)
-    
+
     if success:
         embed = discord.Embed(
             title="✅ Bot Admin Added!",
@@ -1608,22 +1616,22 @@ async def add_bot_admin(interaction: discord.Interaction, user: discord.Member):
 async def remove_bot_admin(interaction: discord.Interaction, user: discord.Member):
     """
     Remove a user as bot admin
-    
+
     Args:
         user: The Discord user to remove as bot admin
     """
     if not admin_manager:
         await interaction.response.send_message("❌ Admin manager not available", ephemeral=True)
         return
-    
+
     # Check if command user is admin
     if not admin_manager.is_admin(interaction.user, interaction):
         await interaction.response.send_message("❌ You need to be a bot admin to use this command!", ephemeral=True)
         return
-    
+
     # Remove the user as admin
     success = admin_manager.remove_admin(user.id)
-    
+
     if success:
         embed = discord.Embed(
             title="✅ Bot Admin Removed",
@@ -1647,9 +1655,9 @@ async def list_bot_admins(interaction: discord.Interaction):
     if not admin_manager:
         await interaction.response.send_message("❌ Admin manager not available", ephemeral=True)
         return
-    
+
     admin_ids = admin_manager.get_admin_list()
-    
+
     if not admin_ids:
         embed = discord.Embed(
             title="🔐 Bot Admins",
@@ -1658,13 +1666,13 @@ async def list_bot_admins(interaction: discord.Interaction):
         )
         await interaction.response.send_message(embed=embed)
         return
-    
+
     embed = discord.Embed(
         title="🔐 Bot Admins",
         description=f"Found **{len(admin_ids)}** bot admin{'s' if len(admin_ids) > 1 else ''}:",
         color=0x00ff00
     )
-    
+
     # Try to fetch user info for each admin
     admin_info = []
     for admin_id in admin_ids:
@@ -1673,19 +1681,19 @@ async def list_bot_admins(interaction: discord.Interaction):
             admin_info.append(f"• **{user.display_name}** (`{user.name}`) - ID: {admin_id}")
         except:
             admin_info.append(f"• User ID: {admin_id} (user not found)")
-    
+
     embed.add_field(
         name="📋 Admin List",
         value="\n".join(admin_info) if admin_info else "No admins",
         inline=False
     )
-    
+
     embed.add_field(
         name="ℹ️ Note",
         value="Users with Discord Administrator permission also have bot admin access.",
         inline=False
     )
-    
+
     embed.set_footer(text="CFB 26 League Bot - Admin Management")
     await interaction.response.send_message(embed=embed)
 
@@ -1697,7 +1705,7 @@ async def whats_new(interaction: discord.Interaction):
         description="Oi! Look at all the brilliant new stuff I can do now, mate!",
         color=0x00ff00
     )
-    
+
     # Feature 1: Advance Timer
     embed.add_field(
         name="⏰ **Advance Timer with Custom Duration** (NEW!)",
@@ -1712,7 +1720,7 @@ async def whats_new(interaction: discord.Interaction):
         ),
         inline=False
     )
-    
+
     # Feature 2: Channel Summarization
     embed.add_field(
         name="📊 **Channel Summarization** (NEW!)",
@@ -1726,7 +1734,7 @@ async def whats_new(interaction: discord.Interaction):
         ),
         inline=False
     )
-    
+
     # Feature 3: Charter Management
     embed.add_field(
         name="📝 **Charter Management** (NEW! - Admin Only)",
@@ -1741,7 +1749,7 @@ async def whats_new(interaction: discord.Interaction):
         ),
         inline=False
     )
-    
+
     # Feature 4: Bot Admin System
     embed.add_field(
         name="🔐 **Bot Admin System** (NEW!)",
@@ -1755,7 +1763,7 @@ async def whats_new(interaction: discord.Interaction):
         ),
         inline=False
     )
-    
+
     # Other improvements
     embed.add_field(
         name="✨ **Other Improvements**",
@@ -1767,15 +1775,130 @@ async def whats_new(interaction: discord.Interaction):
         ),
         inline=False
     )
-    
+
     embed.add_field(
         name="📖 **Learn More**",
         value="Use `/help_cfb` to see all available commands!",
         inline=False
     )
+
+    # Add version info
+    if version_manager:
+        current_ver = version_manager.get_current_version()
+        embed.set_footer(text=f"Harry v{current_ver} - Your CFB 26 League Assistant 🏈 | Updated November 2025")
+    else:
+        embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈 | Updated November 2025")
     
-    embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈 | Updated November 2025")
     embed.set_thumbnail(url="https://i.imgur.com/3xzKq7L.png")  # Football emoji as thumbnail
+    
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="version", description="Show current bot version")
+async def show_version(interaction: discord.Interaction):
+    """Show the current version"""
+    if not version_manager:
+        await interaction.response.send_message("❌ Version manager not available", ephemeral=True)
+        return
+    
+    current_ver = version_manager.get_current_version()
+    version_info = version_manager.get_latest_version_info()
+    
+    embed = discord.Embed(
+        title=f"🏈 Harry v{current_ver}",
+        description=f"{version_info.get('emoji', '🎉')} {version_info.get('title', 'Current Version')}",
+        color=0x00ff00
+    )
+    
+    embed.add_field(
+        name="📅 Release Date",
+        value=version_info.get('date', 'Unknown'),
+        inline=True
+    )
+    
+    embed.add_field(
+        name="📊 Total Versions",
+        value=str(len(version_manager.get_all_versions())),
+        inline=True
+    )
+    
+    embed.add_field(
+        name="📖 View Details",
+        value="Use `/changelog` to see all changes!",
+        inline=False
+    )
+    
+    embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="changelog", description="View version changelog")
+async def view_changelog(interaction: discord.Interaction, version: str = None):
+    """
+    View the changelog for a specific version or all versions
+    
+    Args:
+        version: Specific version to view (e.g., "1.1.0") or leave blank for summary
+    """
+    if not version_manager:
+        await interaction.response.send_message("❌ Version manager not available", ephemeral=True)
+        return
+    
+    # If no version specified, show summary of all versions
+    if not version:
+        embed = discord.Embed(
+            title="📜 Harry's Version History",
+            description="Here's all the brilliant updates I've had, mate!",
+            color=0x00ff00
+        )
+        
+        summary = version_manager.get_version_summary()
+        embed.add_field(
+            name="📋 All Versions",
+            value=summary,
+            inline=False
+        )
+        
+        embed.add_field(
+            name="🔍 View Specific Version",
+            value="Use `/changelog 1.1.0` to see details for a specific version!",
+            inline=False
+        )
+        
+        current_ver = version_manager.get_current_version()
+        embed.set_footer(text=f"Current Version: v{current_ver}")
+        
+        await interaction.response.send_message(embed=embed)
+        return
+    
+    # Show specific version details
+    embed_data = version_manager.format_version_embed_data(version)
+    
+    if not embed_data:
+        embed = discord.Embed(
+            title="❌ Version Not Found",
+            description=f"Sorry mate, I don't have any info about version {version}!\n\nUse `/changelog` to see all available versions.",
+            color=0xff0000
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Create embed with version details
+    embed = discord.Embed(
+        title=embed_data['title'],
+        description=embed_data['description'],
+        color=0x00ff00
+    )
+    
+    for field in embed_data['fields']:
+        embed.add_field(
+            name=field['name'],
+            value=field['value'],
+            inline=field['inline']
+        )
+    
+    current_ver = version_manager.get_current_version()
+    is_current = version == current_ver
+    footer_text = f"Version v{version}" + (" (Current)" if is_current else "")
+    embed.set_footer(text=footer_text)
     
     await interaction.response.send_message(embed=embed)
 
