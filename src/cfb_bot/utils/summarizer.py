@@ -35,29 +35,29 @@ class ChannelSummarizer:
             List of discord.Message objects
         """
         logger.info(f"📥 Fetching messages from #{channel.name} (last {hours} hours)")
-        
+
         # Calculate the time threshold - use UTC aware datetime
         time_threshold = datetime.now(timezone.utc) - timedelta(hours=hours)
-        
+
         logger.info(f"🔍 Looking for messages after: {time_threshold}")
-        
+
         messages = []
         try:
             message_count = 0
             async for message in channel.history(limit=limit):
                 message_count += 1
-                
+
                 # Check if message is within time range
                 if message.created_at < time_threshold:
                     # Older than our threshold, stop looking
                     break
-                
+
                 # Skip bot messages unless they're important
                 if message.author.bot:
                     continue
-                    
+
                 messages.append(message)
-            
+
             logger.info(f"📊 Scanned {message_count} total messages, found {len(messages)} user messages")
 
             logger.info(f"✅ Fetched {len(messages)} messages from #{channel.name}")

@@ -230,6 +230,8 @@ async def on_message(message):
     ALLOWED_CHANNELS = {
         # Channel ID 1417663211292852244 for #Booze's-Playground
         1417663211292852244: "Booze's-Playground",
+        # Channel ID 1261662233109205146 for #general
+        1261662233109205146: "general",
         # #bot-test in BoozeRob's Beerhall (we'll check by name since we don't have the ID)
     }
 
@@ -1276,11 +1278,11 @@ async def summarize_channel(
     if not channel_summarizer:
         await interaction.response.send_message("❌ Channel summarizer not available", ephemeral=True)
         return
-    
+
     try:
         # Send initial response IMMEDIATELY to avoid timeout
         await interaction.response.defer()
-        
+
         # Validate hours input
         if hours < 1:
             hours = 1
