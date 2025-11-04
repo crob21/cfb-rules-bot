@@ -132,6 +132,7 @@ channel_manager = None
 last_message_time = {}
 processed_messages = set()  # Track processed message IDs
 processed_content = set()  # Track processed content+author combinations
+recent_content_times = {}  # Track content + timestamp for time-based deduplication
 
 @bot.event
 async def on_ready():
@@ -223,7 +224,9 @@ async def on_message(message):
     """
     # Prevent duplicate processing of the same message (check first!)
     # Check both message ID and content key before processing
+    global recent_content_times
     content_key = f"{message.author.id}:{message.content}:{message.channel.id}"
+    current_time = asyncio.get_event_loop().time()
     
     if message.id in processed_messages:
         logger.info(f"⏭️ Skipping duplicate message ID: {message.id}")
@@ -233,9 +236,24 @@ async def on_message(message):
         logger.info(f"⏭️ Skipping duplicate content: {content_key[:50]}...")
         return
     
-    # Add to both sets atomically (before processing)
+    # Time-based deduplication: check if same content was processed in last 2 seconds
+    if content_key in recent_content_times:
+        time_diff = current_time - recent_content_times[content_key]
+        if time_diff < 2.0:  # Within 2 seconds
+            logger.info(f"⏭️ Skipping duplicate content (time-based): {content_key[:50]}... (seen {time_diff:.2f}s ago)")
+            return
+    
+    # Add to all tracking sets atomically (before processing)
     processed_messages.add(message.id)
     processed_content.add(content_key)
+    recent_content_times[content_key] = current_time
+    
+    # Clean up old entries from recent_content_times (keep last 100 entries)
+    if len(recent_content_times) > 100:
+        # Remove entries older than 10 seconds
+        cutoff_time = current_time - 10.0
+        recent_content_times = {k: v for k, v in recent_content_times.items() if v > cutoff_time}
+    
     logger.debug(f"✅ Processing new message: ID={message.id}, Content={content_key[:50]}...")
 
     # Ignore messages from the bot itself
