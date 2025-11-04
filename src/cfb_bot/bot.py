@@ -25,6 +25,7 @@ import json
 import asyncio
 import logging
 import sys
+import re
 from datetime import datetime, timedelta
 
 # Import timekeeper, summarizer, charter editor, admin manager, version manager, and channel manager
@@ -403,7 +404,56 @@ async def on_message(message):
         )
 
         # Handle AI responses
-        # Step 1: Try AI with charter content first
+        # Step 1: Check if this is a channel summary request
+        summary_keywords = ['summarize', 'summary', 'what happened', 'tell me what happened', 'recap', 'what\'s been going on']
+        question_lower = message.content.lower()
+        is_summary_request = any(keyword in question_lower for keyword in summary_keywords)
+        
+        # Extract hours if mentioned (e.g., "last 3 hours", "past 24 hours")
+        hours_match = re.search(r'(\d+)\s*(?:hour|hr|h)', question_lower)
+        summary_hours = int(hours_match.group(1)) if hours_match else None
+        
+        # If it's a summary request and bot is mentioned, use the summarizer
+        if is_summary_request and bot_mentioned and channel_summarizer:
+            try:
+                hours = summary_hours or 24  # Default to 24 hours if not specified
+                logger.info(f"📊 Summary requested via @mention by {message.author} - {hours} hours")
+                
+                # Use summarizer to generate summary
+                summary = await channel_summarizer.summarize_channel(
+                    message.channel,
+                    hours=hours,
+                    focus=None  # Could extract focus from message if needed
+                )
+                
+                if summary:
+                    embed = discord.Embed(
+                        title=f"📊 Channel Summary - Last {hours} {'Hour' if hours == 1 else 'Hours'}",
+                        description=summary,
+                        color=0x00ff00
+                    )
+                    embed.add_field(
+                        name="📍 Channel",
+                        value=f"#{message.channel.name}",
+                        inline=True
+                    )
+                    embed.add_field(
+                        name="⏰ Time Period",
+                        value=f"Last {hours} {'hour' if hours == 1 else 'hours'}",
+                        inline=True
+                    )
+                    embed.set_footer(text=f"Harry's Channel Summary 🏈 | Requested by {message.author.display_name}")
+                    await message.channel.send(embed=embed)
+                    logger.info(f"✅ Summary delivered via @mention for #{message.channel.name}")
+                    return  # Don't continue with AI response
+                else:
+                    # Fall through to AI response if summarizer fails
+                    pass
+            except Exception as e:
+                logger.error(f"❌ Error generating summary via @mention: {e}")
+                # Fall through to AI response
+        
+        # Step 2: Try AI with charter content first
         ai_response = None
         if AI_AVAILABLE and ai_assistant:
             try:
