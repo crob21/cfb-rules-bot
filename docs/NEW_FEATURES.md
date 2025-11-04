@@ -1,6 +1,10 @@
 # New Harry Features 🏈
 
-This document outlines the three major features added to Harry, the CFB 26 League Bot.
+This document outlines the major features added to Harry, the CFB 26 League Bot in version 1.1.0.
+
+**Current Version:** 1.1.0  
+**Release Date:** November 4, 2025  
+**Status:** ✅ Production Ready
 
 ## 1. ⏰ Advance Timer / Timekeeper
 
@@ -79,7 +83,7 @@ Harry can now edit the league charter directly from Discord!
 
 ### Commands:
 
-#### `/add_rule <section_title> <rule_content> [position]`
+#### `/add_rule <title> <content> [position]`
 Adds a new rule section to the charter
 - **section_title**: Title of the new section
 - **rule_content**: Content of the rule
@@ -145,6 +149,130 @@ Restores charter from a backup file
 - Maintain charter based on league meetings
 - Quickly revert bad changes
 
+## 4. 🔐 Bot Admin System
+
+Manage bot administrators directly through Discord!
+
+### Commands:
+
+#### `/add_bot_admin @user`
+Add a Discord user as a bot admin
+- User gains access to all admin-only commands
+- Requires current user to be an admin
+
+**Example:**
+```
+/add_bot_admin @Commissioner
+```
+
+#### `/remove_bot_admin @user`
+Remove a user's bot admin privileges
+- Revokes admin command access
+- Requires current user to be an admin
+
+**Example:**
+```
+/remove_bot_admin @FormerCommish
+```
+
+#### `/list_bot_admins`
+View all current bot admins
+- Shows display names and user IDs
+- Anyone can use this command
+- Also shows that Discord Administrators have access
+
+### How It Works:
+
+**Two Ways to Be a Bot Admin:**
+1. **Discord Administrator Permission** - Automatic bot admin access
+2. **Bot Admin List** - Added via `/add_bot_admin` command
+
+**Admin-Only Commands:**
+- `/stop_countdown` - Stop advance timer
+- `/add_rule` - Add charter rules
+- `/update_rule` - Update charter rules
+- `/view_charter_backups` - View backups
+- `/restore_charter_backup` - Restore backups
+- `/add_bot_admin` - Add new admins
+- `/remove_bot_admin` - Remove admins
+
+### Configuration Options:
+
+**Option 1: Through Discord (Recommended)**
+Use `/add_bot_admin @user` in Discord once deployed
+
+**Option 2: Environment Variable**
+Set `BOT_ADMIN_IDS` in your `.env` file:
+```
+BOT_ADMIN_IDS=123456789012345678,987654321098765432
+```
+(Comma-separated list of Discord User IDs)
+
+**Option 3: Hardcoded**
+Edit `src/cfb_bot/utils/admin_check.py` and add User IDs to `HARDCODED_ADMINS` list
+
+## 5. 📜 Version Control & Changelog
+
+Track bot versions and view update history!
+
+### Commands:
+
+#### `/version`
+Shows current bot version information
+- Version number (e.g., v1.1.0)
+- Release date
+- Total versions available
+
+**Example Output:**
+```
+🏈 Harry v1.1.0
+🎉 Major Feature Update
+📅 Release Date: 2025-11-04
+📊 Total Versions: 2
+```
+
+#### `/changelog [version]`
+View version changelog and update history
+
+**Without version parameter:**
+```
+/changelog
+```
+Shows summary of all versions
+
+**With specific version:**
+```
+/changelog 1.1.0
+```
+Shows detailed changes for that version
+
+#### `/whats_new`
+Showcase latest features in a user-friendly format
+- Highlights new features with examples
+- Perfect for announcing updates to your league
+- Automatically shows current version
+
+### Features:
+
+**Complete Version History:**
+- All versions tracked in `version_manager.py`
+- Organized by release date
+- Categorized features by type
+- Emoji indicators for each category
+
+**Easy Updates:**
+When adding new features:
+1. Update `CURRENT_VERSION` in `version_manager.py`
+2. Add new entry to `CHANGELOG` dict
+3. Categorize features appropriately
+4. Commit and deploy!
+
+**Version Display:**
+- Bot startup shows version in logs
+- `/whats_new` shows current version
+- Help commands reference version
+- Easy to track what's running
+
 ## Technical Details
 
 ### File Structure:
@@ -153,7 +281,9 @@ src/cfb_bot/
 ├── utils/
 │   ├── timekeeper.py      # Advance timer functionality
 │   ├── summarizer.py      # Channel summarization
-│   └── charter_editor.py  # Charter management
+│   ├── charter_editor.py  # Charter management
+│   ├── admin_check.py     # Bot admin management
+│   └── version_manager.py # Version control & changelog
 └── bot.py                 # Main bot with new commands
 ```
 
@@ -197,14 +327,33 @@ All features use existing dependencies:
 
 ## Notes
 
-- All admin commands require Discord Administrator permissions
+- All admin commands require Discord Administrator permissions OR bot admin status
 - Charter backups are created automatically before any edits
 - Summaries work best with AI enabled (OpenAI or Anthropic)
 - Timers are per-channel and independent
 - All features include Harry's signature cockney personality!
+- Version history is tracked in `src/cfb_bot/utils/version_manager.py`
+
+## ⚠️ IMPORTANT: Updating Versions
+
+**When adding new features, you MUST update the version!**
+
+See `docs/VERSION_MANAGEMENT.md` for complete instructions on:
+- How to increment version numbers
+- How to add changelog entries
+- Version numbering conventions
+- Release process
+
+**Quick Reminder:**
+1. Edit `src/cfb_bot/utils/version_manager.py`
+2. Update `CURRENT_VERSION` (e.g., "1.1.0" → "1.2.0")
+3. Add new entry to `CHANGELOG` dict with all changes
+4. Commit with descriptive message
+5. Push and deploy!
 
 ---
 
-**Implemented**: November 2025
-**Version**: 1.1.0
-**Author**: Harry (with assistance from Craig's AI assistant, innit!)
+**Implemented**: November 4, 2025  
+**Version**: 1.1.0  
+**Author**: Harry (with assistance from Craig's AI assistant, innit!)  
+**Last Updated**: November 4, 2025
