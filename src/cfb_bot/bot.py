@@ -1181,7 +1181,7 @@ async def check_time_status(interaction: discord.Interaction):
         # Determine urgency color
         if hours >= 24:
             color = 0x00ff00  # Green
-            urgency = "Loads of time left, no rush!"
+            urgency = "Loads of time, but still play your fucking games!"
         elif hours >= 12:
             color = 0xffa500  # Orange
             urgency = "Getting closer now, better get crackin'!"
