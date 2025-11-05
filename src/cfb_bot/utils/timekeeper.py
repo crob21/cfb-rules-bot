@@ -67,7 +67,7 @@ class AdvanceTimer:
             }
 
             state_json = json.dumps(state)
-
+            
             # Save to file (for local development)
             try:
                 TIMER_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -85,11 +85,19 @@ class AdvanceTimer:
                 logger.warning(f"⚠️ Failed to save timer state to environment variable: {e}")
 
             # Save to Discord (persists across deployments!)
+            # This MUST succeed for persistence to work
             if self.manager:
-                await self.manager._save_state_to_discord(state)
-
+                discord_saved = await self.manager._save_state_to_discord(state)
+                if not discord_saved:
+                    logger.error("❌ CRITICAL: Failed to save timer state to Discord - timer will NOT persist!")
+                else:
+                    logger.info("✅ Timer state saved to Discord successfully")
+            else:
+                logger.error("❌ CRITICAL: No manager available - timer state NOT saved to Discord!")
+            
         except Exception as e:
             logger.error(f"❌ Failed to save timer state: {e}")
+            logger.exception("Full error details:")
 
     async def start_countdown(self, hours: int = 48) -> bool:
         """Start a countdown with custom duration"""
@@ -266,16 +274,16 @@ class TimekeeperManager:
                 bot_owner_id = app_info.owner.id if app_info.owner else None
             except:
                 pass
-            
+
             # If we have bot owner, use DM channel (invisible to users)
             if bot_owner_id:
                 try:
                     bot_owner = await self.bot.fetch_user(bot_owner_id)
                     dm_channel = bot_owner.dm_channel or await bot_owner.create_dm()
-                    
+
                     # Store state as JSON
                     state_json = json.dumps(state)
-                    
+
                     # Try to find existing state message in DM
                     if self.state_message_id:
                         try:
@@ -285,11 +293,11 @@ class TimekeeperManager:
                             return True
                         except discord.NotFound:
                             self.state_message_id = None
-                    
+
                     # Clean up old state messages
                     try:
                         async for message in dm_channel.history(limit=10):
-                            if (message.author == self.bot.user and 
+                            if (message.author == self.bot.user and
                                 message.content.startswith("```json") and
                                 "channel_id" in message.content):
                                 if message.id != self.state_message_id:
@@ -299,7 +307,7 @@ class TimekeeperManager:
                                         pass
                     except:
                         pass
-                    
+
                     # Create new state message in DM (invisible to users!)
                     message = await dm_channel.send(content=f"```json\n{state_json}\n```")
                     self.state_message_id = message.id
@@ -307,14 +315,17 @@ class TimekeeperManager:
                     return True
                 except Exception as e:
                     logger.warning(f"⚠️ Could not use DM channel for state storage: {e}, falling back to timer channel")
-            
+                    logger.exception("Full error details:")
+
             # Fallback: Use timer's channel (visible but necessary)
             channel_id = state.get('channel_id')
             if not channel_id:
+                logger.error("❌ No channel_id in state - cannot save to Discord")
                 return False
 
             channel = self.bot.get_channel(channel_id)
             if not channel:
+                logger.error(f"❌ Channel {channel_id} not found - cannot save state")
                 return False
 
             # Store state as JSON in message content
@@ -326,10 +337,14 @@ class TimekeeperManager:
                     message = await channel.fetch_message(self.state_message_id)
                     # Update existing message (edit is less visible than new message)
                     await message.edit(content=f"```json\n{state_json}\n```")
-                    logger.info("💾 Updated timer state message in Discord")
+                    logger.info("💾 Updated timer state message in Discord channel")
                     return True
                 except discord.NotFound:
                     # Message was deleted, create new one
+                    logger.debug("State message not found, will create new one")
+                    self.state_message_id = None
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to update state message: {e}, will create new one")
                     self.state_message_id = None
 
             # Clean up old state messages from this bot to avoid clutter
@@ -346,40 +361,44 @@ class TimekeeperManager:
                             logger.debug(f"🗑️ Deleted old timer state message")
                         except:
                             pass  # Ignore if we can't delete
-            except:
-                pass  # Ignore if we can't search history
+            except Exception as e:
+                logger.debug(f"Could not clean up old messages: {e}")
 
             # Create new state message (silent, but still visible)
-            # We minimize it by using silent=True, but users can still see it
-            # Alternative: Store in DM channel or hidden channel (requires more setup)
-            message = await channel.send(
-                content=f"```json\n{state_json}\n```",
-                silent=True  # Don't notify users (but message still visible)
-            )
-            self.state_message_id = message.id
-            self.state_channel_id = channel_id
-            logger.info("💾 Created timer state message in Discord (fallback - visible to users)")
-            return True
-
-        except Exception as e:
-            logger.error(f"❌ Failed to save timer state to Discord: {e}")
-            return False
+            try:
+                message = await channel.send(
+                    content=f"```json\n{state_json}\n```",
+                    silent=True  # Don't notify users (but message still visible)
+                )
+                self.state_message_id = message.id
+                self.state_channel_id = channel_id
+                logger.info(f"💾 Created timer state message in #{channel.name} (fallback - visible to users)")
+                return True
+            except Exception as e:
+                logger.error(f"❌ Failed to create state message in channel: {e}")
+                return False
 
     async def _load_state_from_discord(self) -> Optional[Dict]:
         """Load timer state from Discord (DM channel first, then public channels)"""
         try:
             # First, try to get state from bot owner's DM channel (preferred, invisible)
+            logger.info("🔍 Checking bot owner DM channel for timer state...")
             try:
                 app_info = await self.bot.application_info()
                 bot_owner_id = app_info.owner.id if app_info.owner else None
                 
                 if bot_owner_id:
+                    logger.info(f"📧 Bot owner ID: {bot_owner_id}")
                     bot_owner = await self.bot.fetch_user(bot_owner_id)
                     dm_channel = bot_owner.dm_channel or await bot_owner.create_dm()
+                    logger.info(f"📧 DM channel created/accessed: {dm_channel.id}")
                     
                     # Search DM channel for state messages
+                    message_count = 0
                     async for message in dm_channel.history(limit=10):
+                        message_count += 1
                         if message.author == self.bot.user and message.content.startswith("```json"):
+                            logger.info(f"📧 Found JSON message in DM (message #{message_count})")
                             # Extract JSON from code block
                             content = message.content.strip()
                             if content.startswith("```json"):
@@ -393,22 +412,33 @@ class TimekeeperManager:
                                 # Validate it's a timer state
                                 if 'channel_id' in state and 'end_time' in state:
                                     self.state_message_id = message.id
-                                    logger.info(f"📂 Found timer state message in bot owner DM")
+                                    logger.info(f"✅ Found timer state message in bot owner DM")
                                     return state
-                            except json.JSONDecodeError:
+                            except json.JSONDecodeError as e:
+                                logger.debug(f"Failed to parse JSON from DM message: {e}")
                                 continue
+                    logger.info(f"📧 Searched {message_count} messages in DM, no timer state found")
+                else:
+                    logger.warning("⚠️ Could not get bot owner ID")
             except Exception as e:
-                logger.debug(f"Could not check DM channel: {e}")
+                logger.warning(f"⚠️ Could not check DM channel: {e}")
+                logger.debug("Full error:", exc_info=True)
             
             # Fallback: Search for state messages in all channels the bot can access
+            logger.info("🔍 Checking public channels for timer state...")
+            channels_checked = 0
+            messages_checked = 0
             for guild in self.bot.guilds:
                 for channel in guild.text_channels:
                     if not channel.permissions_for(guild.me).read_message_history:
                         continue
+                    
+                    channels_checked += 1
 
                     # Search recent messages for state (look for JSON in code blocks)
                     try:
                         async for message in channel.history(limit=100):
+                            messages_checked += 1
                             if message.author == self.bot.user and message.content.startswith("```json"):
                                 # Extract JSON from code block
                                 content = message.content.strip()
@@ -442,42 +472,51 @@ class TimekeeperManager:
                     except Exception as e:
                         logger.debug(f"Error searching channel {channel.name}: {e}")
                         continue
+            
+            logger.info(f"📂 Searched {channels_checked} channels, {messages_checked} messages - no timer state found")
 
             return None
 
         except Exception as e:
             logger.error(f"❌ Failed to load timer state from Discord: {e}")
+            logger.exception("Full error details:")
             return None
 
     async def load_saved_state(self):
         """Load and restore any saved timer state from Discord, environment variable, or file"""
+        logger.info("🔄 Attempting to load saved timer state...")
         state = None
 
         # Try loading from Discord first (most reliable for ephemeral file systems)
+        logger.info("📂 Checking Discord for timer state...")
         state = await self._load_state_from_discord()
         if state:
-            logger.info("📂 Loaded timer state from Discord")
+            logger.info("✅ Loaded timer state from Discord")
+        else:
+            logger.info("📂 No timer state found in Discord")
 
         # Fallback to environment variable (for Render/Railway if manually set)
         if not state and 'TIMER_STATE' in os.environ:
+            logger.info("📂 Checking environment variable for timer state...")
             try:
                 state_json = os.environ['TIMER_STATE']
                 state = json.loads(state_json)
-                logger.info("📂 Loaded timer state from environment variable")
+                logger.info("✅ Loaded timer state from environment variable")
             except Exception as e:
                 logger.warning(f"⚠️ Failed to load timer state from environment variable: {e}")
 
         # Fallback to file system (for local development)
         if not state and TIMER_STATE_FILE.exists():
+            logger.info(f"📂 Checking file system for timer state ({TIMER_STATE_FILE})...")
             try:
                 with open(TIMER_STATE_FILE, 'r') as f:
                     state = json.load(f)
-                logger.info("📂 Loaded timer state from file")
+                logger.info("✅ Loaded timer state from file")
             except Exception as e:
                 logger.warning(f"⚠️ Failed to load timer state from file: {e}")
 
         if not state:
-            logger.info("📂 No saved timer state found")
+            logger.info("📂 No saved timer state found anywhere")
             return
 
         try:
