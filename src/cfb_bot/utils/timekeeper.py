@@ -257,9 +257,58 @@ class TimekeeperManager:
         self.state_channel_id: Optional[int] = None  # Channel ID for state storage
 
     async def _save_state_to_discord(self, state: Dict):
-        """Save timer state to a Discord channel message (persists across deployments)"""
+        """Save timer state to a Discord DM channel (persists across deployments, invisible to users)"""
         try:
-            # Use the timer's channel or a default channel
+            # Try to get bot owner for DM channel (more private)
+            bot_owner_id = None
+            try:
+                app_info = await self.bot.application_info()
+                bot_owner_id = app_info.owner.id if app_info.owner else None
+            except:
+                pass
+            
+            # If we have bot owner, use DM channel (invisible to users)
+            if bot_owner_id:
+                try:
+                    bot_owner = await self.bot.fetch_user(bot_owner_id)
+                    dm_channel = bot_owner.dm_channel or await bot_owner.create_dm()
+                    
+                    # Store state as JSON
+                    state_json = json.dumps(state)
+                    
+                    # Try to find existing state message in DM
+                    if self.state_message_id:
+                        try:
+                            message = await dm_channel.fetch_message(self.state_message_id)
+                            await message.edit(content=f"```json\n{state_json}\n```")
+                            logger.info("💾 Updated timer state message in bot owner DM")
+                            return True
+                        except discord.NotFound:
+                            self.state_message_id = None
+                    
+                    # Clean up old state messages
+                    try:
+                        async for message in dm_channel.history(limit=10):
+                            if (message.author == self.bot.user and 
+                                message.content.startswith("```json") and
+                                "channel_id" in message.content):
+                                if message.id != self.state_message_id:
+                                    try:
+                                        await message.delete()
+                                    except:
+                                        pass
+                    except:
+                        pass
+                    
+                    # Create new state message in DM (invisible to users!)
+                    message = await dm_channel.send(content=f"```json\n{state_json}\n```")
+                    self.state_message_id = message.id
+                    logger.info("💾 Created timer state message in bot owner DM (invisible to users)")
+                    return True
+                except Exception as e:
+                    logger.warning(f"⚠️ Could not use DM channel for state storage: {e}, falling back to timer channel")
+            
+            # Fallback: Use timer's channel (visible but necessary)
             channel_id = state.get('channel_id')
             if not channel_id:
                 return False
@@ -271,10 +320,11 @@ class TimekeeperManager:
             # Store state as JSON in message content
             state_json = json.dumps(state)
 
-            # Try to find existing state message
+            # Try to find existing state message and update it
             if self.state_message_id:
                 try:
                     message = await channel.fetch_message(self.state_message_id)
+                    # Update existing message (edit is less visible than new message)
                     await message.edit(content=f"```json\n{state_json}\n```")
                     logger.info("💾 Updated timer state message in Discord")
                     return True
@@ -282,14 +332,33 @@ class TimekeeperManager:
                     # Message was deleted, create new one
                     self.state_message_id = None
 
-            # Create new state message (hidden from users)
+            # Clean up old state messages from this bot to avoid clutter
+            try:
+                async for message in channel.history(limit=50):
+                    if (message.author == self.bot.user and 
+                        message.content.startswith("```json") and
+                        "channel_id" in message.content and
+                        "end_time" in message.content and
+                        message.id != self.state_message_id):  # Don't delete the one we're tracking
+                        # Delete old state messages to keep channel clean
+                        try:
+                            await message.delete()
+                            logger.debug(f"🗑️ Deleted old timer state message")
+                        except:
+                            pass  # Ignore if we can't delete
+            except:
+                pass  # Ignore if we can't search history
+
+            # Create new state message (silent, but still visible)
+            # We minimize it by using silent=True, but users can still see it
+            # Alternative: Store in DM channel or hidden channel (requires more setup)
             message = await channel.send(
                 content=f"```json\n{state_json}\n```",
-                silent=True  # Don't notify users
+                silent=True  # Don't notify users (but message still visible)
             )
             self.state_message_id = message.id
             self.state_channel_id = channel_id
-            logger.info("💾 Created timer state message in Discord")
+            logger.info("💾 Created timer state message in Discord (fallback - visible to users)")
             return True
 
         except Exception as e:
@@ -297,9 +366,41 @@ class TimekeeperManager:
             return False
 
     async def _load_state_from_discord(self) -> Optional[Dict]:
-        """Load timer state from Discord channel messages"""
+        """Load timer state from Discord (DM channel first, then public channels)"""
         try:
-            # Search for state messages in all channels the bot can access
+            # First, try to get state from bot owner's DM channel (preferred, invisible)
+            try:
+                app_info = await self.bot.application_info()
+                bot_owner_id = app_info.owner.id if app_info.owner else None
+                
+                if bot_owner_id:
+                    bot_owner = await self.bot.fetch_user(bot_owner_id)
+                    dm_channel = bot_owner.dm_channel or await bot_owner.create_dm()
+                    
+                    # Search DM channel for state messages
+                    async for message in dm_channel.history(limit=10):
+                        if message.author == self.bot.user and message.content.startswith("```json"):
+                            # Extract JSON from code block
+                            content = message.content.strip()
+                            if content.startswith("```json"):
+                                content = content[7:]  # Remove ```json
+                            if content.endswith("```"):
+                                content = content[:-3]  # Remove ```
+                            content = content.strip()
+                            
+                            try:
+                                state = json.loads(content)
+                                # Validate it's a timer state
+                                if 'channel_id' in state and 'end_time' in state:
+                                    self.state_message_id = message.id
+                                    logger.info(f"📂 Found timer state message in bot owner DM")
+                                    return state
+                            except json.JSONDecodeError:
+                                continue
+            except Exception as e:
+                logger.debug(f"Could not check DM channel: {e}")
+            
+            # Fallback: Search for state messages in all channels the bot can access
             for guild in self.bot.guilds:
                 for channel in guild.text_channels:
                     if not channel.permissions_for(guild.me).read_message_history:
@@ -321,9 +422,18 @@ class TimekeeperManager:
                                     state = json.loads(content)
                                     # Validate it's a timer state
                                     if 'channel_id' in state and 'end_time' in state:
+                                        # Found state in public channel - migrate to DM and delete this one
                                         self.state_message_id = message.id
                                         self.state_channel_id = channel.id
-                                        logger.info(f"📂 Found timer state message in #{channel.name}")
+                                        logger.info(f"📂 Found timer state message in #{channel.name}, will migrate to DM")
+                                        
+                                        # Delete the visible message after we've loaded it
+                                        try:
+                                            await message.delete()
+                                            logger.info(f"🗑️ Deleted visible timer state message from #{channel.name}")
+                                        except:
+                                            pass
+                                        
                                         return state
                                 except json.JSONDecodeError:
                                     continue
@@ -418,6 +528,9 @@ class TimekeeperManager:
 
             # Store in manager
             self.timers[channel_id] = timer
+
+            # Save state to DM (migrate from public channel if needed)
+            await timer.save_state()
 
             time_remaining = end_time - datetime.now()
             hours_remaining = time_remaining.total_seconds() / 3600
