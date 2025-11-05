@@ -291,6 +291,55 @@ async def on_message(message):
                 bot_mentioned = True
                 break
 
+    # PRIORITY: Check for @everyone/@here + "advanced"/"advance" to restart timer
+    # This is admin-only and should happen before other checks
+    if message.mention_everyone or (message.role_mentions and len(message.role_mentions) > 0):
+        # Check if message contains "advanced" or "advance" (case-insensitive)
+        message_lower = message.content.lower()
+        if 'advanced' in message_lower or 'advance' in message_lower:
+            # Check if user is admin
+            if admin_manager and admin_manager.is_admin(message.author, message):
+                logger.info(f"🔄 @everyone/@channel + 'advanced' detected from admin {message.author} - restarting timer")
+                
+                if not timekeeper_manager:
+                    logger.warning("⚠️ Timekeeper manager not available for restart")
+                else:
+                    # Stop current timer (if exists)
+                    await timekeeper_manager.stop_timer(message.channel)
+                    
+                    # Start new timer (default 48 hours)
+                    success = await timekeeper_manager.start_timer(message.channel, 48)
+                    
+                    if success:
+                        embed = discord.Embed(
+                            title="⏰ Advance Countdown Restarted!",
+                            description=f"Right then! Timer's been restarted!\n\n🏈 **48 HOUR COUNTDOWN STARTED** 🏈\n\nYou got **48 hours** to get your bleedin' games done!\n\nI'll be remindin' you lot at:\n• 24 hours remaining\n• 12 hours remaining\n• 6 hours remaining\n• 1 hour remaining\n\nAnd when time's up... well, you'll know! 😈",
+                            color=0x00ff00
+                        )
+                        status = timekeeper_manager.get_status(message.channel)
+                        embed.add_field(
+                            name="⏳ Deadline",
+                            value=f"{status['end_time'].strftime('%A, %B %d at %I:%M %p')}",
+                            inline=False
+                        )
+                        embed.set_footer(text="Harry's Advance Timer 🏈 | Use /time_status to check progress")
+                        await message.channel.send(embed=embed)
+                        logger.info(f"⏰ Timer restarted by {message.author} via @everyone + 'advanced' in {message.channel}")
+                    else:
+                        embed = discord.Embed(
+                            title="❌ Failed to Restart Timer",
+                            description="Couldn't restart the timer, mate. Try using `/advance` instead!",
+                            color=0xff0000
+                        )
+                        await message.channel.send(embed=embed)
+                        logger.error(f"❌ Failed to restart timer for {message.author}")
+                
+                # Don't process this message further - timer restart was handled
+                return
+            else:
+                # Not an admin - log but don't respond (to avoid spam)
+                logger.debug(f"⚠️ Non-admin {message.author} tried to restart timer via @everyone")
+
     # Check if unprompted responses are allowed in this channel
     channel_allows_unprompted = True
     if channel_manager:

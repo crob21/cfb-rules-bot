@@ -102,6 +102,11 @@ GOOGLE_DOCS_DOCUMENT_ID=your_document_id_here
 - `/time_status` - Check countdown progress (Anyone can view)
   - Shows time remaining, progress bar, and persistence status
 - `/stop_countdown` - Stop timer **(Admin only)**
+- **Quick Restart**: `@everyone Advanced` or `@here advance` (Admin only)
+  - Mentions @everyone/@here + "advanced"/"advance" (case-insensitive)
+  - Automatically stops current timer and starts new 48-hour countdown
+  - Example: `@everyone we've advanced!` will restart the timer
+  - Example: `@here ADVANCED` will restart the timer
 
 #### Channel Summarization
 - `/summarize [hours] [focus]` - Summarize channel activity
