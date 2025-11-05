@@ -147,7 +147,7 @@ async def on_ready():
     - Logging connection status
     """
     global timekeeper_manager, channel_summarizer, charter_editor, admin_manager, version_manager, channel_manager
-    
+
     try:
         # Initialize version manager first to get version
         version_manager = VersionManager()

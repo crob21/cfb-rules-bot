@@ -384,6 +384,11 @@ class TimekeeperManager:
                 logger.error(f"❌ Failed to create state message in channel: {e}")
                 return False
 
+        except Exception as e:
+            logger.error(f"❌ Failed to save timer state to Discord: {e}")
+            logger.exception("Full error details:")
+            return False
+
     async def _load_state_from_discord(self) -> Optional[Dict]:
         """Load timer state from Discord (DM channel first, then public channels)"""
         try:
@@ -400,7 +405,7 @@ class TimekeeperManager:
                     except Exception as e:
                         logger.warning(f"⚠️ Could not fetch bot owner: {e}")
                         raise  # Will fall back to public channels
-                    
+
                     try:
                         dm_channel = bot_owner.dm_channel
                         if not dm_channel:
@@ -410,9 +415,9 @@ class TimekeeperManager:
                         logger.warning(f"⚠️ Could not create/access DM channel: {e}")
                         logger.info("💡 Tip: Bot owner needs to have DMs enabled - falling back to public channels")
                         raise  # Will fall back to public channels
-                    
+
                     logger.info(f"📧 DM channel created/accessed: {dm_channel.id}")
-                    
+
                     # Search DM channel for state messages
                     message_count = 0
                     async for message in dm_channel.history(limit=10):
@@ -426,7 +431,7 @@ class TimekeeperManager:
                             if content.endswith("```"):
                                 content = content[:-3]  # Remove ```
                             content = content.strip()
-                            
+
                             try:
                                 state = json.loads(content)
                                 # Validate it's a timer state
