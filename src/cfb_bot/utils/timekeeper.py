@@ -67,7 +67,7 @@ class AdvanceTimer:
             }
 
             state_json = json.dumps(state)
-            
+
             # Save to file (for local development)
             try:
                 TIMER_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -94,7 +94,7 @@ class AdvanceTimer:
                     logger.info("✅ Timer state saved to Discord successfully")
             else:
                 logger.error("❌ CRITICAL: No manager available - timer state NOT saved to Discord!")
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to save timer state: {e}")
             logger.exception("Full error details:")
@@ -272,14 +272,19 @@ class TimekeeperManager:
             try:
                 app_info = await self.bot.application_info()
                 bot_owner_id = app_info.owner.id if app_info.owner else None
-            except:
+            except Exception as e:
+                logger.debug(f"Could not get application info: {e}")
                 pass
 
             # If we have bot owner, use DM channel (invisible to users)
             if bot_owner_id:
                 try:
                     bot_owner = await self.bot.fetch_user(bot_owner_id)
-                    dm_channel = bot_owner.dm_channel or await bot_owner.create_dm()
+                    # Try to get existing DM channel first
+                    dm_channel = bot_owner.dm_channel
+                    if not dm_channel:
+                        # Try to create DM channel (may fail if user hasn't interacted with bot)
+                        dm_channel = await bot_owner.create_dm()
 
                     # Store state as JSON
                     state_json = json.dumps(state)
@@ -315,7 +320,8 @@ class TimekeeperManager:
                     return True
                 except Exception as e:
                     logger.warning(f"⚠️ Could not use DM channel for state storage: {e}, falling back to timer channel")
-                    logger.exception("Full error details:")
+                    logger.debug("DM channel error details", exc_info=True)
+                    # Continue to fallback below
 
             # Fallback: Use timer's channel (visible but necessary)
             channel_id = state.get('channel_id')
@@ -350,7 +356,7 @@ class TimekeeperManager:
             # Clean up old state messages from this bot to avoid clutter
             try:
                 async for message in channel.history(limit=50):
-                    if (message.author == self.bot.user and 
+                    if (message.author == self.bot.user and
                         message.content.startswith("```json") and
                         "channel_id" in message.content and
                         "end_time" in message.content and
@@ -386,11 +392,25 @@ class TimekeeperManager:
             try:
                 app_info = await self.bot.application_info()
                 bot_owner_id = app_info.owner.id if app_info.owner else None
-                
+
                 if bot_owner_id:
                     logger.info(f"📧 Bot owner ID: {bot_owner_id}")
-                    bot_owner = await self.bot.fetch_user(bot_owner_id)
-                    dm_channel = bot_owner.dm_channel or await bot_owner.create_dm()
+                    try:
+                        bot_owner = await self.bot.fetch_user(bot_owner_id)
+                    except Exception as e:
+                        logger.warning(f"⚠️ Could not fetch bot owner: {e}")
+                        raise  # Will fall back to public channels
+                    
+                    try:
+                        dm_channel = bot_owner.dm_channel
+                        if not dm_channel:
+                            # Try to create DM channel (may fail if user hasn't interacted with bot)
+                            dm_channel = await bot_owner.create_dm()
+                    except Exception as e:
+                        logger.warning(f"⚠️ Could not create/access DM channel: {e}")
+                        logger.info("💡 Tip: Bot owner needs to have DMs enabled - falling back to public channels")
+                        raise  # Will fall back to public channels
+                    
                     logger.info(f"📧 DM channel created/accessed: {dm_channel.id}")
                     
                     # Search DM channel for state messages
@@ -418,12 +438,14 @@ class TimekeeperManager:
                                 logger.debug(f"Failed to parse JSON from DM message: {e}")
                                 continue
                     logger.info(f"📧 Searched {message_count} messages in DM, no timer state found")
+                    # If we got here, DM worked but no state found - continue to public channels
                 else:
                     logger.warning("⚠️ Could not get bot owner ID")
             except Exception as e:
                 logger.warning(f"⚠️ Could not check DM channel: {e}")
-                logger.debug("Full error:", exc_info=True)
-            
+                logger.debug("Full error details", exc_info=True)
+                # Continue to fallback - public channels
+
             # Fallback: Search for state messages in all channels the bot can access
             logger.info("🔍 Checking public channels for timer state...")
             channels_checked = 0
@@ -432,7 +454,7 @@ class TimekeeperManager:
                 for channel in guild.text_channels:
                     if not channel.permissions_for(guild.me).read_message_history:
                         continue
-                    
+
                     channels_checked += 1
 
                     # Search recent messages for state (look for JSON in code blocks)
@@ -456,14 +478,14 @@ class TimekeeperManager:
                                         self.state_message_id = message.id
                                         self.state_channel_id = channel.id
                                         logger.info(f"📂 Found timer state message in #{channel.name}, will migrate to DM")
-                                        
+
                                         # Delete the visible message after we've loaded it
                                         try:
                                             await message.delete()
                                             logger.info(f"🗑️ Deleted visible timer state message from #{channel.name}")
                                         except:
                                             pass
-                                        
+
                                         return state
                                 except json.JSONDecodeError:
                                     continue
@@ -472,7 +494,7 @@ class TimekeeperManager:
                     except Exception as e:
                         logger.debug(f"Error searching channel {channel.name}: {e}")
                         continue
-            
+
             logger.info(f"📂 Searched {channels_checked} channels, {messages_checked} messages - no timer state found")
 
             return None

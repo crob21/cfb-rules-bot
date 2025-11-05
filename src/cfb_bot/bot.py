@@ -147,67 +147,78 @@ async def on_ready():
     - Logging connection status
     """
     global timekeeper_manager, channel_summarizer, charter_editor, admin_manager, version_manager, channel_manager
-
-    # Initialize version manager first to get version
-    version_manager = VersionManager()
-    current_version = version_manager.get_current_version()
-
-    logger.info(f'🏈 CFB 26 League Bot ({bot.user}) v{current_version} has connected to Discord!')
-    logger.info(f'🔗 Bot ID: {bot.user.id}')
-    logger.info(f'📛 Bot Username: {bot.user.name}')
-    logger.info(f'🏷️ Bot Display Name: {bot.user.display_name}')
-    logger.info(f'📊 Connected to {len(bot.guilds)} guilds')
-    logger.info(f'👋 Harry is ready to help with league questions!')
-
-    # Initialize channel manager
-    channel_manager = ChannelManager()
-    logger.info(f'🔇 Channel manager initialized ({channel_manager.get_blocked_count()} blocked channels)')
-
-    # Initialize admin manager
-    admin_manager = AdminManager()
-    logger.info(f'🔐 Admin manager initialized ({admin_manager.get_admin_count()} admin(s) configured)')
-
-    # Initialize timekeeper manager
-    timekeeper_manager = TimekeeperManager(bot)
-    logger.info('⏰ Timekeeper manager initialized')
-
-    # Restore any saved timer state
-    await timekeeper_manager.load_saved_state()
-
-    # Initialize channel summarizer (with AI if available)
-    channel_summarizer = ChannelSummarizer(ai_assistant if AI_AVAILABLE else None)
-    logger.info('📊 Channel summarizer initialized')
-
-    # Initialize charter editor (with AI if available)
-    charter_editor = CharterEditor(ai_assistant if AI_AVAILABLE else None)
-    logger.info('📝 Charter editor initialized')
-
-    # Load league data
-    await load_league_data()
-
-    # Sync slash commands
+    
     try:
-        # Sync to specific guilds for instant command updates (5 seconds instead of 1 hour!)
-        guild_ids = [
-            1261662233109205144,  # Main server
-            780882032867803168,   # Second server
-        ]
+        # Initialize version manager first to get version
+        version_manager = VersionManager()
+        current_version = version_manager.get_current_version()
 
-        # Sync to each guild (instant)
-        for guild_id in guild_ids:
-            guild = discord.Object(id=guild_id)
-            bot.tree.copy_global_to(guild=guild)
-            synced_guild = await bot.tree.sync(guild=guild)
-            logger.info(f'✅ Synced {len(synced_guild)} command(s) to guild {guild_id} (instant!)')
+        logger.info(f'🏈 CFB 26 League Bot ({bot.user}) v{current_version} has connected to Discord!')
+        logger.info(f'🔗 Bot ID: {bot.user.id}')
+        logger.info(f'📛 Bot Username: {bot.user.name}')
+        logger.info(f'🏷️ Bot Display Name: {bot.user.display_name}')
+        logger.info(f'📊 Connected to {len(bot.guilds)} guilds')
+        logger.info(f'👋 Harry is ready to help with league questions!')
 
-        # Also sync globally for other servers (takes up to 1 hour)
-        synced_global = await bot.tree.sync()
-        logger.info(f'✅ Synced {len(synced_global)} command(s) globally (may take up to 1 hour)')
+        # Initialize channel manager
+        channel_manager = ChannelManager()
+        logger.info(f'🔇 Channel manager initialized ({channel_manager.get_blocked_count()} blocked channels)')
 
-        logger.info(f'🎯 Try: /harry what are the league rules?')
-        logger.info(f'💬 Or mention @Harry in chat for natural conversations!')
+        # Initialize admin manager
+        admin_manager = AdminManager()
+        logger.info(f'🔐 Admin manager initialized ({admin_manager.get_admin_count()} admin(s) configured)')
+
+        # Initialize timekeeper manager
+        timekeeper_manager = TimekeeperManager(bot)
+        logger.info('⏰ Timekeeper manager initialized')
+
+        # Restore any saved timer state (wrap in try/except to prevent crashes)
+        try:
+            await timekeeper_manager.load_saved_state()
+        except Exception as e:
+            logger.error(f"❌ Failed to load saved timer state: {e}")
+            logger.exception("Full error details:")
+            # Don't crash - bot can still work without restored timers
+
+        # Initialize channel summarizer (with AI if available)
+        channel_summarizer = ChannelSummarizer(ai_assistant if AI_AVAILABLE else None)
+        logger.info('📊 Channel summarizer initialized')
+
+        # Initialize charter editor (with AI if available)
+        charter_editor = CharterEditor(ai_assistant if AI_AVAILABLE else None)
+        logger.info('📝 Charter editor initialized')
+
+        # Load league data
+        await load_league_data()
+
+        # Sync slash commands
+        try:
+            # Sync to specific guilds for instant command updates (5 seconds instead of 1 hour!)
+            guild_ids = [
+                1261662233109205144,  # Main server
+                780882032867803168,   # Second server
+            ]
+
+            # Sync to each guild (instant)
+            for guild_id in guild_ids:
+                guild = discord.Object(id=guild_id)
+                bot.tree.copy_global_to(guild=guild)
+                synced_guild = await bot.tree.sync(guild=guild)
+                logger.info(f'✅ Synced {len(synced_guild)} command(s) to guild {guild_id} (instant!)')
+
+            # Also sync globally for other servers (takes up to 1 hour)
+            synced_global = await bot.tree.sync()
+            logger.info(f'✅ Synced {len(synced_global)} command(s) globally (may take up to 1 hour)')
+
+            logger.info(f'🎯 Try: /harry what are the league rules?')
+            logger.info(f'💬 Or mention @Harry in chat for natural conversations!')
+        except Exception as e:
+            logger.error(f'❌ Failed to sync commands: {e}')
     except Exception as e:
-        logger.error(f'❌ Failed to sync commands: {e}')
+        logger.error(f"❌ Critical error in on_ready: {e}")
+        logger.exception("Full error details:")
+        # Don't re-raise - let bot continue running
+        # The bot will still connect, just without some features
 
 @bot.event
 async def on_message(message):
