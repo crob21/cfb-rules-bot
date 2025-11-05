@@ -291,25 +291,25 @@ async def on_message(message):
                 bot_mentioned = True
                 break
 
-    # PRIORITY: Check for @everyone/@here + "advanced"/"advance" to restart timer
+    # PRIORITY: Check for @everyone/@here + "advanced" to restart timer
     # This is admin-only and should happen before other checks
     if message.mention_everyone or (message.role_mentions and len(message.role_mentions) > 0):
-        # Check if message contains "advanced" or "advance" (case-insensitive)
+        # Check if message contains "advanced" (case-insensitive)
         message_lower = message.content.lower()
-        if 'advanced' in message_lower or 'advance' in message_lower:
+        if 'advanced' in message_lower:
             # Check if user is admin
             if admin_manager and admin_manager.is_admin(message.author, message):
                 logger.info(f"🔄 @everyone/@channel + 'advanced' detected from admin {message.author} - restarting timer")
-                
+
                 if not timekeeper_manager:
                     logger.warning("⚠️ Timekeeper manager not available for restart")
                 else:
                     # Stop current timer (if exists)
                     await timekeeper_manager.stop_timer(message.channel)
-                    
+
                     # Start new timer (default 48 hours)
                     success = await timekeeper_manager.start_timer(message.channel, 48)
-                    
+
                     if success:
                         embed = discord.Embed(
                             title="⏰ Advance Countdown Restarted!",
@@ -333,7 +333,7 @@ async def on_message(message):
                         )
                         await message.channel.send(embed=embed)
                         logger.error(f"❌ Failed to restart timer for {message.author}")
-                
+
                 # Don't process this message further - timer restart was handled
                 return
             else:
