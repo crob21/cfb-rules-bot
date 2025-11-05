@@ -30,7 +30,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 # Import timekeeper, summarizer, charter editor, admin manager, version manager, and channel manager
-from .utils.timekeeper import TimekeeperManager
+from .utils.timekeeper import TimekeeperManager, format_est_time
 from .utils.summarizer import ChannelSummarizer
 from .utils.charter_editor import CharterEditor
 from .utils.admin_check import AdminManager
@@ -319,7 +319,7 @@ async def on_message(message):
                         status = timekeeper_manager.get_status(message.channel)
                         embed.add_field(
                             name="⏳ Deadline",
-                            value=f"{status['end_time'].strftime('%A, %B %d at %I:%M %p')}",
+                            value=format_est_time(status['end_time'], '%A, %B %d at %I:%M %p'),
                             inline=False
                         )
                         embed.set_footer(text="Harry's Advance Timer 🏈 | Use /time_status to check progress")
@@ -1508,7 +1508,7 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
         status = timekeeper_manager.get_status(interaction.channel)
         embed.add_field(
             name="⏳ Deadline",
-            value=f"{status['end_time'].strftime('%A, %B %d at %I:%M %p')}",
+            value=format_est_time(status['end_time'], '%A, %B %d at %I:%M %p'),
             inline=False
         )
         embed.set_footer(text="Harry's Advance Timer 🏈 | Use /time_status to check progress")
@@ -1575,12 +1575,12 @@ async def check_time_status(interaction: discord.Interaction):
 
             embed.add_field(
                 name="📅 Started",
-                value=status['start_time'].strftime('%I:%M %p on %B %d'),
+                value=format_est_time(status['start_time'], '%I:%M %p on %B %d'),
                 inline=True
             )
             embed.add_field(
                 name="⏳ Deadline",
-                value=status['end_time'].strftime('%I:%M %p on %B %d'),
+                value=format_est_time(status['end_time'], '%I:%M %p on %B %d'),
                 inline=True
             )
 

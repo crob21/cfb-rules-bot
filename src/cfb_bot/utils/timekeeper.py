@@ -13,8 +13,40 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict
 from pathlib import Path
 import discord
+try:
+    from zoneinfo import ZoneInfo  # Python 3.9+
+except ImportError:
+    # Fallback for older Python versions
+    try:
+        from backports.zoneinfo import ZoneInfo
+    except ImportError:
+        ZoneInfo = None
 
 logger = logging.getLogger('CFB26Bot.Timekeeper')
+
+# EST/EDT timezone (America/New_York handles DST automatically)
+EST_TIMEZONE = ZoneInfo('America/New_York') if ZoneInfo else None
+
+def to_est(dt: datetime) -> datetime:
+    """Convert a datetime to EST/EDT"""
+    if not dt:
+        return dt
+    if EST_TIMEZONE and ZoneInfo:
+        # If datetime is naive, assume it's UTC
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=ZoneInfo('UTC'))
+        # Convert to EST
+        return dt.astimezone(EST_TIMEZONE)
+    return dt  # Fallback if timezone not available
+
+def format_est_time(dt: datetime, format_str: str = '%I:%M %p on %B %d') -> str:
+    """Format a datetime in EST/EDT"""
+    if not dt:
+        return "N/A"
+    est_dt = to_est(dt)
+    if EST_TIMEZONE:
+        return est_dt.strftime(format_str) + ' EST/EDT'
+    return est_dt.strftime(format_str)
 
 # Timer state file location
 TIMER_STATE_FILE = Path(__file__).parent.parent.parent.parent / "data" / "timer_state.json"
@@ -230,7 +262,7 @@ class AdvanceTimer:
             color=0xffa500
         )
 
-        embed.set_footer(text=f"Harry's Advance Timer 🏈 | Ends at {self.end_time.strftime('%I:%M %p')}")
+        embed.set_footer(text=f"Harry's Advance Timer 🏈 | Ends at {format_est_time(self.end_time, '%I:%M %p')}")
 
         try:
             await self.channel.send(embed=embed)
