@@ -292,53 +292,55 @@ async def on_message(message):
                 break
 
     # PRIORITY: Check for @everyone/@here + "advanced" to restart timer
-    # This is admin-only and should happen before other checks
+    # Available to everyone - no admin check needed
     if message.mention_everyone or (message.role_mentions and len(message.role_mentions) > 0):
         # Check if message contains "advanced" (case-insensitive)
         message_lower = message.content.lower()
         if 'advanced' in message_lower:
-            # Check if user is admin
-            if admin_manager and admin_manager.is_admin(message.author, message):
-                logger.info(f"🔄 @everyone/@channel + 'advanced' detected from admin {message.author} - restarting timer")
+            logger.info(f"🔄 @everyone/@channel + 'advanced' detected from {message.author} - restarting timer")
 
-                if not timekeeper_manager:
-                    logger.warning("⚠️ Timekeeper manager not available for restart")
-                else:
-                    # Stop current timer (if exists)
-                    await timekeeper_manager.stop_timer(message.channel)
-
-                    # Start new timer (default 48 hours)
-                    success = await timekeeper_manager.start_timer(message.channel, 48)
-
-                    if success:
-                        embed = discord.Embed(
-                            title="⏰ Advance Countdown Restarted!",
-                            description=f"Right then! Timer's been restarted!\n\n🏈 **48 HOUR COUNTDOWN STARTED** 🏈\n\nYou got **48 hours** to get your bleedin' games done!\n\nI'll be remindin' you lot at:\n• 24 hours remaining\n• 12 hours remaining\n• 6 hours remaining\n• 1 hour remaining\n\nAnd when time's up... well, you'll know! 😈",
-                            color=0x00ff00
-                        )
-                        status = timekeeper_manager.get_status(message.channel)
-                        embed.add_field(
-                            name="⏳ Deadline",
-                            value=format_est_time(status['end_time'], '%A, %B %d at %I:%M %p'),
-                            inline=False
-                        )
-                        embed.set_footer(text="Harry's Advance Timer 🏈 | Use /time_status to check progress")
-                        await message.channel.send(embed=embed)
-                        logger.info(f"⏰ Timer restarted by {message.author} via @everyone + 'advanced' in {message.channel}")
-                    else:
-                        embed = discord.Embed(
-                            title="❌ Failed to Restart Timer",
-                            description="Couldn't restart the timer, mate. Try using `/advance` instead!",
-                            color=0xff0000
-                        )
-                        await message.channel.send(embed=embed)
-                        logger.error(f"❌ Failed to restart timer for {message.author}")
-
-                # Don't process this message further - timer restart was handled
-                return
+            if not timekeeper_manager:
+                logger.warning("⚠️ Timekeeper manager not available for restart")
             else:
-                # Not an admin - log but don't respond (to avoid spam)
-                logger.debug(f"⚠️ Non-admin {message.author} tried to restart timer via @everyone")
+                # Stop current timer (if exists)
+                await timekeeper_manager.stop_timer(message.channel)
+
+                # Start new timer (default 48 hours)
+                success = await timekeeper_manager.start_timer(message.channel, 48)
+
+                if success:
+                    # Get season/week info for display
+                    season_info = timekeeper_manager.get_season_week()
+                    if season_info['season'] and season_info['week']:
+                        season_text = f"**Season {season_info['season']}, Week {season_info['week']}** → **Week {season_info['week'] + 1}**\n\n"
+                    else:
+                        season_text = ""
+                    
+                    embed = discord.Embed(
+                        title="⏰ Advance Countdown Restarted!",
+                        description=f"Right then! Timer's been restarted!\n\n🏈 **48 HOUR COUNTDOWN STARTED** 🏈\n\n{season_text}You got **48 hours** to get your bleedin' games done!\n\nI'll be remindin' you lot at:\n• 24 hours remaining\n• 12 hours remaining\n• 6 hours remaining\n• 1 hour remaining\n\nAnd when time's up... well, you'll know! 😈",
+                        color=0x00ff00
+                    )
+                    status = timekeeper_manager.get_status(message.channel)
+                    embed.add_field(
+                        name="⏳ Deadline",
+                        value=format_est_time(status['end_time'], '%A, %B %d at %I:%M %p'),
+                        inline=False
+                    )
+                    embed.set_footer(text="Harry's Advance Timer 🏈 | Use /time_status to check progress")
+                    await message.channel.send(embed=embed)
+                    logger.info(f"⏰ Timer restarted by {message.author} via @everyone + 'advanced' in {message.channel}")
+                else:
+                    embed = discord.Embed(
+                        title="❌ Failed to Restart Timer",
+                        description="Couldn't restart the timer, mate. Try using `/advance` instead!",
+                        color=0xff0000
+                    )
+                    await message.channel.send(embed=embed)
+                    logger.error(f"❌ Failed to restart timer for {message.author}")
+
+            # Don't process this message further - timer restart was handled
+            return
 
     # Check if unprompted responses are allowed in this channel
     channel_allows_unprompted = True
@@ -1500,9 +1502,16 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
     success = await timekeeper_manager.start_timer(interaction.channel, hours)
 
     if success:
+        # Get season/week info for display
+        season_info = timekeeper_manager.get_season_week()
+        if season_info['season'] and season_info['week']:
+            season_text = f"**Season {season_info['season']}, Week {season_info['week']}** → **Week {season_info['week'] + 1}**\n\n"
+        else:
+            season_text = ""
+        
         embed = discord.Embed(
             title="⏰ Advance Countdown Started!",
-            description=f"Right then, listen up ya wankers!\n\n🏈 **{hours} HOUR COUNTDOWN STARTED** 🏈\n\nYou got **{hours} hours** to get your bleedin' games done!\n\nI'll be remindin' you lot at:\n• 24 hours remaining (if applicable)\n• 12 hours remaining (if applicable)\n• 6 hours remaining (if applicable)\n• 1 hour remaining\n\nAnd when time's up... well, you'll know! 😈",
+            description=f"Right then, listen up ya wankers!\n\n🏈 **{hours} HOUR COUNTDOWN STARTED** 🏈\n\n{season_text}You got **{hours} hours** to get your bleedin' games done!\n\nI'll be remindin' you lot at:\n• 24 hours remaining (if applicable)\n• 12 hours remaining (if applicable)\n• 6 hours remaining (if applicable)\n• 1 hour remaining\n\nAnd when time's up... well, you'll know! 😈",
             color=0x00ff00
         )
         status = timekeeper_manager.get_status(interaction.channel)
@@ -1641,6 +1650,46 @@ async def stop_countdown(interaction: discord.Interaction):
             title="❌ No Active Countdown",
             description="There ain't no countdown to stop, ya numpty!",
             color=0x808080
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="set_season_week", description="Set the current season and week (Admin only)")
+async def set_season_week(interaction: discord.Interaction, season: int, week: int):
+    """Set the current season and week"""
+    # Check if user is admin
+    if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
+        await interaction.response.send_message("❌ You need to be a bot admin to set season/week, ya muppet!", ephemeral=True)
+        return
+
+    if not timekeeper_manager:
+        await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
+        return
+
+    # Validate inputs
+    if season < 1:
+        await interaction.response.send_message("❌ Season must be at least 1, ya numpty!", ephemeral=True)
+        return
+    if week < 1:
+        await interaction.response.send_message("❌ Week must be at least 1, ya numpty!", ephemeral=True)
+        return
+
+    # Set season/week
+    success = await timekeeper_manager.set_season_week(season, week)
+
+    if success:
+        embed = discord.Embed(
+            title="📅 Season/Week Set!",
+            description=f"Right then! Season and week have been set.\n\n**Season {season}, Week {week}**\n\nThe week will automatically increment when the advance timer completes!",
+            color=0x00ff00
+        )
+        embed.set_footer(text="Harry's Advance Timer 🏈 | Week will increment on advance")
+        await interaction.response.send_message(embed=embed)
+        logger.info(f"📅 Season/Week set to Season {season}, Week {week} by {interaction.user}")
+    else:
+        embed = discord.Embed(
+            title="❌ Failed to Set Season/Week",
+            description="Couldn't set the season/week, mate. Check your inputs!",
+            color=0xff0000
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 

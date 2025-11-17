@@ -295,6 +295,8 @@ class TimekeeperManager:
         self.timers: Dict[int, AdvanceTimer] = {}  # channel_id -> timer
         self.state_message_id: Optional[int] = None  # Discord message ID for state storage
         self.state_channel_id: Optional[int] = None  # Channel ID for state storage
+        self.season: Optional[int] = None  # Current season number
+        self.week: Optional[int] = None  # Current week number
 
     async def _save_state_to_discord(self, state: Dict):
         """Save timer state to a Discord DM channel (persists across deployments, invisible to users)"""
@@ -576,6 +578,11 @@ class TimekeeperManager:
 
         if not state:
             logger.info("📂 No saved timer state found anywhere")
+        
+        # Load season/week state
+        await self._load_season_week_state()
+        
+        if not state:
             return
 
         try:
@@ -682,3 +689,118 @@ class TimekeeperManager:
                 'message': 'No countdown active'
             }
         return self.timers[channel.id].get_status()
+
+    def get_season_week(self) -> Dict:
+        """Get current season and week"""
+        return {
+            'season': self.season,
+            'week': self.week
+        }
+
+    async def set_season_week(self, season: int, week: int) -> bool:
+        """Set the current season and week"""
+        if season < 1 or week < 1:
+            return False
+        self.season = season
+        self.week = week
+        # Save season/week to state
+        await self._save_season_week_state()
+        logger.info(f"📅 Season/Week set to Season {season}, Week {week}")
+        return True
+
+    async def increment_week(self) -> bool:
+        """Increment the week (called when advance happens)"""
+        if self.week is None:
+            logger.warning("⚠️ Cannot increment week - week not set")
+            return False
+        self.week += 1
+        # Save season/week to state
+        await self._save_season_week_state()
+        logger.info(f"📅 Week incremented to Week {self.week}")
+        return True
+
+    async def _save_season_week_state(self):
+        """Save season/week state to Discord"""
+        state = {
+            'season': self.season,
+            'week': self.week,
+            'type': 'season_week'  # Mark as season/week state, not timer state
+        }
+        try:
+            # Try to save to DM channel
+            bot_owner_id = None
+            try:
+                app_info = await self.bot.application_info()
+                bot_owner_id = app_info.owner.id if app_info.owner else None
+            except:
+                pass
+
+            if bot_owner_id:
+                try:
+                    bot_owner = await self.bot.fetch_user(bot_owner_id)
+                    dm_channel = bot_owner.dm_channel
+                    if not dm_channel:
+                        dm_channel = await bot_owner.create_dm()
+
+                    state_json = json.dumps(state)
+                    
+                    # Try to find existing season/week message
+                    async for message in dm_channel.history(limit=10):
+                        if (message.author == self.bot.user and
+                            message.content.startswith("```json") and
+                            '"type": "season_week"' in message.content):
+                            await message.edit(content=f"```json\n{state_json}\n```")
+                            logger.info("💾 Updated season/week state in DM")
+                            return
+                    
+                    # Create new message
+                    await dm_channel.send(content=f"```json\n{state_json}\n```")
+                    logger.info("💾 Created season/week state in DM")
+                    return
+                except Exception as e:
+                    logger.warning(f"⚠️ Could not save season/week to DM: {e}")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to save season/week state: {e}")
+
+    async def _load_season_week_state(self):
+        """Load season/week state from Discord"""
+        try:
+            # Try to load from DM channel
+            bot_owner_id = None
+            try:
+                app_info = await self.bot.application_info()
+                bot_owner_id = app_info.owner.id if app_info.owner else None
+            except:
+                pass
+
+            if bot_owner_id:
+                try:
+                    bot_owner = await self.bot.fetch_user(bot_owner_id)
+                    dm_channel = bot_owner.dm_channel
+                    if not dm_channel:
+                        dm_channel = await bot_owner.create_dm()
+
+                    async for message in dm_channel.history(limit=10):
+                        if (message.author == self.bot.user and
+                            message.content.startswith("```json") and
+                            '"type": "season_week"' in message.content):
+                            content = message.content.strip()
+                            if content.startswith("```json"):
+                                content = content[7:]
+                            if content.endswith("```"):
+                                content = content[:-3]
+                            content = content.strip()
+                            
+                            try:
+                                state = json.loads(content)
+                                if state.get('type') == 'season_week':
+                                    self.season = state.get('season')
+                                    self.week = state.get('week')
+                                    logger.info(f"✅ Loaded season/week: Season {self.season}, Week {self.week}")
+                                    return
+                            except json.JSONDecodeError:
+                                continue
+                except Exception as e:
+                    logger.debug(f"Could not load season/week from DM: {e}")
+        except Exception as e:
+            logger.debug(f"Failed to load season/week state: {e}")
