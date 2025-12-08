@@ -1484,7 +1484,7 @@ async def ask_ai(interaction: discord.Interaction, question: str):
     
     # Send the actual response
     if response_sent:
-    await interaction.followup.send(embed=embed)
+        await interaction.followup.send(embed=embed)
     else:
         # Fallback: send as initial response if something went wrong
         try:
