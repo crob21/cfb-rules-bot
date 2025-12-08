@@ -254,17 +254,17 @@ async def on_message(message):
         async with processing_lock:
             # ATOMIC: Check and add message ID immediately to prevent race conditions
             # If it's already in the set, another handler is processing it
-    if message.id in processed_messages:
+            if message.id in processed_messages:
                 logger.info(f"⏭️ Skipping duplicate message ID: {message.id}")
-        return
+                return
 
             # Add message ID FIRST before any other checks (atomic operation)
-    processed_messages.add(message.id)
-    
+            processed_messages.add(message.id)
+            
             # Now check content-based deduplication
-    if content_key in processed_content:
+            if content_key in processed_content:
                 logger.info(f"⏭️ Skipping duplicate content: {content_key[:50]}...")
-        return
+                return
 
             # Time-based deduplication: check if same content was processed in last 2 seconds
             if content_key in recent_content_times:
@@ -274,7 +274,7 @@ async def on_message(message):
                     return
 
             # Add to content tracking sets
-    processed_content.add(content_key)
+            processed_content.add(content_key)
             recent_content_times[content_key] = current_time
 
     # Clean up old entries from recent_content_times (keep last 100 entries)
