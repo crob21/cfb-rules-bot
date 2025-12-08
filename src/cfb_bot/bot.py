@@ -1404,9 +1404,9 @@ async def ask_ai(interaction: discord.Interaction, question: str):
     
     response_sent = False
 
-        try:
-            # Send initial response immediately
-            await interaction.response.send_message("🤖 Thinking...", ephemeral=True)
+    try:
+        # Send initial response immediately
+        await interaction.response.send_message("🤖 Thinking...", ephemeral=True)
         response_sent = True
             
             # Log the slash command usage
