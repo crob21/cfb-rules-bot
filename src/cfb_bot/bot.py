@@ -1517,13 +1517,29 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
         await interaction.response.send_message("❌ Maximum is 336 hours (2 weeks), mate!", ephemeral=True)
         return
 
+    # Stop existing timer if one is running (manual advance)
+    status = timekeeper_manager.get_status(interaction.channel)
+    if status.get('active'):
+        logger.info(f"⏹️ Stopping existing timer before manual /advance")
+        await timekeeper_manager.stop_timer(interaction.channel)
+    
+    # Increment the week (manual advance)
+    season_info = timekeeper_manager.get_season_week()
+    if season_info['season'] and season_info['week'] is not None:
+        old_week = season_info['week']
+        await timekeeper_manager.increment_week()
+        logger.info(f"📅 Manual /advance: Week incremented from {old_week} to {old_week + 1}")
+        # Refresh season_info after increment
+        season_info = timekeeper_manager.get_season_week()
+    
     # Start the countdown
     success = await timekeeper_manager.start_timer(interaction.channel, hours)
 
     if success:
-        # Get season/week info for display
-        season_info = timekeeper_manager.get_season_week()
-        if season_info['season'] and season_info['week']:
+        # Get season/week info for display (already refreshed above if incremented)
+        if not season_info:
+            season_info = timekeeper_manager.get_season_week()
+        if season_info['season'] and season_info['week'] is not None:
             season_text = f"**Season {season_info['season']}, Week {season_info['week']}** → **Week {season_info['week'] + 1}**\n\n"
         else:
             season_text = ""
@@ -1544,8 +1560,8 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
         logger.info(f"⏰ Advance countdown started by {interaction.user} in {interaction.channel} - {hours} hours")
     else:
         embed = discord.Embed(
-            title="❌ Countdown Already Active!",
-            description="Oi! There's already a countdown runnin', ya muppet!\n\nUse `/time_status` to check how much time is left.",
+            title="❌ Failed to Start Countdown!",
+            description="Blimey, something went wrong starting the timer, mate!",
             color=0xff0000
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
