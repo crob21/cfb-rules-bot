@@ -154,11 +154,11 @@ async def on_ready():
         current_version = version_manager.get_current_version()
 
         logger.info(f'🏈 CFB 26 League Bot ({bot.user}) v{current_version} has connected to Discord!')
-        logger.info(f'🔗 Bot ID: {bot.user.id}')
-        logger.info(f'📛 Bot Username: {bot.user.name}')
-        logger.info(f'🏷️ Bot Display Name: {bot.user.display_name}')
-        logger.info(f'📊 Connected to {len(bot.guilds)} guilds')
-        logger.info(f'👋 Harry is ready to help with league questions!')
+    logger.info(f'🔗 Bot ID: {bot.user.id}')
+    logger.info(f'📛 Bot Username: {bot.user.name}')
+    logger.info(f'🏷️ Bot Display Name: {bot.user.display_name}')
+    logger.info(f'📊 Connected to {len(bot.guilds)} guilds')
+    logger.info(f'👋 Harry is ready to help with league questions!')
 
         # Initialize channel manager
         channel_manager = ChannelManager()
