@@ -314,13 +314,23 @@ async def on_message(message):
                 # Stop current timer (if exists)
                 await timekeeper_manager.stop_timer(message.channel)
 
+                # Increment the week (manual advance)
+                season_info = timekeeper_manager.get_season_week()
+                if season_info['season'] and season_info['week'] is not None:
+                    old_week = season_info['week']
+                    await timekeeper_manager.increment_week()
+                    logger.info(f"📅 Manual advance: Week incremented from {old_week} to {old_week + 1}")
+                    # Refresh season_info after increment
+                    season_info = timekeeper_manager.get_season_week()
+
                 # Start new timer (default 48 hours)
                 success = await timekeeper_manager.start_timer(message.channel, 48)
 
                 if success:
-                    # Get season/week info for display
-                    season_info = timekeeper_manager.get_season_week()
-                    if season_info['season'] and season_info['week']:
+                    # Get season/week info for display (already refreshed above if incremented)
+                    if not season_info:
+                        season_info = timekeeper_manager.get_season_week()
+                    if season_info['season'] and season_info['week'] is not None:
                         season_text = f"**Season {season_info['season']}, Week {season_info['week']}** → **Week {season_info['week'] + 1}**\n\n"
                     else:
                         season_text = ""
