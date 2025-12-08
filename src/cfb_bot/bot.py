@@ -1408,13 +1408,13 @@ async def ask_ai(interaction: discord.Interaction, question: str):
         # Send initial response immediately
         await interaction.response.send_message("🤖 Thinking...", ephemeral=True)
         response_sent = True
-            
-            # Log the slash command usage
-            guild_name = interaction.guild.name if interaction.guild else "DM"
-            logger.info(f"🎯 SLASH COMMAND: /ask from {interaction.user} ({interaction.user.id}) in {guild_name} - '{question}'")
-            logger.info(f"🔍 Slash command question: '{question}'")
-            logger.info(f"🏠 Server: {guild_name} (ID: {interaction.guild.id if interaction.guild else 'DM'})")
-            
+        
+        # Log the slash command usage
+        guild_name = interaction.guild.name if interaction.guild else "DM"
+        logger.info(f"🎯 SLASH COMMAND: /ask from {interaction.user} ({interaction.user.id}) in {guild_name} - '{question}'")
+        logger.info(f"🔍 Slash command question: '{question}'")
+        logger.info(f"🏠 Server: {guild_name} (ID: {interaction.guild.id if interaction.guild else 'DM'})")
+        
         if not AI_AVAILABLE or not ai_assistant:
             embed.description = "AI integration not available. Please check the charter directly or use other commands."
         else:
@@ -1449,12 +1449,12 @@ async def ask_ai(interaction: discord.Interaction, question: str):
                     value="Make sure OPENAI_API_KEY or ANTHROPIC_API_KEY is set in your environment variables.",
                     inline=False
                 )
-        except Exception as e:
+    except Exception as e:
         logger.error(f"❌ Exception in /ask command: {str(e)}", exc_info=True)
         if not response_sent:
             # If we haven't sent a response yet, send it as the initial response
             try:
-            embed.description = f"Error getting AI response: {str(e)}"
+                embed.description = f"Error getting AI response: {str(e)}"
                 embed.add_field(
                     name="🔍 Error Details",
                     value=f"Check the logs for more information. Error type: {type(e).__name__}",
@@ -1464,7 +1464,7 @@ async def ask_ai(interaction: discord.Interaction, question: str):
                 return
             except:
                 pass  # If this fails, try followup
-    else:
+        else:
             # Already sent initial response, use followup
             embed.description = f"Error getting AI response: {str(e)}"
             embed.add_field(
