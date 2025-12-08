@@ -71,16 +71,16 @@ def classify_question(question: str) -> tuple[bool, bool, list[str]]:
 def setup_logging():
     """
     Set up comprehensive logging for Render deployment.
-
+    
     Configures logging to both file and console output with proper formatting.
     Creates logs directory if it doesn't exist.
-
+    
     Returns:
         logging.Logger: Configured logger instance
     """
     # Create logs directory if it doesn't exist
     os.makedirs('logs', exist_ok=True)
-
+    
     # Configure logging
     logging.basicConfig(
         level=logging.INFO,
@@ -90,15 +90,15 @@ def setup_logging():
             logging.StreamHandler(sys.stdout)
         ]
     )
-
+    
     # Set Discord.py logging level
     discord_logger = logging.getLogger('discord')
     discord_logger.setLevel(logging.INFO)
-
+    
     # Set our bot logger
     bot_logger = logging.getLogger('CFB26Bot')
     bot_logger.setLevel(logging.INFO)
-
+    
     return bot_logger
 
 # Initialize logging
@@ -140,7 +140,7 @@ processing_lock = asyncio.Lock()  # Lock for atomic message processing checks
 async def on_ready():
     """
     Called when the bot is ready and connected to Discord.
-
+    
     Performs initial setup including:
     - Loading league data
     - Syncing slash commands
@@ -154,11 +154,11 @@ async def on_ready():
         current_version = version_manager.get_current_version()
 
         logger.info(f'🏈 CFB 26 League Bot ({bot.user}) v{current_version} has connected to Discord!')
-        logger.info(f'🔗 Bot ID: {bot.user.id}')
-        logger.info(f'📛 Bot Username: {bot.user.name}')
-        logger.info(f'🏷️ Bot Display Name: {bot.user.display_name}')
-        logger.info(f'📊 Connected to {len(bot.guilds)} guilds')
-        logger.info(f'👋 Harry is ready to help with league questions!')
+    logger.info(f'🔗 Bot ID: {bot.user.id}')
+    logger.info(f'📛 Bot Username: {bot.user.name}')
+    logger.info(f'🏷️ Bot Display Name: {bot.user.display_name}')
+    logger.info(f'📊 Connected to {len(bot.guilds)} guilds')
+    logger.info(f'👋 Harry is ready to help with league questions!')
 
         # Initialize channel manager
         channel_manager = ChannelManager()
@@ -187,12 +187,12 @@ async def on_ready():
         # Initialize charter editor (with AI if available)
         charter_editor = CharterEditor(ai_assistant if AI_AVAILABLE else None)
         logger.info('📝 Charter editor initialized')
-
-        # Load league data
-        await load_league_data()
-
-        # Sync slash commands
-        try:
+    
+    # Load league data
+    await load_league_data()
+    
+    # Sync slash commands
+    try:
             # Sync to specific guilds for instant command updates (5 seconds instead of 1 hour!)
             guild_ids = [
                 1261662233109205144,  # Main server
@@ -210,10 +210,10 @@ async def on_ready():
             synced_global = await bot.tree.sync()
             logger.info(f'✅ Synced {len(synced_global)} command(s) globally (may take up to 1 hour)')
 
-            logger.info(f'🎯 Try: /harry what are the league rules?')
-            logger.info(f'💬 Or mention @Harry in chat for natural conversations!')
-        except Exception as e:
-            logger.error(f'❌ Failed to sync commands: {e}')
+        logger.info(f'🎯 Try: /harry what are the league rules?')
+        logger.info(f'💬 Or mention @Harry in chat for natural conversations!')
+    except Exception as e:
+        logger.error(f'❌ Failed to sync commands: {e}')
     except Exception as e:
         logger.error(f"❌ Critical error in on_ready: {e}")
         logger.exception("Full error details:")
@@ -224,49 +224,58 @@ async def on_ready():
 async def on_message(message):
     """
     Handle regular chat messages and provide intelligent responses.
-
+    
     Processes messages for:
     - Bot mentions
     - League-related keywords
     - Direct questions
     - Greetings
     - Rivalry responses
-
+    
     Args:
         message (discord.Message): The message received
     """
+    # PRIORITY CHECK: Don't deduplicate @everyone/@here + "advanced" messages (important trigger)
+    is_advance_trigger = False
+    if message.mention_everyone or (message.role_mentions and len(message.role_mentions) > 0):
+        message_lower = message.content.lower()
+        if 'advanced' in message_lower:
+            is_advance_trigger = True
+            logger.info(f"🔥 Detected advance trigger - bypassing deduplication")
+
     # Prevent duplicate processing of the same message (check first!)
     # Use atomic check-and-add with lock to prevent race conditions
-    global recent_content_times, processing_lock
-    content_key = f"{message.author.id}:{message.content}:{message.channel.id}"
-    current_time = asyncio.get_event_loop().time()
+    if not is_advance_trigger:  # Skip deduplication for advance triggers
+        global recent_content_times, processing_lock
+        content_key = f"{message.author.id}:{message.content}:{message.channel.id}"
+        current_time = asyncio.get_event_loop().time()
 
-    # Use lock to make check-and-add atomic
-    async with processing_lock:
-        # ATOMIC: Check and add message ID immediately to prevent race conditions
-        # If it's already in the set, another handler is processing it
-        if message.id in processed_messages:
-            logger.info(f"⏭️ Skipping duplicate message ID: {message.id}")
-            return
+        # Use lock to make check-and-add atomic
+        async with processing_lock:
+            # ATOMIC: Check and add message ID immediately to prevent race conditions
+            # If it's already in the set, another handler is processing it
+    if message.id in processed_messages:
+                logger.info(f"⏭️ Skipping duplicate message ID: {message.id}")
+        return
 
-        # Add message ID FIRST before any other checks (atomic operation)
-        processed_messages.add(message.id)
+            # Add message ID FIRST before any other checks (atomic operation)
+    processed_messages.add(message.id)
+    
+            # Now check content-based deduplication
+    if content_key in processed_content:
+                logger.info(f"⏭️ Skipping duplicate content: {content_key[:50]}...")
+        return
 
-        # Now check content-based deduplication
-        if content_key in processed_content:
-            logger.info(f"⏭️ Skipping duplicate content: {content_key[:50]}...")
-            return
+            # Time-based deduplication: check if same content was processed in last 2 seconds
+            if content_key in recent_content_times:
+                time_diff = current_time - recent_content_times[content_key]
+                if time_diff < 2.0:  # Within 2 seconds
+                    logger.info(f"⏭️ Skipping duplicate content (time-based): {content_key[:50]}... (seen {time_diff:.2f}s ago, msg_id={message.id})")
+                    return
 
-        # Time-based deduplication: check if same content was processed in last 2 seconds
-        if content_key in recent_content_times:
-            time_diff = current_time - recent_content_times[content_key]
-            if time_diff < 2.0:  # Within 2 seconds
-                logger.info(f"⏭️ Skipping duplicate content (time-based): {content_key[:50]}... (seen {time_diff:.2f}s ago, msg_id={message.id})")
-                return
-
-        # Add to content tracking sets
-        processed_content.add(content_key)
-        recent_content_times[content_key] = current_time
+            # Add to content tracking sets
+    processed_content.add(content_key)
+            recent_content_times[content_key] = current_time
 
     # Clean up old entries from recent_content_times (keep last 100 entries)
     if len(recent_content_times) > 100:
@@ -278,11 +287,11 @@ async def on_message(message):
             del recent_content_times[key]
 
     logger.debug(f"✅ Processing new message: ID={message.id}, Content={content_key[:50]}...")
-
+    
     # Ignore messages from the bot itself
     if message.author == bot.user:
         return
-
+    
     # Check if the bot is @mentioned (only responds to @CFB Bot, not just "harry" in text)
     bot_mentioned = False
     if message.mentions:
@@ -315,7 +324,7 @@ async def on_message(message):
                         season_text = f"**Season {season_info['season']}, Week {season_info['week']}** → **Week {season_info['week'] + 1}**\n\n"
                     else:
                         season_text = ""
-                    
+
                     embed = discord.Embed(
                         title="⏰ Advance Countdown Restarted!",
                         description=f"Right then! Timer's been restarted!\n\n🏈 **48 HOUR COUNTDOWN STARTED** 🏈\n\n{season_text}You got **48 hours** to get your bleedin' games done!\n\nI'll be remindin' you lot at:\n• 24 hours remaining\n• 12 hours remaining\n• 6 hours remaining\n• 1 hour remaining\n\nAnd when time's up... well, you'll know! 😈",
@@ -351,19 +360,19 @@ async def on_message(message):
     # If bot is NOT mentioned, only respond if channel allows unprompted responses
     if not bot_mentioned and not channel_allows_unprompted:
         return
-
+    
     # Comprehensive logging (only after deduplication and channel checks)
     guild_name = message.guild.name if message.guild else "DM"
     logger.info(f"📨 Message received: '{message.content}' from {message.author} in #{message.channel} (Server: {guild_name})")
     logger.info(f"📊 Message details: length={len(message.content)}, type={type(message.content)}, repr={repr(message.content)}")
     logger.info(f"🔍 DEBUG: Starting message processing for: '{message.content}'")
     logger.info(f"🔍 Channel check: current='{message.channel.name}' (ID: {message.channel.id}), bot_mentioned={bot_mentioned}, unprompted_allowed={channel_allows_unprompted}")
-
+    
     # Skip empty messages
     if not message.content or message.content.strip() == '':
         logger.info(f"⏭️ Skipping empty message from {message.author}")
         return
-
+    
     # Simple rate limiting to prevent duplicate responses (5 second cooldown per user)
     # Reuse current_time from deduplication check above
     user_id = message.author.id
@@ -371,14 +380,14 @@ async def on_message(message):
         logger.info(f"⏭️ Rate limiting: skipping message from {message.author} (too recent)")
         return
     last_message_time[user_id] = current_time
-
+    
     # Log mention info (bot_mentioned already set above)
     if message.mentions:
         for mention in message.mentions:
             logger.info(f"🔍 Mention found: {mention} (ID: {mention.id}) vs bot ID: {bot.user.id}")
             if mention.id == bot.user.id:
                 break  # Already set bot_mentioned above
-
+    
     # Very specific rule-related phrases that indicate actual questions about league rules
     rule_keywords = [
         'what are the rules', 'league rules', 'recruiting rules', 'transfer rules', 'charter rules',
@@ -388,18 +397,18 @@ async def on_message(message):
     ]
     contains_keywords = any(keyword in message.content.lower() for keyword in rule_keywords)
     is_question = message.content.strip().endswith('?')
-
+    
     # Debug: show which keyword was matched
     matched_keywords = [keyword for keyword in rule_keywords if keyword in message.content.lower()]
     if matched_keywords:
         logger.info(f"🔍 Matched rule keywords: {matched_keywords}")
-
+    
     logger.info(f"🔍 Message analysis: bot_mentioned={bot_mentioned}, contains_keywords={contains_keywords}, is_question={is_question}")
-
+    
     # Check for greetings (only when bot is @mentioned)
     greetings = ['hi', 'hello', 'hey']
     is_greeting = bot_mentioned and any(greeting in message.content.lower() for greeting in greetings)
-
+    
     # Check for rivalry/fun responses
     rivalry_keywords = {
         'oregon': 'Fuck Oregon! 🦆💩',
@@ -429,32 +438,32 @@ async def on_message(message):
         'charter': 'Here\'s the official CFB 26 league charter! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
         'league charter': 'Here\'s the official CFB 26 league charter! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)'
     }
-
+    
     rivalry_response = None
     for keyword, response in rivalry_keywords.items():
         if keyword in message.content.lower():
             rivalry_response = response
             break
-
+    
     # Don't trigger rivalry response if it's a clear question (especially with "harry" mentioned)
     if rivalry_response and (is_question or (bot_mentioned and len(message.content.split()) > 2)):
         rivalry_response = None
         logger.info(f"🔍 Rivalry response overridden: question detected or harry mentioned with context")
-
+    
     logger.info(f"🔍 Response triggers: is_greeting={is_greeting}, rivalry_response={rivalry_response is not None}")
-
+    
     # PRIORITY 1: Handle rivalry responses immediately (no AI processing needed)
     if rivalry_response:
         logger.info(f"🏆 Rivalry response triggered: {rivalry_response[:50]}...")
         logger.info(f"✅ Bot will respond to message: '{message.content}' (Server: {guild_name})")
-
+        
         # Don't respond to slash commands
         if message.content.startswith('/'):
             return
-
+            
         # Add a small delay to make it feel more natural
         await asyncio.sleep(1)
-
+        
         # Create a friendly response
         embed = discord.Embed(
             title="🏈 Harry's Response",
@@ -462,16 +471,16 @@ async def on_message(message):
         )
         embed.description = rivalry_response
         embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
-
+        
         # Send the response immediately
         await message.channel.send(embed=embed)
         return
-
+    
     # PRIORITY 2: Handle direct mentions and league-related questions with AI
     is_question, league_related_question, matched_keywords = classify_question(message.content)
-
+    
     logger.info(f"🔍 DEBUG: bot_mentioned={bot_mentioned}, is_question={is_question}, league_related_question={league_related_question}")
-
+    
     # Direct mentions get AI responses regardless of content
     if bot_mentioned or league_related_question:
         # Enhanced classification logging
@@ -480,25 +489,25 @@ async def on_message(message):
             classification_reason.append("bot_mentioned=True")
         if league_related_question:
             classification_reason.append(f"league_question=True (matched: {matched_keywords})")
-
+        
         logger.info(f"🎯 CLASSIFICATION: {message.author} ({message.author.id}) - '{message.content}'")
         logger.info(f"🔍 Classification reason: {', '.join(classification_reason)}")
         logger.info(f"💬 Response triggered: bot_mentioned={bot_mentioned}, league_question={league_related_question}")
         logger.info(f"✅ Bot will respond to message: '{message.content}' (Server: {guild_name})")
-
+        
         # Don't respond to slash commands
         if message.content.startswith('/'):
             return
-
+            
         # Add a small delay to make it feel more natural
         await asyncio.sleep(1)
-
+        
         # Create a friendly response
         embed = discord.Embed(
             title="🏈 Harry's Response",
             color=0x1e90ff
         )
-
+        
         # Handle AI responses
         # Step 0: Check if this is a "tell X to Y" relay request
         if bot_mentioned:
@@ -695,13 +704,13 @@ async def on_message(message):
                 if bot_mentioned:
                     # Remove the mention from the question
                     question = question.replace(f'<@{bot.user.id}>', '').strip()
-
+                
                 # Use league-specific AI logic for mentions or allowed channels
                 # Bot was mentioned or channel allows unprompted responses
                 if bot_mentioned or channel_allows_unprompted:
                     # Determine if this is a league-related question
                     is_league_related = any(f' {keyword} ' in f' {question.lower()} ' for keyword in LEAGUE_KEYWORDS)
-
+                    
                     if is_league_related:
                         # Step 1: Try AI with charter content for league questions
                         charter_question = f"""You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Answer this question using ONLY the league charter content:
@@ -715,7 +724,7 @@ If the charter contains relevant information, provide a helpful answer. If not, 
                         logger.info(f"📝 Full AI prompt: {charter_question[:200]}...")
 
                         ai_response = await ai_assistant.ask_ai(charter_question, f"{message.author} ({message.author.id})")
-
+                        
                         # Step 2: If no charter info, try general AI search without charter context
                         if ai_response and "NO_CHARTER_INFO" in ai_response:
                             logger.info("No charter info found, trying general AI search without charter context")
@@ -782,11 +791,11 @@ Please provide a helpful, accurate answer with maximum sarcasm and wit. This is 
                     if not ai_response:
                         # Fallback to Anthropic
                         ai_response = await ai_assistant.ask_anthropic(general_question, general_context)
-
+                        
             except Exception as e:
                 logger.error(f"AI error: {e}")
                 ai_response = None
-
+            
         # Use AI response if available, otherwise fall back to generic
         if ai_response and "NO_CHARTER_INFO" not in ai_response:
             embed.description = ai_response
@@ -805,23 +814,23 @@ Please provide a helpful, accurate answer with maximum sarcasm and wit. This is 
                 value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
                 inline=False
             )
-
+        
         embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
-
+        
         # Send the response
         await message.channel.send(embed=embed)
-
+    
     # PRIORITY 3: Handle direct mentions that aren't league-related
     elif bot_mentioned:
         logger.info(f"💬 Direct mention but not league-related: '{message.content}' (Server: {guild_name})")
-
+        
         # Don't respond to slash commands
         if message.content.startswith('/'):
             return
-
+            
         # Add a small delay to make it feel more natural
         await asyncio.sleep(1)
-
+        
         # Create a friendly response redirecting to league topics
         embed = discord.Embed(
             title="🏈 Harry's Response",
@@ -834,13 +843,13 @@ Please provide a helpful, accurate answer with maximum sarcasm and wit. This is 
             inline=False
         )
         embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
-
+        
         # Send the response
         await message.channel.send(embed=embed)
-
+    
     else:
         logger.info(f"❌ No response triggers met")
-
+    
     # Process other bot commands
     await bot.process_commands(message)
 
@@ -850,11 +859,11 @@ async def on_reaction_add(reaction, user):
     # Ignore reactions from the bot itself
     if user == bot.user:
         return
-
+    
     # Only respond to reactions on Harry's messages
     if reaction.message.author != bot.user:
         return
-
+    
     # Handle different emoji reactions
     if reaction.emoji == '❓':
         # Question mark - offer help
@@ -863,29 +872,29 @@ async def on_reaction_add(reaction, user):
             description="I'm here to help with CFB 26 league questions! Here are some ways to interact with me:",
             color=0x1e90ff
         )
-
+        
         embed.add_field(
             name="💬 Chat Commands:",
             value="• Mention me: `@Harry what are the rules?`\n• Ask questions: `What's the transfer policy?`\n• Say hi: `Hi Harry!`",
             inline=False
         )
-
+        
         embed.add_field(
             name="⚡ Slash Commands:",
             value="• `/harry <question>` - Ask me anything\n• `/charter` - Link to full charter\n• `/help_cfb` - See all commands",
             inline=False
         )
-
+        
         embed.add_field(
             name="📖 Full Charter",
             value="[Open Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
             inline=False
         )
-
+        
         embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
-
+        
         await reaction.message.channel.send(embed=embed)
-
+    
     elif reaction.emoji == '🏈':
         # Football emoji - CFB enthusiasm
         embed = discord.Embed(
@@ -894,7 +903,7 @@ async def on_reaction_add(reaction, user):
             color=0x1e90ff
         )
         await reaction.message.channel.send(embed=embed)
-
+    
     elif reaction.emoji == '🦆':
         # Duck emoji - Oregon rivalry
         embed = discord.Embed(
@@ -903,7 +912,7 @@ async def on_reaction_add(reaction, user):
             color=0x1e90ff
         )
         await reaction.message.channel.send(embed=embed)
-
+    
     elif reaction.emoji == '🐕':
         # Dog emoji - Huskies support
         embed = discord.Embed(
@@ -912,7 +921,7 @@ async def on_reaction_add(reaction, user):
             color=0x1e90ff
         )
         await reaction.message.channel.send(embed=embed)
-
+    
     elif reaction.emoji == '🤖':
         # Robot emoji - AI explanation
         embed = discord.Embed(
@@ -921,7 +930,7 @@ async def on_reaction_add(reaction, user):
             color=0x1e90ff
         )
         await reaction.message.channel.send(embed=embed)
-
+    
     elif reaction.emoji == '💡':
         # Lightbulb emoji - tips
         embed = discord.Embed(
@@ -948,14 +957,14 @@ async def load_league_data():
 async def rule(interaction: discord.Interaction, rule_name: str):
     """Look up a specific league rule"""
     await interaction.response.send_message("📋 Looking up rule...", ephemeral=True)
-
+    
     # Search for rule in league data
     rule_found = False
     embed = discord.Embed(
         title=f"CFB 26 League Rule: {rule_name.title()}",
         color=0x1e90ff
     )
-
+    
     # Search through league rules (if any exist)
     if hasattr(bot, 'league_data') and 'rules' in bot.league_data:
         for category, rules in bot.league_data['rules'].items():
@@ -966,35 +975,35 @@ async def rule(interaction: discord.Interaction, rule_name: str):
                     embed.add_field(name="Related Topics", value=topics_text, inline=False)
                 rule_found = True
                 break
-
+    
     # If no specific rule found, provide general guidance
     if not rule_found:
         embed.description = f"Specific rule '{rule_name}' not found in local data. All CFB 26 league rules are in the official charter."
-
+    
     # Always add the charter link
     embed.add_field(
         name="📖 Full League Charter",
         value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
         inline=False
     )
-
+    
     await interaction.followup.send(embed=embed)
 
 @bot.tree.command(name="recruiting", description="Get recruiting rules and policies")
 async def recruiting(interaction: discord.Interaction, topic: str):
     """Get information about recruiting rules"""
     await interaction.response.defer()
-
+    
     embed = discord.Embed(
         title=f"CFB 26 Recruiting: {topic.title()}",
         color=0x32cd32
     )
-
+    
     # Check if recruiting rules exist
     if hasattr(bot, 'league_data') and 'rules' in bot.league_data and 'recruiting' in bot.league_data['rules']:
         recruiting_rules = bot.league_data['rules']['recruiting']
         embed.description = recruiting_rules.get('description', 'Recruiting rules and policies')
-
+        
         if 'topics' in recruiting_rules:
             topics = recruiting_rules['topics']
             if topic.lower() in topics:
@@ -1004,20 +1013,20 @@ async def recruiting(interaction: discord.Interaction, topic: str):
                 embed.add_field(name="Available Topics", value=available_topics, inline=False)
     else:
         embed.description = "Recruiting rules not found in league data."
-
+    
     embed.add_field(
-        name="League Charter",
+        name="League Charter", 
         value="[View Full Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
         inline=False
     )
-
+    
     await interaction.followup.send(embed=embed)
 
 @bot.tree.command(name="team", description="Get team information")
 async def team(interaction: discord.Interaction, team_name: str):
     """Get information about a college football team"""
     await interaction.response.defer()
-
+    
     # TODO: Implement team lookup logic
     embed = discord.Embed(
         title=f"Team: {team_name.title()}",
@@ -1025,34 +1034,34 @@ async def team(interaction: discord.Interaction, team_name: str):
         color=0x32cd32
     )
     embed.add_field(name="Status", value="🚧 Under Development", inline=False)
-
+    
     await interaction.followup.send(embed=embed)
 
 @bot.tree.command(name="dynasty", description="Get dynasty management rules")
 async def dynasty(interaction: discord.Interaction, topic: str):
     """Get information about dynasty management rules"""
     await interaction.response.defer()
-
+    
     embed = discord.Embed(
         title=f"CFB 26 Dynasty: {topic.title()}",
         color=0xff6b6b
     )
-
+    
     # Check if dynasty rules exist
     if hasattr(bot, 'league_data') and 'rules' in bot.league_data:
         # Look for dynasty-related rules
         dynasty_topics = ['transfers', 'gameplay', 'scheduling', 'conduct']
         found_topic = None
-
+        
         for dt in dynasty_topics:
             if topic.lower() in dt.lower() and dt in bot.league_data['rules']:
                 found_topic = dt
                 break
-
+        
         if found_topic:
             rules = bot.league_data['rules'][found_topic]
             embed.description = rules.get('description', 'Dynasty management rules')
-
+            
             if 'topics' in rules:
                 topics = rules['topics']
                 if topic.lower() in topics:
@@ -1064,13 +1073,13 @@ async def dynasty(interaction: discord.Interaction, topic: str):
             embed.description = "Dynasty topic not found. Available topics: transfers, gameplay, scheduling, conduct"
     else:
         embed.description = "Dynasty rules not found in league data."
-
+    
     embed.add_field(
-        name="League Charter",
+        name="League Charter", 
         value="[View Full Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
         inline=False
     )
-
+    
     await interaction.followup.send(embed=embed)
 
 @bot.tree.command(name="charter", description="Get link to the official league charter")
@@ -1081,21 +1090,21 @@ async def charter(interaction: discord.Interaction):
         description="Official league rules, policies, and guidelines",
         color=0x1e90ff
     )
-
+    
     embed.add_field(
         name="📖 View Full Charter",
         value="[Open League Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
         inline=False
     )
-
+    
     embed.add_field(
         name="📝 Quick Commands",
         value="Use `/rule <topic>`, `/recruiting <topic>`, or `/dynasty <topic>` for specific information",
         inline=False
     )
-
+    
     embed.set_footer(text="CFB 26 League Bot - Always check the charter for complete rules")
-
+    
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="help_cfb", description="Show all available commands")
@@ -1106,7 +1115,7 @@ async def help_cfb(interaction: discord.Interaction):
         description="Oi! Here's what I can do for ya, mate!",
         color=0x1e90ff
     )
-
+    
     # League Rules Commands
     embed.add_field(
         name="📋 **League Rules Commands**",
@@ -1202,7 +1211,7 @@ async def help_cfb(interaction: discord.Interaction):
         ),
         inline=False
     )
-
+    
     embed.add_field(
         name="💬 **Chat Interactions**",
         value=(
@@ -1213,15 +1222,15 @@ async def help_cfb(interaction: discord.Interaction):
         ),
         inline=False
     )
-
+    
     embed.add_field(
-        name="📖 **OFFICIAL LEAGUE CHARTER**",
+        name="📖 **OFFICIAL LEAGUE CHARTER**", 
         value="[**📋 View Complete Rules & Policies**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)\n\n*This is the official source for all CFB 26 league rules!*",
         inline=False
     )
-
+    
     embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈 | Ready to help!")
-
+    
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="tokens", description="Show AI token usage statistics")
@@ -1233,13 +1242,13 @@ async def show_tokens(interaction: discord.Interaction):
             title="🔢 AI Token Usage Statistics",
             color=0x00ff00
         )
-
+        
         embed.add_field(
             name="📊 Usage Summary",
             value=f"**Total Requests:** {stats['total_requests']}\n**OpenAI Tokens:** {stats['openai_tokens']:,}\n**Anthropic Tokens:** {stats['anthropic_tokens']:,}\n**Total Tokens:** {stats['total_tokens']:,}",
             inline=False
         )
-
+        
         if stats['total_requests'] > 0:
             avg_tokens = stats['total_tokens'] / stats['total_requests']
             embed.add_field(
@@ -1247,7 +1256,7 @@ async def show_tokens(interaction: discord.Interaction):
                 value=f"**Avg Tokens per Request:** {avg_tokens:.1f}",
                 inline=False
             )
-
+        
         # Add cost estimates (rough approximations)
         openai_cost = stats['openai_tokens'] * 0.000002  # GPT-3.5-turbo pricing
         embed.add_field(
@@ -1255,7 +1264,7 @@ async def show_tokens(interaction: discord.Interaction):
             value=f"**OpenAI Cost:** ~${openai_cost:.4f}\n**Note:** Actual costs may vary based on model and pricing",
             inline=False
         )
-
+        
         embed.set_footer(text="Token usage since bot startup")
         await interaction.response.send_message(embed=embed)
     else:
@@ -1265,12 +1274,12 @@ async def show_tokens(interaction: discord.Interaction):
 async def search_charter(interaction: discord.Interaction, search_term: str):
     """Search for specific terms in the league charter"""
     await interaction.response.send_message("🔍 Searching...", ephemeral=True)
-
+    
     embed = discord.Embed(
         title=f"🔍 Search Results: '{search_term}'",
         color=0xffa500
     )
-
+    
     if GOOGLE_DOCS_AVAILABLE and google_docs:
         try:
             results = google_docs.search_document(search_term)
@@ -1291,13 +1300,13 @@ async def search_charter(interaction: discord.Interaction, search_term: str):
             embed.description = f"Error searching charter: {str(e)}"
     else:
         embed.description = "Google Docs integration not available. Use the direct link to search manually."
-
+    
     embed.add_field(
         name="📖 Full Charter",
         value="[Open League Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
         inline=False
     )
-
+    
     await interaction.followup.send(embed=embed)
 
 @bot.tree.command(name="harry", description="Ask Harry (the bot) about league rules and policies")
@@ -1307,29 +1316,29 @@ async def ask_harry(interaction: discord.Interaction, question: str):
         title="🏈 Harry's Response",
         color=0x1e90ff
     )
-
+    
     if AI_AVAILABLE and ai_assistant:
         try:
             # Send initial response immediately
             await interaction.response.send_message("🤔 Harry is thinking...", ephemeral=True)
-
+            
             # Log the slash command usage
             guild_name = interaction.guild.name if interaction.guild else "DM"
             logger.info(f"🎯 SLASH COMMAND: /harry from {interaction.user} ({interaction.user.id}) in {guild_name} - '{question}'")
             logger.info(f"🔍 Slash command question: '{question}'")
             logger.info(f"🏠 Server: {guild_name} (ID: {interaction.guild.id if interaction.guild else 'DM'})")
-
+            
             # Classification for slash commands
             is_question, league_related, matched_keywords = classify_question(question)
-
+            
             logger.info(f"🔍 CLASSIFICATION: is_question={is_question}, league_related={league_related}")
             if league_related:
                 logger.info(f"🎯 Matched keywords: {matched_keywords}")
-
+            
             # Make the AI response more conversational
             conversational_question = f"You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Answer this question about CFB 26 league rules in a hilariously sarcastic way: {question}"
             response = await ai_assistant.ask_ai(conversational_question, f"{interaction.user} ({interaction.user.id})")
-
+            
             if response:
                 embed.description = response
                 embed.add_field(
@@ -1363,15 +1372,15 @@ async def ask_harry(interaction: discord.Interaction, question: str):
             value=f"*{question}*",
             inline=False
         )
-
+    
     embed.add_field(
         name="📖 Full League Charter",
         value="[Open Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
         inline=False
     )
-
+    
     embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
-
+    
     # Send the actual response
     await interaction.followup.send(embed=embed)
 
@@ -1382,20 +1391,20 @@ async def ask_ai(interaction: discord.Interaction, question: str):
         title="🤖 AI Assistant Response",
         color=0x9b59b6
     )
-
+    
     response_sent = False
 
-    try:
-        # Send initial response immediately
-        await interaction.response.send_message("🤖 Thinking...", ephemeral=True)
+        try:
+            # Send initial response immediately
+            await interaction.response.send_message("🤖 Thinking...", ephemeral=True)
         response_sent = True
-
-        # Log the slash command usage
-        guild_name = interaction.guild.name if interaction.guild else "DM"
-        logger.info(f"🎯 SLASH COMMAND: /ask from {interaction.user} ({interaction.user.id}) in {guild_name} - '{question}'")
-        logger.info(f"🔍 Slash command question: '{question}'")
-        logger.info(f"🏠 Server: {guild_name} (ID: {interaction.guild.id if interaction.guild else 'DM'})")
-
+            
+            # Log the slash command usage
+            guild_name = interaction.guild.name if interaction.guild else "DM"
+            logger.info(f"🎯 SLASH COMMAND: /ask from {interaction.user} ({interaction.user.id}) in {guild_name} - '{question}'")
+            logger.info(f"🔍 Slash command question: '{question}'")
+            logger.info(f"🏠 Server: {guild_name} (ID: {interaction.guild.id if interaction.guild else 'DM'})")
+            
         if not AI_AVAILABLE or not ai_assistant:
             embed.description = "AI integration not available. Please check the charter directly or use other commands."
         else:
@@ -1430,12 +1439,12 @@ async def ask_ai(interaction: discord.Interaction, question: str):
                     value="Make sure OPENAI_API_KEY or ANTHROPIC_API_KEY is set in your environment variables.",
                     inline=False
                 )
-    except Exception as e:
+        except Exception as e:
         logger.error(f"❌ Exception in /ask command: {str(e)}", exc_info=True)
         if not response_sent:
             # If we haven't sent a response yet, send it as the initial response
             try:
-                embed.description = f"Error getting AI response: {str(e)}"
+            embed.description = f"Error getting AI response: {str(e)}"
                 embed.add_field(
                     name="🔍 Error Details",
                     value=f"Check the logs for more information. Error type: {type(e).__name__}",
@@ -1445,7 +1454,7 @@ async def ask_ai(interaction: discord.Interaction, question: str):
                 return
             except:
                 pass  # If this fails, try followup
-        else:
+    else:
             # Already sent initial response, use followup
             embed.description = f"Error getting AI response: {str(e)}"
             embed.add_field(
@@ -1460,12 +1469,12 @@ async def ask_ai(interaction: discord.Interaction, question: str):
         value="[Open League Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
         inline=False
     )
-
+    
     embed.set_footer(text="CFB 26 League Bot - AI Assistant")
-
+    
     # Send the actual response
     if response_sent:
-        await interaction.followup.send(embed=embed)
+    await interaction.followup.send(embed=embed)
     else:
         # Fallback: send as initial response if something went wrong
         try:
@@ -1508,7 +1517,7 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
             season_text = f"**Season {season_info['season']}, Week {season_info['week']}** → **Week {season_info['week'] + 1}**\n\n"
         else:
             season_text = ""
-        
+
         embed = discord.Embed(
             title="⏰ Advance Countdown Started!",
             description=f"Right then, listen up ya wankers!\n\n🏈 **{hours} HOUR COUNTDOWN STARTED** 🏈\n\n{season_text}You got **{hours} hours** to get your bleedin' games done!\n\nI'll be remindin' you lot at:\n• 24 hours remaining (if applicable)\n• 12 hours remaining (if applicable)\n• 6 hours remaining (if applicable)\n• 1 hour remaining\n\nAnd when time's up... well, you'll know! 😈",
@@ -1669,8 +1678,8 @@ async def set_season_week(interaction: discord.Interaction, season: int, week: i
     if season < 1:
         await interaction.response.send_message("❌ Season must be at least 1, ya numpty!", ephemeral=True)
         return
-    if week < 1:
-        await interaction.response.send_message("❌ Week must be at least 1, ya numpty!", ephemeral=True)
+    if week < 0:
+        await interaction.response.send_message("❌ Week must be at least 0, ya numpty!", ephemeral=True)
         return
 
     # Set season/week
@@ -2508,12 +2517,12 @@ def main():
         logger.error("❌ DISCORD_BOT_TOKEN not found in environment variables")
         logger.error("📝 Please create a .env file with your bot token")
         exit(1)
-
+    
     logger.info("🚀 Starting CFB Rules Bot...")
     logger.info(f"📊 Environment: {'Production' if os.getenv('RENDER') else 'Development'}")
     logger.info(f"🤖 AI Available: {AI_AVAILABLE}")
     logger.info(f"📄 Google Docs Available: {GOOGLE_DOCS_AVAILABLE}")
-
+    
     try:
         bot.run(token)
     except Exception as e:

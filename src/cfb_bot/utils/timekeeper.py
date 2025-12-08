@@ -272,9 +272,25 @@ class AdvanceTimer:
 
     async def _send_times_up(self):
         """Send the final TIMES UP message"""
+        # Get season/week info for display
+        season_info = None
+        if self.manager:
+            season_info = self.manager.get_season_week()
+            # Increment the week when advance completes
+            if season_info['season'] and season_info['week'] is not None:
+                await self.manager.increment_week()
+                logger.info(f"📅 Week incremented from {season_info['week']} to {season_info['week'] + 1}")
+        
+        # Build description with season/week if available
+        description = "RIGHT THEN, TIME'S UP YA WANKERS!\n\n🏈 **LET'S ADVANCE THE BLOODY LEAGUE!** 🏈\n\n"
+        if season_info and season_info['season'] and season_info['week'] is not None:
+            new_week = season_info['week'] + 1
+            description += f"**Season {season_info['season']}, Week {season_info['week']}** → **Week {new_week}**\n\n"
+        description += "All games should be done. If they ain't, tough luck mate!"
+        
         embed = discord.Embed(
             title="⏰ TIME'S UP! LET'S ADVANCE! ⏰",
-            description="RIGHT THEN, TIME'S UP YA WANKERS!\n\n🏈 **LET'S ADVANCE THE BLOODY LEAGUE!** 🏈\n\nAll games should be done. If they ain't, tough luck mate!",
+            description=description,
             color=0xff0000
         )
 
@@ -578,10 +594,10 @@ class TimekeeperManager:
 
         if not state:
             logger.info("📂 No saved timer state found anywhere")
-        
+
         # Load season/week state
         await self._load_season_week_state()
-        
+
         if not state:
             return
 
@@ -699,7 +715,7 @@ class TimekeeperManager:
 
     async def set_season_week(self, season: int, week: int) -> bool:
         """Set the current season and week"""
-        if season < 1 or week < 1:
+        if season < 1 or week < 0:
             return False
         self.season = season
         self.week = week
@@ -743,7 +759,7 @@ class TimekeeperManager:
                         dm_channel = await bot_owner.create_dm()
 
                     state_json = json.dumps(state)
-                    
+
                     # Try to find existing season/week message
                     async for message in dm_channel.history(limit=10):
                         if (message.author == self.bot.user and
@@ -752,7 +768,7 @@ class TimekeeperManager:
                             await message.edit(content=f"```json\n{state_json}\n```")
                             logger.info("💾 Updated season/week state in DM")
                             return
-                    
+
                     # Create new message
                     await dm_channel.send(content=f"```json\n{state_json}\n```")
                     logger.info("💾 Created season/week state in DM")
@@ -790,7 +806,7 @@ class TimekeeperManager:
                             if content.endswith("```"):
                                 content = content[:-3]
                             content = content.strip()
-                            
+
                             try:
                                 state = json.loads(content)
                                 if state.get('type') == 'season_week':
