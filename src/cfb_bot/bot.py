@@ -154,11 +154,11 @@ async def on_ready():
         current_version = version_manager.get_current_version()
 
         logger.info(f'🏈 CFB 26 League Bot ({bot.user}) v{current_version} has connected to Discord!')
-    logger.info(f'🔗 Bot ID: {bot.user.id}')
-    logger.info(f'📛 Bot Username: {bot.user.name}')
-    logger.info(f'🏷️ Bot Display Name: {bot.user.display_name}')
-    logger.info(f'📊 Connected to {len(bot.guilds)} guilds')
-    logger.info(f'👋 Harry is ready to help with league questions!')
+        logger.info(f'🔗 Bot ID: {bot.user.id}')
+        logger.info(f'📛 Bot Username: {bot.user.name}')
+        logger.info(f'🏷️ Bot Display Name: {bot.user.display_name}')
+        logger.info(f'📊 Connected to {len(bot.guilds)} guilds')
+        logger.info(f'👋 Harry is ready to help with league questions!')
 
         # Initialize channel manager
         channel_manager = ChannelManager()
@@ -187,12 +187,12 @@ async def on_ready():
         # Initialize charter editor (with AI if available)
         charter_editor = CharterEditor(ai_assistant if AI_AVAILABLE else None)
         logger.info('📝 Charter editor initialized')
-    
-    # Load league data
-    await load_league_data()
-    
-    # Sync slash commands
-    try:
+        
+        # Load league data
+        await load_league_data()
+        
+        # Sync slash commands
+        try:
             # Sync to specific guilds for instant command updates (5 seconds instead of 1 hour!)
             guild_ids = [
                 1261662233109205144,  # Main server
@@ -210,10 +210,10 @@ async def on_ready():
             synced_global = await bot.tree.sync()
             logger.info(f'✅ Synced {len(synced_global)} command(s) globally (may take up to 1 hour)')
 
-        logger.info(f'🎯 Try: /harry what are the league rules?')
-        logger.info(f'💬 Or mention @Harry in chat for natural conversations!')
-    except Exception as e:
-        logger.error(f'❌ Failed to sync commands: {e}')
+            logger.info(f'🎯 Try: /harry what are the league rules?')
+            logger.info(f'💬 Or mention @Harry in chat for natural conversations!')
+        except Exception as e:
+            logger.error(f'❌ Failed to sync commands: {e}')
     except Exception as e:
         logger.error(f"❌ Critical error in on_ready: {e}")
         logger.exception("Full error details:")
