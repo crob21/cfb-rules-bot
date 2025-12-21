@@ -277,16 +277,19 @@ async def on_message(message):
             processed_content.add(content_key)
             recent_content_times[content_key] = current_time
 
-    # Clean up old entries from recent_content_times (keep last 100 entries)
-    if len(recent_content_times) > 100:
-        # Remove entries older than 10 seconds
-        cutoff_time = current_time - 10.0
-        # Filter in place by rebuilding the dict
-        keys_to_remove = [k for k, v in recent_content_times.items() if v <= cutoff_time]
-        for key in keys_to_remove:
-            del recent_content_times[key]
+        # Clean up old entries from recent_content_times (keep last 100 entries)
+        if len(recent_content_times) > 100:
+            # Remove entries older than 10 seconds
+            cutoff_time = current_time - 10.0
+            # Filter in place by rebuilding the dict
+            keys_to_remove = [k for k, v in recent_content_times.items() if v <= cutoff_time]
+            for key in keys_to_remove:
+                del recent_content_times[key]
 
-    logger.debug(f"✅ Processing new message: ID={message.id}, Content={content_key[:50]}...")
+        logger.debug(f"✅ Processing new message: ID={message.id}, Content={content_key[:50]}...")
+    else:
+        # For advance triggers, just log that we're processing it
+        logger.info(f"⚡ Processing advance trigger message: ID={message.id}, from {message.author}")
 
     # Ignore messages from the bot itself
     if message.author == bot.user:
