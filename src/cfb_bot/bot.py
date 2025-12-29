@@ -30,7 +30,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 # Import timekeeper, summarizer, charter editor, admin manager, version manager, and channel manager
-from .utils.timekeeper import TimekeeperManager, format_est_time
+from .utils.timekeeper import TimekeeperManager, format_est_time, get_week_name, get_week_phase, get_week_info, get_week_actions, get_week_notes, TOTAL_WEEKS_PER_SEASON
 from .utils.summarizer import ChannelSummarizer
 from .utils.charter_editor import CharterEditor
 from .utils.admin_check import AdminManager
@@ -321,10 +321,12 @@ async def on_message(message):
                 season_info = timekeeper_manager.get_season_week()
                 if season_info['season'] and season_info['week'] is not None:
                     old_week = season_info['week']
+                    old_week_name = season_info.get('week_name', f"Week {old_week}")
                     await timekeeper_manager.increment_week()
-                    logger.info(f"📅 Manual advance: Week incremented from {old_week} to {old_week + 1}")
                     # Refresh season_info after increment
                     season_info = timekeeper_manager.get_season_week()
+                    new_week_name = season_info.get('week_name', f"Week {season_info['week']}")
+                    logger.info(f"📅 Manual advance: {old_week_name} → {new_week_name}")
 
                 # Start new timer (default 48 hours)
                 success = await timekeeper_manager.start_timer(message.channel, 48)
@@ -334,7 +336,10 @@ async def on_message(message):
                     if not season_info:
                         season_info = timekeeper_manager.get_season_week()
                     if season_info['season'] and season_info['week'] is not None:
-                        season_text = f"**Season {season_info['season']}, Week {season_info['week']}** → **Week {season_info['week'] + 1}**\n\n"
+                        week_name = season_info.get('week_name', f"Week {season_info['week']}")
+                        next_week_name = get_week_name(season_info['week'] + 1)
+                        phase = season_info.get('phase', 'Regular Season')
+                        season_text = f"**Season {season_info['season']}**\n📍 {week_name} → **{next_week_name}**\n🏈 Phase: {phase}\n\n"
                     else:
                         season_text = ""
 
@@ -1537,10 +1542,12 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
     season_info = timekeeper_manager.get_season_week()
     if season_info['season'] and season_info['week'] is not None:
         old_week = season_info['week']
+        old_week_name = season_info.get('week_name', f"Week {old_week}")
         await timekeeper_manager.increment_week()
-        logger.info(f"📅 Manual /advance: Week incremented from {old_week} to {old_week + 1}")
         # Refresh season_info after increment
         season_info = timekeeper_manager.get_season_week()
+        new_week_name = season_info.get('week_name', f"Week {season_info['week']}")
+        logger.info(f"📅 Manual /advance: {old_week_name} → {new_week_name}")
 
     # Start the countdown
     success = await timekeeper_manager.start_timer(interaction.channel, hours)
@@ -1550,7 +1557,10 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
         if not season_info:
             season_info = timekeeper_manager.get_season_week()
         if season_info['season'] and season_info['week'] is not None:
-            season_text = f"**Season {season_info['season']}, Week {season_info['week']}** → **Week {season_info['week'] + 1}**\n\n"
+            week_name = season_info.get('week_name', f"Week {season_info['week']}")
+            next_week_name = get_week_name(season_info['week'] + 1)
+            phase = season_info.get('phase', 'Regular Season')
+            season_text = f"**Season {season_info['season']}**\n📍 {week_name} → **{next_week_name}**\n🏈 Phase: {phase}\n\n"
         else:
             season_text = ""
 
@@ -1621,9 +1631,36 @@ async def check_time_status(interaction: discord.Interaction):
                 color = 0xff0000  # Red
                 urgency = "LAST HOUR! GET MOVIN'!"
 
+            # Get season/week info
+            season_info = timekeeper_manager.get_season_week()
+            season_text = ""
+            if season_info['season'] and season_info['week'] is not None:
+                week_name = season_info.get('week_name', f"Week {season_info['week']}")
+                current_week = season_info['week']
+
+                # Check if we're at Preseason (Week 29) - next advance starts new season!
+                if current_week >= TOTAL_WEEKS_PER_SEASON - 1:
+                    next_season = season_info['season'] + 1
+                    season_text = f"\n\n🎉 **LAST WEEK OF SEASON {season_info['season']}!** 🎉\n"
+                    season_text += f"📍 {week_name} → **Season {next_season}, Week 0 - Season Kickoff**\n"
+                    season_text += f"🏈 Next advance starts a NEW SEASON!"
+                else:
+                    next_week = current_week + 1
+                    next_week_info = get_week_info(next_week)
+                    next_week_name = next_week_info["name"]
+                    next_phase = next_week_info["phase"]
+                    next_actions = next_week_info.get("actions", "")
+                    next_notes = next_week_info.get("notes", "")
+
+                    season_text = f"\n\n**Season {season_info['season']}**\n📍 {week_name} → **{next_week_name}**\n🏈 Phase: {next_phase}"
+                    if next_actions:
+                        season_text += f"\n\n📋 **Next Week Actions:**\n{next_actions}"
+                    if next_notes:
+                        season_text += f"\n⚠️ {next_notes}"
+
             embed = discord.Embed(
                 title="⏰ Advance Countdown Status",
-                description=f"**Time Remaining:** {hours}h {minutes}m\n\n{urgency}",
+                description=f"**Time Remaining:** {hours}h {minutes}m\n\n{urgency}{season_text}",
                 color=color
             )
 
@@ -1722,14 +1759,27 @@ async def set_season_week(interaction: discord.Interaction, season: int, week: i
     success = await timekeeper_manager.set_season_week(season, week)
 
     if success:
+        week_info = get_week_info(week)
+        week_name = week_info["name"]
+        phase = week_info["phase"]
+        actions = week_info.get("actions", "")
+        notes = week_info.get("notes", "")
+
+        description = f"Right then! Season and week have been set.\n\n**Season {season}**\n📍 **{week_name}**\n🏈 Phase: {phase}"
+        if actions:
+            description += f"\n\n📋 **Actions Available:**\n{actions}"
+        if notes:
+            description += f"\n\n⚠️ **Note:** {notes}"
+        description += "\n\nThe week will automatically increment when the advance timer completes!"
+
         embed = discord.Embed(
             title="📅 Season/Week Set!",
-            description=f"Right then! Season and week have been set.\n\n**Season {season}, Week {week}**\n\nThe week will automatically increment when the advance timer completes!",
+            description=description,
             color=0x00ff00
         )
         embed.set_footer(text="Harry's Advance Timer 🏈 | Week will increment on advance")
         await interaction.response.send_message(embed=embed)
-        logger.info(f"📅 Season/Week set to Season {season}, Week {week} by {interaction.user}")
+        logger.info(f"📅 Season/Week set to Season {season}, {week_name} by {interaction.user}")
     else:
         embed = discord.Embed(
             title="❌ Failed to Set Season/Week",

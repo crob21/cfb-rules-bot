@@ -24,6 +24,138 @@ except ImportError:
 
 logger = logging.getLogger('CFB26Bot.Timekeeper')
 
+# CFB 26 Dynasty Season Week Structure
+# A Dynasty season consists of Regular Season (Weeks 0-14), Post-Season, and Offseason
+# Dynasties can last up to 30 seasons
+CFB_DYNASTY_WEEKS = {
+    # Regular Season (Weeks 0-14)
+    0: {"name": "Week 0 - Season Kickoff", "short": "Week 0", "phase": "Regular Season", "actions": "Season begins"},
+    1: {"name": "Week 1", "short": "Week 1", "phase": "Regular Season", "actions": ""},
+    2: {"name": "Week 2", "short": "Week 2", "phase": "Regular Season", "actions": ""},
+    3: {"name": "Week 3", "short": "Week 3", "phase": "Regular Season", "actions": ""},
+    4: {"name": "Week 4", "short": "Week 4", "phase": "Regular Season", "actions": ""},
+    5: {"name": "Week 5", "short": "Week 5", "phase": "Regular Season", "actions": ""},
+    6: {"name": "Week 6", "short": "Week 6", "phase": "Regular Season", "actions": ""},
+    7: {"name": "Week 7", "short": "Week 7", "phase": "Regular Season", "actions": ""},
+    8: {"name": "Week 8", "short": "Week 8", "phase": "Regular Season", "actions": ""},
+    9: {"name": "Week 9", "short": "Week 9", "phase": "Regular Season", "actions": ""},
+    10: {"name": "Week 10", "short": "Week 10", "phase": "Regular Season", "actions": ""},
+    11: {"name": "Week 11", "short": "Week 11", "phase": "Regular Season", "actions": ""},
+    12: {"name": "Week 12", "short": "Week 12", "phase": "Regular Season", "actions": ""},
+    13: {"name": "Week 13", "short": "Week 13", "phase": "Regular Season", "actions": ""},
+    14: {"name": "Week 14", "short": "Week 14", "phase": "Regular Season", "actions": ""},
+    # Note: Week 15 may be removed in later seasons, going directly to Conference Championships
+    15: {"name": "Week 15", "short": "Week 15", "phase": "Regular Season", "actions": ""},
+    # Post-Season / Bowl Season
+    16: {"name": "Conference Championships", "short": "Conf Champs", "phase": "Post-Season", "actions": "Manage Staff (fire only)", "notes": "Only chance to fire staff"},
+    17: {"name": "Bowl Week 1", "short": "Bowl Wk 1", "phase": "Post-Season", "actions": "View Job Offers, Manage Staff (Hire only), Early National Signing Day", "notes": ""},
+    18: {"name": "Bowl Week 2", "short": "Bowl Wk 2", "phase": "Post-Season", "actions": "View Job Offers, Manage Staff (Hire only)", "notes": "Last week of HC job offers"},
+    19: {"name": "Bowl Week 3", "short": "Bowl Wk 3", "phase": "Post-Season", "actions": "Manage Staff (Hire only)", "notes": "Last chance to user-hire staff"},
+    20: {"name": "Bowl Week 4", "short": "Bowl Wk 4", "phase": "Post-Season", "actions": "View Staff Moves", "notes": ""},
+    21: {"name": "End of Season Recap", "short": "Season Recap", "phase": "Post-Season", "actions": "Players Leaving", "notes": ""},
+    # Offseason (Portal + Recruiting)
+    22: {"name": "Offseason Portal Week 1", "short": "Portal Wk 1", "phase": "Offseason", "actions": "Draft Results", "notes": ""},
+    23: {"name": "Offseason Portal Week 2", "short": "Portal Wk 2", "phase": "Offseason", "actions": "", "notes": ""},
+    24: {"name": "Offseason Portal Week 3", "short": "Portal Wk 3", "phase": "Offseason", "actions": "", "notes": ""},
+    25: {"name": "Offseason Portal Week 4", "short": "Portal Wk 4", "phase": "Offseason", "actions": "", "notes": ""},
+    26: {"name": "National Signing Day", "short": "Signing Day", "phase": "Offseason", "actions": "Position Changes", "notes": ""},
+    27: {"name": "Training Results", "short": "Training", "phase": "Offseason", "actions": "", "notes": "Last chance to view players before roster cuts"},
+    28: {"name": "Encourage Transfers", "short": "Transfers", "phase": "Offseason", "actions": "Custom Conferences", "notes": ""},
+    29: {"name": "Preseason", "short": "Preseason", "phase": "Offseason", "actions": "Set-up Recruiting Board, Custom Schedules", "notes": ""},
+}
+
+# Total weeks in a CFB 26 Dynasty season
+TOTAL_WEEKS_PER_SEASON = 30  # Week 0-29
+
+
+def get_week_name(week: int, short: bool = False) -> str:
+    """
+    Get the display name for a given week number.
+
+    Args:
+        week: The week number (0-29)
+        short: If True, return the short name
+
+    Returns:
+        The week name string
+    """
+    if week in CFB_DYNASTY_WEEKS:
+        return CFB_DYNASTY_WEEKS[week]["short" if short else "name"]
+    # Fallback for any week number outside the standard structure
+    return f"Week {week}"
+
+
+def get_week_phase(week: int) -> str:
+    """
+    Get the season phase for a given week number.
+
+    Args:
+        week: The week number (0-29)
+
+    Returns:
+        The phase name (Regular Season, Post-Season, or Offseason)
+    """
+    if week in CFB_DYNASTY_WEEKS:
+        return CFB_DYNASTY_WEEKS[week]["phase"]
+    # Fallback
+    if week <= 15:
+        return "Regular Season"
+    elif week <= 21:
+        return "Post-Season"
+    return "Offseason"
+
+
+def get_week_actions(week: int) -> str:
+    """
+    Get the available actions for a given week.
+
+    Args:
+        week: The week number (0-29)
+
+    Returns:
+        String describing available actions, or empty string
+    """
+    if week in CFB_DYNASTY_WEEKS:
+        return CFB_DYNASTY_WEEKS[week].get("actions", "")
+    return ""
+
+
+def get_week_notes(week: int) -> str:
+    """
+    Get any important notes for a given week.
+
+    Args:
+        week: The week number (0-29)
+
+    Returns:
+        String with notes, or empty string
+    """
+    if week in CFB_DYNASTY_WEEKS:
+        return CFB_DYNASTY_WEEKS[week].get("notes", "")
+    return ""
+
+
+def get_week_info(week: int) -> Dict:
+    """
+    Get full information about a week.
+
+    Args:
+        week: The week number (0-29)
+
+    Returns:
+        Dict with name, short name, phase, actions, and notes
+    """
+    if week in CFB_DYNASTY_WEEKS:
+        return CFB_DYNASTY_WEEKS[week].copy()
+    return {
+        "name": f"Week {week}",
+        "short": f"Week {week}",
+        "phase": get_week_phase(week),
+        "actions": "",
+        "notes": ""
+    }
+
+
 # EST/EDT timezone (America/New_York handles DST automatically)
 EST_TIMEZONE = ZoneInfo('America/New_York') if ZoneInfo else None
 
@@ -274,20 +406,56 @@ class AdvanceTimer:
         """Send the final TIMES UP message"""
         # Get season/week info for display
         season_info = None
+        old_season = None
+        old_week = None
+        old_week_name = None
+        is_new_season = False
+
         if self.manager:
             season_info = self.manager.get_season_week()
-            # Increment the week when advance completes
+            # Store old values before increment
             if season_info['season'] and season_info['week'] is not None:
+                old_season = season_info['season']
+                old_week = season_info['week']
+                old_week_name = season_info.get('week_name', f"Week {old_week}")
+
+                # Check if this will trigger a new season (advancing from Preseason/Week 29)
+                is_new_season = old_week >= TOTAL_WEEKS_PER_SEASON - 1
+
+                # Increment the week
                 await self.manager.increment_week()
-                logger.info(f"📅 Week incremented from {season_info['week']} to {season_info['week'] + 1}")
-        
+
+                # Get new week info after increment
+                new_season_info = self.manager.get_season_week()
+                new_week_name = new_season_info.get('week_name', f"Week {new_season_info['week']}")
+                logger.info(f"📅 Advanced from {old_week_name} to {new_week_name}")
+
         # Build description with season/week if available
-        description = "RIGHT THEN, TIME'S UP YA WANKERS!\n\n🏈 **LET'S ADVANCE THE BLOODY LEAGUE!** 🏈\n\n"
-        if season_info and season_info['season'] and season_info['week'] is not None:
-            new_week = season_info['week'] + 1
-            description += f"**Season {season_info['season']}, Week {season_info['week']}** → **Week {new_week}**\n\n"
-        description += "All games should be done. If they ain't, tough luck mate!"
-        
+        if is_new_season and self.manager:
+            # NEW SEASON celebration!
+            new_season_info = self.manager.get_season_week()
+            description = "🎉 **NEW SEASON STARTING!** 🎉\n\n"
+            description += "RIGHT THEN, TIME'S UP YA WANKERS!\n\n"
+            description += f"**Season {old_season}** is in the books!\n\n"
+            description += f"🏈 **WELCOME TO SEASON {new_season_info['season']}!** 🏈\n\n"
+            description += f"📍 {old_week_name} → **{new_season_info.get('week_name', 'Week 0 - Season Kickoff')}**\n\n"
+            description += "Time to start fresh! Good luck to all you muppets! 🏈"
+        else:
+            description = "RIGHT THEN, TIME'S UP YA WANKERS!\n\n🏈 **LET'S ADVANCE THE BLOODY LEAGUE!** 🏈\n\n"
+            if season_info and season_info['season'] and old_week is not None:
+                new_season_info = self.manager.get_season_week() if self.manager else None
+                if new_season_info:
+                    new_week_name = new_season_info.get('week_name', f"Week {new_season_info['week']}")
+                    phase = new_season_info.get('phase', get_week_phase(new_season_info['week']))
+                else:
+                    new_week_name = get_week_name(old_week + 1)
+                    phase = get_week_phase(old_week + 1)
+
+                description += f"**Season {season_info['season']}**\n"
+                description += f"📍 {old_week_name} → **{new_week_name}**\n"
+                description += f"🏈 Phase: {phase}\n\n"
+            description += "All games should be done. If they ain't, tough luck mate!"
+
         embed = discord.Embed(
             title="⏰ TIME'S UP! LET'S ADVANCE! ⏰",
             description=description,
@@ -707,10 +875,14 @@ class TimekeeperManager:
         return self.timers[channel.id].get_status()
 
     def get_season_week(self) -> Dict:
-        """Get current season and week"""
+        """Get current season and week with proper CFB 26 week names"""
+        week_info = get_week_info(self.week) if self.week is not None else None
         return {
             'season': self.season,
-            'week': self.week
+            'week': self.week,
+            'week_name': week_info["name"] if week_info else None,
+            'week_short': week_info["short"] if week_info else None,
+            'phase': week_info["phase"] if week_info else None
         }
 
     async def set_season_week(self, season: int, week: int) -> bool:
@@ -725,14 +897,31 @@ class TimekeeperManager:
         return True
 
     async def increment_week(self) -> bool:
-        """Increment the week (called when advance happens)"""
+        """
+        Increment the week (called when advance happens).
+        Automatically rolls over to new season after Preseason (Week 29).
+        """
         if self.week is None:
             logger.warning("⚠️ Cannot increment week - week not set")
             return False
-        self.week += 1
+
+        old_week = self.week
+        old_week_name = get_week_name(old_week)
+
+        # Check if we're at Preseason (Week 29) - time to start a new season!
+        if self.week >= TOTAL_WEEKS_PER_SEASON - 1:  # Week 29 (Preseason)
+            self.week = 0  # Reset to Week 0 - Season Kickoff
+            if self.season:
+                self.season += 1  # Increment season
+            else:
+                self.season = 1  # Default to season 1 if not set
+            logger.info(f"🎉 NEW SEASON! {old_week_name} → Season {self.season}, {get_week_name(self.week)}")
+        else:
+            self.week += 1
+            logger.info(f"📅 Week incremented: {old_week_name} → {get_week_name(self.week)}")
+
         # Save season/week to state
         await self._save_season_week_state()
-        logger.info(f"📅 Week incremented to Week {self.week}")
         return True
 
     async def _save_season_week_state(self):

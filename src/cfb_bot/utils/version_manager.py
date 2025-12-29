@@ -11,10 +11,51 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.1.1"
+CURRENT_VERSION = "1.2.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.2.0": {
+        "date": "2025-12-29",
+        "title": "CFB 26 Dynasty Week System",
+        "emoji": "🏈",
+        "features": [
+            {
+                "category": "Dynasty Week Counter",
+                "emoji": "📅",
+                "changes": [
+                    "Added full CFB 26 Dynasty season week structure (30 weeks total)",
+                    "Regular Season: Week 0 (Season Kickoff) through Week 15",
+                    "Post-Season: Conference Championships, Bowl Weeks 1-4, End of Season Recap",
+                    "Offseason: Portal Weeks 1-4, National Signing Day, Training Results",
+                    "Offseason: Encourage Transfers, Preseason",
+                    "Season phase tracking (Regular Season, Post-Season, Offseason)"
+                ]
+            },
+            {
+                "category": "Week Actions & Notes",
+                "emoji": "📋",
+                "changes": [
+                    "Each week now shows available actions (staff moves, job offers, etc.)",
+                    "Important notes displayed (last chance reminders, deadlines)",
+                    "Bowl weeks show hiring/firing windows",
+                    "Offseason weeks show portal and recruiting actions",
+                    "/time_status shows upcoming week actions"
+                ]
+            },
+            {
+                "category": "Improved Display",
+                "emoji": "✨",
+                "changes": [
+                    "Week transitions now show proper CFB 26 week names",
+                    "Season phase displayed alongside week info",
+                    "/time_status shows current and next week with actions",
+                    "/set_season_week shows proper week name, phase, and actions",
+                    "Times Up message displays phase and week progression"
+                ]
+            }
+        ]
+    },
     "1.1.1": {
         "date": "2025-11-04",
         "title": "Bug Fixes & Improvements",
