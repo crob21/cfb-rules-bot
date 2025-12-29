@@ -474,6 +474,28 @@ class AdvanceTimer:
 class TimekeeperManager:
     """Manages advance timers across multiple channels"""
 
+    # Special value for "no co-commish"
+    NO_CO_COMMISH = "We don't fucking have one"
+
+    # Nag messages to cycle through
+    NAG_MESSAGES = [
+        "🚨 OI! ADVANCE THE BLOODY WEEK ALREADY! 🚨",
+        "⏰ Still waiting on that advance, ya lazy sod!",
+        "🏈 The league ain't gonna advance itself, mate!",
+        "😤 ADVANCE. THE. WEEK. How hard is it?!",
+        "🔔 *aggressive bell ringing* ADVANCE TIME!",
+        "💀 People are DYING waiting for this advance!",
+        "🐌 My nan moves faster than this league advances!",
+        "📢 THIS IS YOUR REMINDER TO ADVANCE THE WEEK!",
+        "🎯 You've got ONE JOB! Advance the week!",
+        "🤬 FOR THE LOVE OF ALL THAT IS HOLY, ADVANCE!",
+        "⚡ ADVANCE NOW OR I'LL KEEP SPAMMING YA!",
+        "🦆 Even the Oregon Ducks advance faster than you!",
+        "🧠 Did you forget how to click buttons?!",
+        "🎪 This ain't a circus! Well, actually it is. ADVANCE!",
+        "💤 Wake up and ADVANCE THE BLOODY WEEK!",
+    ]
+
     def __init__(self, bot: discord.Client):
         self.bot = bot
         self.timers: Dict[int, AdvanceTimer] = {}  # channel_id -> timer
@@ -481,6 +503,16 @@ class TimekeeperManager:
         self.state_channel_id: Optional[int] = None  # Channel ID for state storage
         self.season: Optional[int] = None  # Current season number
         self.week: Optional[int] = None  # Current week number
+        # League staff tracking
+        self.league_owner_id: Optional[int] = None  # Discord user ID of league owner
+        self.league_owner_name: Optional[str] = None  # Display name (cached)
+        self.co_commish_id: Optional[int] = None  # Discord user ID of co-commish (None = not set)
+        self.co_commish_name: Optional[str] = None  # Display name (cached, or NO_CO_COMMISH)
+        # Nagging system
+        self.nag_task: Optional[asyncio.Task] = None
+        self.nag_active: bool = False
+        self.nag_interval_minutes: int = 5
+        self.nag_message_index: int = 0
 
     async def _save_state_to_discord(self, state: Dict):
         """Save timer state to a Discord DM channel (persists across deployments, invisible to users)"""
@@ -766,6 +798,9 @@ class TimekeeperManager:
         # Load season/week state
         await self._load_season_week_state()
 
+        # Load league staff state
+        await self._load_league_staff_state()
+
         if not state:
             return
 
@@ -1009,3 +1044,240 @@ class TimekeeperManager:
                     logger.debug(f"Could not load season/week from DM: {e}")
         except Exception as e:
             logger.debug(f"Failed to load season/week state: {e}")
+
+    # ==================== League Staff Methods ====================
+
+    def get_league_staff(self) -> Dict:
+        """Get current league owner and co-commish"""
+        return {
+            'owner_id': self.league_owner_id,
+            'owner_name': self.league_owner_name,
+            'co_commish_id': self.co_commish_id,
+            'co_commish_name': self.co_commish_name,
+            'has_co_commish': self.co_commish_id is not None and self.co_commish_name != self.NO_CO_COMMISH
+        }
+
+    async def set_league_owner(self, user: discord.User) -> bool:
+        """Set the league owner"""
+        try:
+            self.league_owner_id = user.id
+            self.league_owner_name = user.display_name
+            await self._save_league_staff_state()
+            logger.info(f"👑 League owner set to {user.display_name} (ID: {user.id})")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to set league owner: {e}")
+            return False
+
+    async def set_co_commish(self, user: Optional[discord.User] = None, no_co_commish: bool = False) -> bool:
+        """
+        Set the co-commissioner.
+
+        Args:
+            user: The Discord user to set as co-commish, or None
+            no_co_commish: If True, set to "We don't fucking have one"
+        """
+        try:
+            if no_co_commish:
+                self.co_commish_id = None
+                self.co_commish_name = self.NO_CO_COMMISH
+                logger.info(f"👤 Co-commish set to: {self.NO_CO_COMMISH}")
+            elif user:
+                self.co_commish_id = user.id
+                self.co_commish_name = user.display_name
+                logger.info(f"👤 Co-commish set to {user.display_name} (ID: {user.id})")
+            else:
+                self.co_commish_id = None
+                self.co_commish_name = None
+                logger.info("👤 Co-commish cleared")
+
+            await self._save_league_staff_state()
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to set co-commish: {e}")
+            return False
+
+    async def _save_league_staff_state(self):
+        """Save league staff state to Discord"""
+        state = {
+            'league_owner_id': self.league_owner_id,
+            'league_owner_name': self.league_owner_name,
+            'co_commish_id': self.co_commish_id,
+            'co_commish_name': self.co_commish_name,
+            'type': 'league_staff'
+        }
+        try:
+            bot_owner_id = None
+            try:
+                app_info = await self.bot.application_info()
+                bot_owner_id = app_info.owner.id if app_info.owner else None
+            except:
+                pass
+
+            if bot_owner_id:
+                try:
+                    bot_owner = await self.bot.fetch_user(bot_owner_id)
+                    dm_channel = bot_owner.dm_channel
+                    if not dm_channel:
+                        dm_channel = await bot_owner.create_dm()
+
+                    state_json = json.dumps(state)
+
+                    # Try to find existing league staff message
+                    async for message in dm_channel.history(limit=15):
+                        if (message.author == self.bot.user and
+                            message.content.startswith("```json") and
+                            '"type": "league_staff"' in message.content):
+                            await message.edit(content=f"```json\n{state_json}\n```")
+                            logger.info("💾 Updated league staff state in DM")
+                            return
+
+                    # Create new message
+                    await dm_channel.send(content=f"```json\n{state_json}\n```")
+                    logger.info("💾 Created league staff state in DM")
+                    return
+                except Exception as e:
+                    logger.warning(f"⚠️ Could not save league staff to DM: {e}")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to save league staff state: {e}")
+
+    async def _load_league_staff_state(self):
+        """Load league staff state from Discord"""
+        try:
+            bot_owner_id = None
+            try:
+                app_info = await self.bot.application_info()
+                bot_owner_id = app_info.owner.id if app_info.owner else None
+            except:
+                pass
+
+            if bot_owner_id:
+                try:
+                    bot_owner = await self.bot.fetch_user(bot_owner_id)
+                    dm_channel = bot_owner.dm_channel
+                    if not dm_channel:
+                        dm_channel = await bot_owner.create_dm()
+
+                    async for message in dm_channel.history(limit=15):
+                        if (message.author == self.bot.user and
+                            message.content.startswith("```json") and
+                            '"type": "league_staff"' in message.content):
+                            content = message.content.strip()
+                            if content.startswith("```json"):
+                                content = content[7:]
+                            if content.endswith("```"):
+                                content = content[:-3]
+                            content = content.strip()
+
+                            try:
+                                state = json.loads(content)
+                                if state.get('type') == 'league_staff':
+                                    self.league_owner_id = state.get('league_owner_id')
+                                    self.league_owner_name = state.get('league_owner_name')
+                                    self.co_commish_id = state.get('co_commish_id')
+                                    self.co_commish_name = state.get('co_commish_name')
+                                    logger.info(f"✅ Loaded league staff: Owner={self.league_owner_name}, Co-Commish={self.co_commish_name}")
+                                    return
+                            except json.JSONDecodeError:
+                                continue
+                except Exception as e:
+                    logger.debug(f"Could not load league staff from DM: {e}")
+        except Exception as e:
+            logger.debug(f"Failed to load league staff state: {e}")
+
+    # ==================== Owner Nagging System ====================
+
+    async def start_nagging(self, interval_minutes: int = 5) -> bool:
+        """
+        Start nagging the league owner to advance the week.
+
+        Args:
+            interval_minutes: How often to nag (default 5 minutes)
+        """
+        if not self.league_owner_id:
+            logger.warning("⚠️ Cannot nag - no league owner set!")
+            return False
+
+        if self.nag_active:
+            logger.warning("⚠️ Already nagging the owner!")
+            return False
+
+        self.nag_active = True
+        self.nag_interval_minutes = interval_minutes
+        self.nag_message_index = 0
+        self.nag_task = asyncio.create_task(self._nag_loop())
+        logger.info(f"😈 Started nagging league owner every {interval_minutes} minutes!")
+        return True
+
+    async def stop_nagging(self) -> bool:
+        """Stop nagging the league owner"""
+        if not self.nag_active:
+            return False
+
+        self.nag_active = False
+        if self.nag_task and not self.nag_task.done():
+            self.nag_task.cancel()
+
+        # Send a final message letting them know they're off the hook
+        try:
+            owner = await self.bot.fetch_user(self.league_owner_id)
+            dm_channel = owner.dm_channel
+            if not dm_channel:
+                dm_channel = await owner.create_dm()
+            await dm_channel.send("✅ Alright, alright! I'll stop nagging ya... FOR NOW. 😈")
+        except:
+            pass
+
+        logger.info("😇 Stopped nagging the league owner")
+        return True
+
+    def is_nagging(self) -> bool:
+        """Check if currently nagging"""
+        return self.nag_active
+
+    async def _nag_loop(self):
+        """Background task that sends nag messages"""
+        try:
+            # Send first message immediately
+            await self._send_nag_message()
+
+            while self.nag_active:
+                # Wait for the interval
+                await asyncio.sleep(self.nag_interval_minutes * 60)
+
+                if not self.nag_active:
+                    break
+
+                await self._send_nag_message()
+
+        except asyncio.CancelledError:
+            logger.info("😇 Nag task cancelled")
+        except Exception as e:
+            logger.error(f"❌ Error in nag loop: {e}")
+            self.nag_active = False
+
+    async def _send_nag_message(self):
+        """Send a nag message to the league owner"""
+        if not self.league_owner_id:
+            return
+
+        try:
+            owner = await self.bot.fetch_user(self.league_owner_id)
+            dm_channel = owner.dm_channel
+            if not dm_channel:
+                dm_channel = await owner.create_dm()
+
+            # Get the next message in rotation
+            message = self.NAG_MESSAGES[self.nag_message_index % len(self.NAG_MESSAGES)]
+            self.nag_message_index += 1
+
+            # Add week info if available
+            if self.season and self.week is not None:
+                week_name = get_week_name(self.week)
+                message += f"\n\n📅 **Season {self.season}, {week_name}**"
+
+            await dm_channel.send(message)
+            logger.info(f"📢 Sent nag message #{self.nag_message_index} to league owner")
+
+        except Exception as e:
+            logger.error(f"❌ Failed to send nag message: {e}")

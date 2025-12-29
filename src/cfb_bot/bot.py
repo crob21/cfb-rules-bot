@@ -1743,7 +1743,7 @@ async def check_week(interaction: discord.Interaction):
         return
 
     season_info = timekeeper_manager.get_season_week()
-    
+
     if not season_info['season'] or season_info['week'] is None:
         embed = discord.Embed(
             title="📅 Season/Week Not Set",
@@ -1752,34 +1752,34 @@ async def check_week(interaction: discord.Interaction):
         )
         await interaction.response.send_message(embed=embed)
         return
-    
+
     week_name = season_info.get('week_name', f"Week {season_info['week']}")
     phase = season_info.get('phase', 'Unknown')
     week_num = season_info['week']
-    
+
     # Get week details
     week_info = get_week_info(week_num)
     actions = week_info.get("actions", "")
     notes = week_info.get("notes", "")
-    
+
     # Build description
     description = f"**Season {season_info['season']}**\n\n"
     description += f"📍 **{week_name}**\n"
     description += f"🏈 Phase: {phase}\n"
     description += f"📊 Week {week_num} of {TOTAL_WEEKS_PER_SEASON - 1}"
-    
+
     if actions:
         description += f"\n\n📋 **Available Actions:**\n{actions}"
     if notes:
         description += f"\n\n⚠️ **Note:** {notes}"
-    
+
     # Show what's next
     if week_num >= TOTAL_WEEKS_PER_SEASON - 1:
         description += f"\n\n🎉 **Next:** Season {season_info['season'] + 1}, Week 0 - Season Kickoff!"
     else:
         next_week_info = get_week_info(week_num + 1)
         description += f"\n\n➡️ **Next:** {next_week_info['name']}"
-    
+
     embed = discord.Embed(
         title="📅 Current Week",
         description=description,
@@ -1840,6 +1840,243 @@ async def set_season_week(interaction: discord.Interaction, season: int, week: i
             color=0xff0000
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+# ==================== League Staff Commands ====================
+
+@bot.tree.command(name="league_staff", description="View the current league owner and co-commissioner")
+async def view_league_staff(interaction: discord.Interaction):
+    """View current league staff"""
+    if not timekeeper_manager:
+        await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
+        return
+
+    staff = timekeeper_manager.get_league_staff()
+
+    # Build the embed
+    owner_text = f"<@{staff['owner_id']}>" if staff['owner_id'] else "Not set"
+
+    if staff['co_commish_name'] == timekeeper_manager.NO_CO_COMMISH:
+        co_commish_text = f"😤 {timekeeper_manager.NO_CO_COMMISH}"
+    elif staff['co_commish_id']:
+        co_commish_text = f"<@{staff['co_commish_id']}>"
+    else:
+        co_commish_text = "Not set"
+
+    embed = discord.Embed(
+        title="👑 League Staff",
+        description="The brave souls running this circus...",
+        color=0xffd700  # Gold
+    )
+    embed.add_field(
+        name="🏆 League Owner",
+        value=owner_text,
+        inline=False
+    )
+    embed.add_field(
+        name="👤 Co-Commissioner",
+        value=co_commish_text,
+        inline=False
+    )
+    embed.set_footer(text="Harry's League Tracker 🏈 | Admins use /set_league_owner and /set_co_commish")
+
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="set_league_owner", description="Set the league owner (Admin only)")
+async def set_league_owner(interaction: discord.Interaction, user: discord.User):
+    """Set the league owner"""
+    # Check if user is admin
+    if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
+        await interaction.response.send_message("❌ You need to be a bot admin to set the league owner, ya muppet!", ephemeral=True)
+        return
+
+    if not timekeeper_manager:
+        await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
+        return
+
+    success = await timekeeper_manager.set_league_owner(user)
+
+    if success:
+        embed = discord.Embed(
+            title="👑 League Owner Set!",
+            description=f"All hail the new boss!\n\n**League Owner:** <@{user.id}>\n\nMay their reign be glorious (or at least not completely shite)!",
+            color=0xffd700
+        )
+        embed.set_footer(text="Harry's League Tracker 🏈")
+        await interaction.response.send_message(embed=embed)
+        logger.info(f"👑 League owner set to {user.display_name} by {interaction.user}")
+    else:
+        await interaction.response.send_message("❌ Failed to set league owner, mate!", ephemeral=True)
+
+@bot.tree.command(name="set_co_commish", description="Set the co-commissioner (Admin only)")
+@discord.app_commands.describe(
+    user="The user to set as co-commissioner (leave empty if setting to 'none')",
+    none="Set to 'We don't fucking have one'"
+)
+async def set_co_commish(
+    interaction: discord.Interaction,
+    user: Optional[discord.User] = None,
+    none: bool = False
+):
+    """Set the co-commissioner"""
+    # Check if user is admin
+    if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
+        await interaction.response.send_message("❌ You need to be a bot admin to set the co-commish, ya muppet!", ephemeral=True)
+        return
+
+    if not timekeeper_manager:
+        await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
+        return
+
+    # Must specify either user or none
+    if not user and not none:
+        await interaction.response.send_message(
+            "❌ You gotta either pick a user OR set `none` to True if you don't have a co-commish, ya numpty!",
+            ephemeral=True
+        )
+        return
+
+    if user and none:
+        await interaction.response.send_message(
+            "❌ Make up your mind! Either pick a user OR set none to True, not both!",
+            ephemeral=True
+        )
+        return
+
+    success = await timekeeper_manager.set_co_commish(user=user, no_co_commish=none)
+
+    if success:
+        if none:
+            embed = discord.Embed(
+                title="👤 Co-Commissioner Updated!",
+                description=f"Right then, no co-commish it is!\n\n**Co-Commissioner:** 😤 {timekeeper_manager.NO_CO_COMMISH}\n\nThe owner's flying solo on this one!",
+                color=0xff6600
+            )
+        else:
+            embed = discord.Embed(
+                title="👤 Co-Commissioner Set!",
+                description=f"We've got ourselves a co-commish!\n\n**Co-Commissioner:** <@{user.id}>\n\nHope they're ready to help wrangle these muppets!",
+                color=0x00ff00
+            )
+        embed.set_footer(text="Harry's League Tracker 🏈")
+        await interaction.response.send_message(embed=embed)
+        if none:
+            logger.info(f"👤 Co-commish set to 'none' by {interaction.user}")
+        else:
+            logger.info(f"👤 Co-commish set to {user.display_name} by {interaction.user}")
+    else:
+        await interaction.response.send_message("❌ Failed to set co-commish, mate!", ephemeral=True)
+
+# ==================== Owner Nagging Commands (Bot Owner Only) ====================
+
+@bot.tree.command(name="nag_owner", description="Start spamming the league owner to advance (Bot Owner only)")
+@discord.app_commands.describe(
+    interval="How often to nag in minutes (default: 5)"
+)
+async def nag_owner(interaction: discord.Interaction, interval: int = 5):
+    """Start nagging the league owner to advance the week"""
+    # This is for the bot owner ONLY - check application info
+    try:
+        app_info = await bot.application_info()
+        bot_owner_id = app_info.owner.id if app_info.owner else None
+    except:
+        bot_owner_id = None
+
+    if not bot_owner_id or interaction.user.id != bot_owner_id:
+        await interaction.response.send_message(
+            "❌ Nice try, but only the bot owner can unleash this chaos! 😈",
+            ephemeral=True
+        )
+        return
+
+    if not timekeeper_manager:
+        await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
+        return
+
+    # Check if league owner is set
+    staff = timekeeper_manager.get_league_staff()
+    if not staff['owner_id']:
+        await interaction.response.send_message(
+            "❌ No league owner set! Use `/set_league_owner` first, ya numpty!",
+            ephemeral=True
+        )
+        return
+
+    # Validate interval
+    if interval < 1:
+        await interaction.response.send_message("❌ Interval must be at least 1 minute!", ephemeral=True)
+        return
+    if interval > 60:
+        await interaction.response.send_message("❌ Max interval is 60 minutes. We want to annoy 'em, not forget about 'em!", ephemeral=True)
+        return
+
+    # Check if already nagging
+    if timekeeper_manager.is_nagging():
+        await interaction.response.send_message(
+            "❌ Already nagging the owner! Use `/stop_nag` to stop first.",
+            ephemeral=True
+        )
+        return
+
+    success = await timekeeper_manager.start_nagging(interval)
+
+    if success:
+        embed = discord.Embed(
+            title="😈 NAGGING ACTIVATED!",
+            description=f"Alright, let the chaos begin!\n\n"
+                       f"**Target:** <@{staff['owner_id']}>\n"
+                       f"**Frequency:** Every {interval} minute{'s' if interval > 1 else ''}\n\n"
+                       f"They're gonna LOVE this! 🔥\n\n"
+                       f"Use `/stop_nag` when they finally advance (or beg for mercy).",
+            color=0xff0000
+        )
+        embed.set_footer(text="Harry's Revenge System 🏈 | May God have mercy on their soul")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        logger.info(f"😈 Nagging started by {interaction.user} - interval: {interval} minutes")
+    else:
+        await interaction.response.send_message("❌ Failed to start nagging!", ephemeral=True)
+
+@bot.tree.command(name="stop_nag", description="Stop spamming the league owner (Bot Owner only)")
+async def stop_nag(interaction: discord.Interaction):
+    """Stop nagging the league owner"""
+    # This is for the bot owner ONLY
+    try:
+        app_info = await bot.application_info()
+        bot_owner_id = app_info.owner.id if app_info.owner else None
+    except:
+        bot_owner_id = None
+
+    if not bot_owner_id or interaction.user.id != bot_owner_id:
+        await interaction.response.send_message(
+            "❌ Only the bot owner can stop the chaos they started! 😈",
+            ephemeral=True
+        )
+        return
+
+    if not timekeeper_manager:
+        await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
+        return
+
+    if not timekeeper_manager.is_nagging():
+        await interaction.response.send_message(
+            "❌ Not currently nagging anyone. Use `/nag_owner` to start!",
+            ephemeral=True
+        )
+        return
+
+    success = await timekeeper_manager.stop_nagging()
+
+    if success:
+        embed = discord.Embed(
+            title="😇 Nagging Stopped",
+            description="Alright, I'll give 'em a break... for now.\n\n"
+                       "The league owner has been spared (temporarily).",
+            color=0x00ff00
+        )
+        embed.set_footer(text="Harry's Mercy System 🏈 | They got lucky this time")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        logger.info(f"😇 Nagging stopped by {interaction.user}")
+    else:
+        await interaction.response.send_message("❌ Failed to stop nagging!", ephemeral=True)
 
 @bot.tree.command(name="summarize", description="Summarize channel activity for a time period")
 async def summarize_channel(
