@@ -1735,6 +1735,59 @@ async def stop_countdown(interaction: discord.Interaction):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
+@bot.tree.command(name="week", description="Check the current season and week")
+async def check_week(interaction: discord.Interaction):
+    """Check the current season and week"""
+    if not timekeeper_manager:
+        await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
+        return
+
+    season_info = timekeeper_manager.get_season_week()
+    
+    if not season_info['season'] or season_info['week'] is None:
+        embed = discord.Embed(
+            title="📅 Season/Week Not Set",
+            description="The season and week haven't been set yet, mate!\n\nAn admin needs to use `/set_season_week` to set it up.",
+            color=0x808080
+        )
+        await interaction.response.send_message(embed=embed)
+        return
+    
+    week_name = season_info.get('week_name', f"Week {season_info['week']}")
+    phase = season_info.get('phase', 'Unknown')
+    week_num = season_info['week']
+    
+    # Get week details
+    week_info = get_week_info(week_num)
+    actions = week_info.get("actions", "")
+    notes = week_info.get("notes", "")
+    
+    # Build description
+    description = f"**Season {season_info['season']}**\n\n"
+    description += f"📍 **{week_name}**\n"
+    description += f"🏈 Phase: {phase}\n"
+    description += f"📊 Week {week_num} of {TOTAL_WEEKS_PER_SEASON - 1}"
+    
+    if actions:
+        description += f"\n\n📋 **Available Actions:**\n{actions}"
+    if notes:
+        description += f"\n\n⚠️ **Note:** {notes}"
+    
+    # Show what's next
+    if week_num >= TOTAL_WEEKS_PER_SEASON - 1:
+        description += f"\n\n🎉 **Next:** Season {season_info['season'] + 1}, Week 0 - Season Kickoff!"
+    else:
+        next_week_info = get_week_info(week_num + 1)
+        description += f"\n\n➡️ **Next:** {next_week_info['name']}"
+    
+    embed = discord.Embed(
+        title="📅 Current Week",
+        description=description,
+        color=0x00ff00
+    )
+    embed.set_footer(text="Harry's Week Tracker 🏈 | Use /set_season_week to change")
+    await interaction.response.send_message(embed=embed)
+
 @bot.tree.command(name="set_season_week", description="Set the current season and week (Admin only)")
 async def set_season_week(interaction: discord.Interaction, season: int, week: int):
     """Set the current season and week"""
