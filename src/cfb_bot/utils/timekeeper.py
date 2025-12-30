@@ -388,17 +388,33 @@ class AdvanceTimer:
 
     async def _send_notification(self, hours: int):
         """Send a countdown notification"""
+        # More urgent messages and colors for lower time remaining
+        if hours <= 1:
+            color = 0xff0000  # Red - URGENT
+            description = f"🚨 **FINAL HOUR WARNING!** 🚨\n\nYou've got **ONE BLOODY HOUR** left!\n\nIf your game ain't done, GET IT DONE NOW!"
+        elif hours <= 6:
+            color = 0xff4500  # Red-orange - Getting serious
+            description = f"⚠️ Only **{hours} hours** left until advance time!\n\n**GET YOUR GAMES PLAYED NOW, YA MUPPETS!**"
+        else:
+            color = 0xffa500  # Orange - Warning
+            description = f"Oi! Only **{hours} hour{'s' if hours > 1 else ''}** left until advance time, ya muppets!\n\nGet your bleedin' games played!"
+        
         embed = discord.Embed(
             title=f"⏰ {hours} Hour{'s' if hours > 1 else ''} Remaining!",
-            description=f"Oi! Only **{hours} hour{'s' if hours > 1 else ''}** left until advance time, ya muppets!\n\nGet your bleedin' games played!",
-            color=0xffa500
+            description=description,
+            color=color
         )
 
         embed.set_footer(text=f"Harry's Advance Timer 🏈 | Ends at {format_est_time(self.end_time, '%I:%M %p')}")
 
         try:
-            await self.channel.send(embed=embed)
-            logger.info(f"📢 Sent {hours}h notification")
+            # Add @everyone ping for 6 hour and 1 hour warnings to cut through muted channels
+            if hours <= 6:
+                await self.channel.send(content="@everyone", embed=embed)
+                logger.info(f"📢 Sent {hours}h notification with @everyone ping")
+            else:
+                await self.channel.send(embed=embed)
+                logger.info(f"📢 Sent {hours}h notification")
         except Exception as e:
             logger.error(f"❌ Failed to send notification: {e}")
 
@@ -465,8 +481,9 @@ class AdvanceTimer:
         embed.set_footer(text="Harry's Advance Timer 🏈")
 
         try:
-            await self.channel.send(embed=embed)
-            logger.info("📢 Sent TIMES UP message")
+            # @everyone for TIME'S UP - this is the most important one!
+            await self.channel.send(content="@everyone", embed=embed)
+            logger.info("📢 Sent TIMES UP message with @everyone ping")
         except Exception as e:
             logger.error(f"❌ Failed to send times up message: {e}")
 
