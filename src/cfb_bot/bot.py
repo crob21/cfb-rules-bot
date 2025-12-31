@@ -13,9 +13,6 @@ License: MIT
 Version: 1.0.0
 """
 
-# Fix for Python 3.13 audioop compatibility - MUST be before discord import!
-from .utils import audioop_fix
-
 import asyncio
 import json
 import logging
@@ -29,6 +26,9 @@ import aiohttp
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+
+# Fix for Python 3.13 audioop compatibility - MUST be before discord import!
+from .utils import audioop_fix
 from .utils.admin_check import AdminManager
 from .utils.channel_manager import ChannelManager
 from .utils.charter_editor import CharterEditor
@@ -2288,7 +2288,7 @@ async def pick_commish(interaction: discord.Interaction, hours: int = 168):
     """Have Harry analyze chat activity and recommend a co-commissioner"""
     # Defer IMMEDIATELY - this takes a while and Discord times out after 3 seconds
     await interaction.response.defer()
-    
+
     # Check if user is admin
     if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
         await interaction.followup.send(
@@ -2403,7 +2403,13 @@ FORMAT YOUR RESPONSE LIKE THIS:
 🏆 **FINAL VERDICT:** [Winner Name] should be co-commish because [brief funny reason]
 🚨 **BIGGEST ASSHOLE:** [Name] - [Savage one-liner]
 
-Be extremely sarcastic, funny, and insane. Give each person a proper roast! Reference specific behaviors from the chat if you can see them. RATE EVERYONE - don't skip anyone!"""
+CRITICAL RULES:
+1. Each person appears ONLY ONCE in the rankings - NO DUPLICATES!
+2. Rank everyone from BEST (#1) to WORST (#last)
+3. The LAST person in the list gets the 🚨 DO NOT PICK tag
+4. Your WINNER and BIGGEST ASSHOLE must be DIFFERENT people!
+
+Be extremely sarcastic, funny, and insane. Give each person a proper roast! Reference specific behaviors from the chat if you can see them."""
 
         # Ask AI with higher token limit for full analysis with proper roasts
         response = await ai_assistant.ask_openai(prompt, "Co-Commissioner Selection Analysis", max_tokens=2000)
