@@ -3211,15 +3211,22 @@ FORMAT YOUR RESPONSE LIKE THIS:
 
 ---
 🏆 **FINAL VERDICT:** [Winner Name] should be co-commish because [brief funny reason]
-🚨 **BIGGEST ASSHOLE:** [Name] - [Savage one-liner]
+🚫 **DO NOT PICK:** [Last Ranked Name] - [Why they're a terrible co-commish candidate]
+🚨 **BIGGEST ASSHOLE:** [Name with highest asshole score] - [Savage one-liner about why they're the biggest dick]
 
 ⚠️⚠️⚠️ CRITICAL RULES - READ CAREFULLY ⚠️⚠️⚠️
 1. There are EXACTLY {num_participants} people. You MUST have EXACTLY {num_participants} rankings.
 2. Each person appears ONLY ONCE! If you list someone twice, you FAILED.
 3. The names are: {participant_names} - rank ALL of them, each ONE time only.
-4. #1 is the BEST candidate, #{num_participants} is the WORST (gets 🚨 DO NOT PICK tag)
+4. #1 is the BEST candidate for co-commissioner, #{num_participants} is the WORST candidate.
 5. FINAL VERDICT winner must be #1 ranked person.
-6. BIGGEST ASSHOLE must be #{num_participants} ranked person (the worst).
+6. DO NOT PICK is the #{num_participants} ranked person - they're the worst CO-COMMISH CANDIDATE
+   - Could be due to: low activity, unreliable, bad leadership, absent, etc.
+7. BIGGEST ASSHOLE is whoever has the HIGHEST "🚨 Asshole" score - this could be ANYONE!
+   - Could be #1 ranked (great leader but a dick) or #last (inactive AND a dick) or anyone in between
+   - Look at the messages - who starts drama? Who is toxic? Who is rude to others?
+   - If everyone has low asshole scores (0-2), say "No major assholes detected... yet 👀"
+8. DO NOT PICK and BIGGEST ASSHOLE can be DIFFERENT people or the SAME person
 
 Be extremely sarcastic, funny, and insane. Give each person a proper roast!"""
 
