@@ -355,7 +355,7 @@ async def on_message(message):
                         inline=False
                     )
                     embed.set_footer(text="Harry's Advance Timer 🏈 | Use /time_status to check progress")
-                    await message.channel.send(embed=embed)
+                    await message.channel.send(content="@everyone", embed=embed)
                     logger.info(f"⏰ Timer restarted by {message.author} via @everyone + 'advanced' in {message.channel}")
                 else:
                     embed = discord.Embed(
@@ -1576,7 +1576,7 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
             inline=False
         )
         embed.set_footer(text="Harry's Advance Timer 🏈 | Use /time_status to check progress")
-        await interaction.followup.send(embed=embed)
+        await interaction.followup.send(content="@everyone", embed=embed)
         logger.info(f"⏰ Advance countdown started by {interaction.user} in {interaction.channel} - {hours} hours")
     else:
         embed = discord.Embed(

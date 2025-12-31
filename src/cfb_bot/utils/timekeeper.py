@@ -398,7 +398,7 @@ class AdvanceTimer:
         else:
             color = 0xffa500  # Orange - Warning
             description = f"Oi! Only **{hours} hour{'s' if hours > 1 else ''}** left until advance time, ya muppets!\n\nGet your bleedin' games played!"
-        
+
         embed = discord.Embed(
             title=f"⏰ {hours} Hour{'s' if hours > 1 else ''} Remaining!",
             description=description,
