@@ -13,30 +13,33 @@ License: MIT
 Version: 1.0.0
 """
 
-# Fix for Python 3.13 audioop compatibility
-from .utils import audioop_fix
-
-import os
-import discord
-from discord.ext import commands
-from dotenv import load_dotenv
-import aiohttp
-import json
 import asyncio
+import json
 import logging
-import sys
+import os
 import re
+import sys
 from datetime import datetime, timedelta
 from typing import Optional
 
-# Import timekeeper, summarizer, charter editor, admin manager, version manager, and channel manager
-from .utils.timekeeper import TimekeeperManager, format_est_time, get_week_name, get_week_phase, get_week_info, get_week_actions, get_week_notes, TOTAL_WEEKS_PER_SEASON, CFB_DYNASTY_WEEKS
-from .utils.summarizer import ChannelSummarizer
-from .utils.charter_editor import CharterEditor
+import aiohttp
+import discord
+from discord.ext import commands
+from dotenv import load_dotenv
+
+# Fix for Python 3.13 audioop compatibility
+from .utils import audioop_fix
 from .utils.admin_check import AdminManager
-from .utils.version_manager import VersionManager
 from .utils.channel_manager import ChannelManager
-from .utils.schedule_manager import get_schedule_manager, ScheduleManager
+from .utils.charter_editor import CharterEditor
+from .utils.schedule_manager import ScheduleManager, get_schedule_manager
+from .utils.summarizer import ChannelSummarizer
+# Import timekeeper, summarizer, charter editor, admin manager, version manager, and channel manager
+from .utils.timekeeper import (CFB_DYNASTY_WEEKS, TOTAL_WEEKS_PER_SEASON,
+                               TimekeeperManager, format_est_time,
+                               get_week_actions, get_week_info, get_week_name,
+                               get_week_notes, get_week_phase)
+from .utils.version_manager import VersionManager
 
 # Optional Google Docs integration
 try:
@@ -48,6 +51,7 @@ except ImportError:
 # Optional AI integration
 try:
     from .ai.ai_integration import AICharterAssistant
+
     # Check if at least one AI API key is available
     AI_AVAILABLE = bool(os.getenv('OPENAI_API_KEY') or os.getenv('ANTHROPIC_API_KEY'))
 except ImportError:
@@ -2367,8 +2371,8 @@ Analyze each active participant and rate them on these factors (1-10 scale):
 8. **Drama Score** - Do they cause unnecessary drama? (Lower is better)
 
 Based on your analysis:
-1. Pick your TOP RECOMMENDATION for co-commissioner
-2. Give 2 runner-ups
+1. Rate EVERY participant with scores and a summary
+2. Pick your TOP RECOMMENDATION for co-commissioner
 3. Call out the BIGGEST ASSHOLE who should NEVER be commish
 4. Roast everyone appropriately
 
@@ -2376,29 +2380,30 @@ FORMAT YOUR RESPONSE LIKE THIS:
 
 🏆 **HARRY'S CO-COMMISSIONER ANALYSIS**
 
-**📊 Top Candidates Breakdown:**
+**📊 FULL RANKINGS (Best to Worst):**
 
-**1. [Winner Name]** - RECOMMENDED ✅
-- Activity: X/10 | Helpful: X/10 | Leadership: X/10
-- Asshole Level: X/10 | Drama: X/10 | Vibes: X/10
-- [Sarcastic 2-3 sentence summary of why they should be commish]
+**#1. [Name]** ✅ RECOMMENDED
+- 📊 Activity: X/10 | 🤝 Helpful: X/10 | 👑 Leadership: X/10
+- 🚨 Asshole: X/10 | 🎭 Drama: X/10 | 😂 Vibes: X/10
+- **Overall: X/10** - [1-2 sentence roast/summary]
 
-**2. [Runner-up #1]**
-- [Quick stats] 
-- [1-2 sentence roast/reason]
+**#2. [Name]**
+- 📊 Activity: X/10 | 🤝 Helpful: X/10 | 👑 Leadership: X/10
+- 🚨 Asshole: X/10 | 🎭 Drama: X/10 | 😂 Vibes: X/10
+- **Overall: X/10** - [1-2 sentence roast/summary]
 
-**3. [Runner-up #2]**
-- [Quick stats]
-- [1-2 sentence roast/reason]
+[Continue for ALL participants, ranked from best to worst candidate]
 
-🚨 **ASSHOLE ALERT - DO NOT PICK:**
-**[Name]** - Asshole Level: X/10
-[Brutal but funny roast of why they should NEVER be in charge]
+**#[Last]. [Name]** 🚨 DO NOT PICK
+- 📊 Activity: X/10 | 🤝 Helpful: X/10 | 👑 Leadership: X/10
+- 🚨 Asshole: X/10 | 🎭 Drama: X/10 | 😂 Vibes: X/10
+- **Overall: X/10** - [Brutal roast of why they're last]
 
-💀 **Dishonorable Mentions:**
-[Anyone else worth roasting]
+---
+🏆 **FINAL VERDICT:** [Winner Name] should be co-commish because [brief reason]
+🚨 **BIGGEST ASSHOLE:** [Name] - [One line roast]
 
-Be extremely sarcastic, funny, and insane. The asshole detector should be savage but funny. Reference specific behaviors from the chat if you can see them."""
+Be extremely sarcastic, funny, and insane. The asshole detector should be savage but funny. Reference specific behaviors from the chat if you can see them. RATE EVERYONE - don't skip anyone!"""
 
         # Ask AI
         response = await ai_assistant.ask_openai(prompt, "Co-Commissioner Selection Analysis")
