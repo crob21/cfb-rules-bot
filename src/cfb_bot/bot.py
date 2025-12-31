@@ -13,6 +13,9 @@ License: MIT
 Version: 1.0.0
 """
 
+# Fix for Python 3.13 audioop compatibility - MUST be before discord import!
+from .utils import audioop_fix  # noqa: E402 - Must be first!
+
 import asyncio
 import json
 import logging
@@ -26,9 +29,6 @@ import aiohttp
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-
-# Fix for Python 3.13 audioop compatibility - MUST be before discord import!
-from .utils import audioop_fix
 from .utils.admin_check import AdminManager
 from .utils.channel_manager import ChannelManager
 from .utils.charter_editor import CharterEditor
