@@ -1791,12 +1791,62 @@ async def check_week(interaction: discord.Interaction):
 @bot.tree.command(name="weeks", description="View the full CFB 26 Dynasty week schedule")
 async def view_weeks(interaction: discord.Interaction):
     """View the full week schedule for a CFB 26 Dynasty season"""
-    # Get current week to highlight it
+    # Get current week info
     current_week = None
+    current_season = None
     if timekeeper_manager:
         season_info = timekeeper_manager.get_season_week()
         if season_info['week'] is not None:
             current_week = season_info['week']
+            current_season = season_info['season']
+    
+    # Build description with current/next week at the top
+    description = ""
+    
+    if current_week is not None and current_season is not None:
+        # Current week info
+        current_info = get_week_info(current_week)
+        current_actions = current_info.get("actions", "")
+        current_notes = current_info.get("notes", "")
+        
+        description += f"**Season {current_season}**\n\n"
+        description += f"📍 **Current Week:** {current_info['name']}\n"
+        description += f"🏈 Phase: {current_info['phase']}\n"
+        if current_actions:
+            description += f"📋 Actions: {current_actions}\n"
+        if current_notes:
+            description += f"⚠️ {current_notes}\n"
+        
+        # Next week info
+        if current_week >= TOTAL_WEEKS_PER_SEASON - 1:
+            description += f"\n➡️ **Next Week:** Season {current_season + 1}, Week 0 - Season Kickoff\n"
+            description += f"🏈 Phase: Regular Season\n"
+            description += f"📋 Actions: Season begins\n"
+        else:
+            next_week = current_week + 1
+            next_info = get_week_info(next_week)
+            next_actions = next_info.get("actions", "")
+            next_notes = next_info.get("notes", "")
+            
+            description += f"\n➡️ **Next Week:** {next_info['name']}\n"
+            description += f"🏈 Phase: {next_info['phase']}\n"
+            if next_actions:
+                description += f"📋 Actions: {next_actions}\n"
+            if next_notes:
+                description += f"⚠️ {next_notes}\n"
+        
+        description += "\n───────────────────────\n"
+    else:
+        description += "*Season/week not set. Use `/set_season_week` to set it.*\n\n"
+    
+    description += "**Full Week Schedule:**\n"
+    
+    # Create embed
+    embed = discord.Embed(
+        title="📅 CFB 26 Dynasty Week Schedule",
+        description=description,
+        color=0x00ff00
+    )
     
     # Build the week lists by phase
     regular_season = []
@@ -1806,13 +1856,13 @@ async def view_weeks(interaction: discord.Interaction):
     for week_num in sorted(CFB_DYNASTY_WEEKS.keys()):
         week_data = CFB_DYNASTY_WEEKS[week_num]
         phase = week_data["phase"]
-        name = week_data["name"]
+        name = week_data["short"]  # Use short name for the list
         
         # Add marker if this is the current week
         if current_week is not None and week_num == current_week:
-            line = f"**► {week_num}: {name}** ◄ YOU ARE HERE"
+            line = f"**► `{week_num:2d}` {name}** ◄"
         else:
-            line = f"`{week_num:2d}`: {name}"
+            line = f"`{week_num:2d}` {name}"
         
         if phase == "Regular Season":
             regular_season.append(line)
@@ -1821,38 +1871,28 @@ async def view_weeks(interaction: discord.Interaction):
         else:
             offseason.append(line)
     
-    # Create embed
-    embed = discord.Embed(
-        title="📅 CFB 26 Dynasty Week Schedule",
-        description="Full breakdown of all 30 weeks in a Dynasty season:",
-        color=0x00ff00
-    )
-    
-    # Regular Season field (split if too long)
-    regular_text = "\n".join(regular_season)
+    # Regular Season field
     embed.add_field(
-        name="🏈 Regular Season (Weeks 0-15)",
-        value=regular_text if len(regular_text) <= 1024 else "\n".join(regular_season[:8]) + "\n...",
-        inline=False
+        name="🏈 Regular Season",
+        value="\n".join(regular_season),
+        inline=True
     )
     
     # Post-Season field
-    post_text = "\n".join(post_season)
     embed.add_field(
-        name="🏆 Post-Season (Weeks 16-21)",
-        value=post_text,
-        inline=False
+        name="🏆 Post-Season",
+        value="\n".join(post_season),
+        inline=True
     )
     
     # Offseason field
-    off_text = "\n".join(offseason)
     embed.add_field(
-        name="📝 Offseason (Weeks 22-29)",
-        value=off_text,
-        inline=False
+        name="📝 Offseason",
+        value="\n".join(offseason),
+        inline=True
     )
     
-    embed.set_footer(text="Harry's Week Tracker 🏈 | Use /week for current week details")
+    embed.set_footer(text="Harry's Week Tracker 🏈 | Use /week for more details")
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="set_season_week", description="Set the current season and week (Admin only)")
