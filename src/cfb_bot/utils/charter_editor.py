@@ -666,7 +666,7 @@ Return ONLY the updated charter text, nothing else."""
         try:
             # Write the new charter (this also creates a backup)
             success = self.write_charter(new_charter)
-            
+
             if success:
                 # Log the change
                 self.add_changelog_entry(
@@ -678,7 +678,7 @@ Return ONLY the updated charter text, nothing else."""
                     after_text=after_text
                 )
                 logger.info(f"✅ Charter updated by {user_name}: {description}")
-            
+
             return success
 
         except Exception as e:
@@ -692,7 +692,7 @@ Return ONLY the updated charter text, nothing else."""
     ) -> Optional[List[Dict]]:
         """
         Analyze messages to find rule changes, votes, and decisions
-        
+
         Returns list of:
         - rule: the rule text
         - status: passed/failed/proposed
@@ -744,7 +744,7 @@ If no rule changes are found, respond with: []"""
             response = await self.ai_assistant.ask_openai(prompt, "Rule Change Finder", max_tokens=2000)
             if not response:
                 response = await self.ai_assistant.ask_anthropic(prompt, "Rule Change Finder", max_tokens=2000)
-            
+
             if not response:
                 return None
 
@@ -753,7 +753,7 @@ If no rule changes are found, respond with: []"""
             if response.startswith("```"):
                 response = re.sub(r'^```\w*\n?', '', response)
                 response = re.sub(r'\n?```$', '', response)
-            
+
             # Parse JSON
             changes = json.loads(response)
             logger.info(f"📜 Found {len(changes)} rule changes in {channel_name}")
@@ -772,7 +772,7 @@ If no rule changes are found, respond with: []"""
     ) -> Optional[List[Dict]]:
         """
         Generate charter update suggestions based on found rule changes
-        
+
         Returns list of suggested updates with before/after text
         """
         if not self.ai_assistant or not rule_changes:
@@ -784,7 +784,7 @@ If no rule changes are found, respond with: []"""
 
         # Filter to only passed/decided rules
         passed_rules = [r for r in rule_changes if r.get("status") in ["passed", "decided"]]
-        
+
         if not passed_rules:
             return None
 
@@ -818,7 +818,7 @@ If no updates are needed (rules already in charter), respond with: []"""
             response = await self.ai_assistant.ask_openai(prompt, "Charter Update Generator", max_tokens=3000)
             if not response:
                 response = await self.ai_assistant.ask_anthropic(prompt, "Charter Update Generator", max_tokens=3000)
-            
+
             if not response:
                 return None
 
@@ -827,7 +827,7 @@ If no updates are needed (rules already in charter), respond with: []"""
             if response.startswith("```"):
                 response = re.sub(r'^```\w*\n?', '', response)
                 response = re.sub(r'\n?```$', '', response)
-            
+
             updates = json.loads(response)
             logger.info(f"📝 Generated {len(updates)} charter update suggestions")
             return updates

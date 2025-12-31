@@ -29,7 +29,7 @@ from typing import Optional
 
 import aiohttp
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
 from .utils.admin_check import AdminManager
@@ -119,6 +119,41 @@ intents.message_content = True  # Required to read message content
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
+# Background task to clean up expired pending requests
+@tasks.loop(minutes=5)
+async def cleanup_expired_pending():
+    """Clean up expired pending charter updates and rule scans"""
+    now = datetime.now().timestamp()
+    
+    # Clean up pending charter updates
+    if hasattr(bot, 'pending_charter_updates'):
+        expired = [msg_id for msg_id, data in bot.pending_charter_updates.items() 
+                   if now > data.get("expires", 0)]
+        for msg_id in expired:
+            del bot.pending_charter_updates[msg_id]
+        if expired:
+            logger.info(f"🧹 Cleaned up {len(expired)} expired charter update(s)")
+    
+    # Clean up pending rule scans
+    if hasattr(bot, 'pending_rule_scans'):
+        expired = [msg_id for msg_id, data in bot.pending_rule_scans.items() 
+                   if now > data.get("expires", 0)]
+        for msg_id in expired:
+            del bot.pending_rule_scans[msg_id]
+        if expired:
+            logger.info(f"🧹 Cleaned up {len(expired)} expired rule scan(s)")
+    
+    # Clean up old processed messages (keep last 1000)
+    global processed_messages
+    if len(processed_messages) > 1000:
+        # Convert to list, keep last 1000, convert back to set
+        processed_messages = set(list(processed_messages)[-1000:])
+        logger.info("🧹 Trimmed processed_messages set")
+
+@cleanup_expired_pending.before_loop
+async def before_cleanup():
+    await bot.wait_until_ready()
+
 # Initialize Google Docs integration if available
 google_docs = None
 if GOOGLE_DOCS_AVAILABLE:
@@ -168,6 +203,11 @@ async def on_ready():
         logger.info(f'🏷️ Bot Display Name: {bot.user.display_name}')
         logger.info(f'📊 Connected to {len(bot.guilds)} guilds')
         logger.info(f'👋 Harry is ready to help with league questions!')
+
+        # Start cleanup task
+        if not cleanup_expired_pending.is_running():
+            cleanup_expired_pending.start()
+            logger.info('🧹 Started cleanup task for expired pending requests')
 
         # Initialize channel manager
         channel_manager = ChannelManager()
@@ -606,8 +646,8 @@ async def on_message(message):
                         target_user = await message.guild.fetch_member(user_id) if message.guild else None
                         if target_user:
                             new_commish_name = target_user.display_name
-                    except:
-                        pass
+                    except Exception:
+                        pass  # User not found, use raw name
 
                 logger.info(f"👔 Commissioner update requested by {message.author}: {new_commish_name}")
 
@@ -787,7 +827,7 @@ async def on_message(message):
                     # Try to get channel from mention or name
                     channel_id = match.group(1) if match.group(1) else None
                     channel_name = match.group(2) if len(match.groups()) > 1 and match.group(2) else None
-                    
+
                     if channel_id:
                         channel_to_scan = message.guild.get_channel(int(channel_id))
                     elif channel_name and message.guild:
@@ -804,13 +844,13 @@ async def on_message(message):
                     return
 
                 logger.info(f"📜 Rule scan request from {message.author} for #{channel_to_scan.name}")
-                
+
                 thinking_msg = await message.channel.send(f"🔍 Scanning #{channel_to_scan.name} for rule changes...")
 
                 try:
                     # Fetch and analyze messages
                     messages_list = await channel_summarizer.fetch_messages(channel_to_scan, hours=168, limit=500)
-                    
+
                     if not messages_list:
                         await thinking_msg.edit(content=f"❌ No messages found in #{channel_to_scan.name}")
                         return
@@ -840,13 +880,13 @@ async def on_message(message):
                     for i, rule in enumerate(rule_changes[:8], 1):
                         status = rule.get("status", "unknown")
                         emoji = {"passed": "✅", "failed": "❌", "proposed": "📋", "decided": "✅"}.get(status, "❓")
-                        
+
                         rule_text = rule.get("rule", "")[:80]
                         if len(rule.get("rule", "")) > 80:
                             rule_text += "..."
-                        
+
                         embed.add_field(name=f"{emoji} {status.upper()}", value=rule_text, inline=False)
-                        
+
                         if status in ["passed", "decided"]:
                             passed_rules.append(rule)
 
@@ -874,7 +914,7 @@ async def on_message(message):
                 except Exception as e:
                     logger.error(f"❌ Error in rule scan: {e}", exc_info=True)
                     await thinking_msg.edit(content=f"❌ Error scanning: {str(e)}")
-                
+
                 return
 
             elif channel_to_scan and bot_mentioned:
@@ -1206,11 +1246,11 @@ async def on_reaction_add(reaction, user):
     # Handle rule scan -> charter update requests
     if hasattr(bot, 'pending_rule_scans') and reaction.message.id in bot.pending_rule_scans:
         pending = bot.pending_rule_scans[reaction.message.id]
-        
+
         # Only the original requester can trigger
         if user.id != pending["user_id"]:
             return
-        
+
         # Check if expired
         if datetime.now().timestamp() > pending["expires"]:
             del bot.pending_rule_scans[reaction.message.id]
@@ -1219,7 +1259,7 @@ async def on_reaction_add(reaction, user):
         if str(reaction.emoji) == "📝":
             # Generate charter updates from the found rules
             await reaction.message.clear_reactions()
-            
+
             thinking_embed = discord.Embed(
                 title="🔧 Generating Charter Updates...",
                 description="Analyzing passed rules and generating charter updates...",
@@ -1253,11 +1293,11 @@ async def on_reaction_add(reaction, user):
                 for i, update in enumerate(updates[:5], 1):  # Show max 5
                     action = update.get("action", "update")
                     action_emoji = "➕" if action == "add" else "✏️"
-                    
+
                     new_text = update.get("new_text", "")[:200]
                     if len(update.get("new_text", "")) > 200:
                         new_text += "..."
-                    
+
                     embed.add_field(
                         name=f"{action_emoji} {update.get('rule_description', 'Update')[:50]}",
                         value=f"**Section:** {update.get('section', 'Unknown')}\n```\n{new_text}\n```",
@@ -1287,16 +1327,16 @@ async def on_reaction_add(reaction, user):
                 )
                 await reaction.message.edit(embed=embed)
                 del bot.pending_rule_scans[reaction.message.id]
-            
+
             return
 
         elif str(reaction.emoji) == "✅" and pending.get("generated_updates"):
             # Apply the generated updates
             await reaction.message.clear_reactions()
-            
+
             updates = pending["generated_updates"]
             current_charter = charter_editor.read_charter()
-            
+
             if not current_charter:
                 embed = discord.Embed(
                     title="❌ Error",
@@ -1310,11 +1350,11 @@ async def on_reaction_add(reaction, user):
             # Apply updates one by one
             applied = 0
             new_charter = current_charter
-            
+
             for update in updates:
                 old_text = update.get("old_text")
                 new_text = update.get("new_text")
-                
+
                 if update.get("action") == "add":
                     # Add new content at end of relevant section or end of charter
                     section = update.get("section", "")
@@ -1657,7 +1697,7 @@ async def scan_rules(
     try:
         # Fetch messages from the channel
         messages = await channel_summarizer.fetch_messages(channel, hours=hours, limit=500)
-        
+
         if not messages:
             await interaction.followup.send(f"❌ No messages found in {channel.mention} in the last {hours} hours")
             return
@@ -1699,21 +1739,21 @@ async def scan_rules(
                 "proposed": "📋",
                 "decided": "✅"
             }.get(status, "❓")
-            
+
             votes = ""
             if rule.get("votes_for") is not None:
                 votes = f" ({rule.get('votes_for', 0)}-{rule.get('votes_against', 0)})"
-            
+
             rule_text = rule.get("rule", "Unknown rule")[:100]
             if len(rule.get("rule", "")) > 100:
                 rule_text += "..."
-            
+
             embed.add_field(
                 name=f"{i}. {status_emoji} {status.upper()}{votes}",
                 value=rule_text,
                 inline=False
             )
-            
+
             if status in ["passed", "decided"]:
                 passed_rules.append(rule)
 
@@ -1730,11 +1770,11 @@ async def scan_rules(
 
         if passed_rules:
             await msg.add_reaction("📝")
-            
+
             # Store for reaction handler
             if not hasattr(bot, 'pending_rule_scans'):
                 bot.pending_rule_scans = {}
-            
+
             bot.pending_rule_scans[msg.id] = {
                 "user_id": interaction.user.id,
                 "user_name": interaction.user.display_name,
@@ -1780,8 +1820,8 @@ async def charter_history(interaction: discord.Interaction):
             try:
                 dt = datetime.fromisoformat(timestamp)
                 timestamp = dt.strftime("%b %d, %Y %I:%M %p")
-            except:
-                pass
+            except (ValueError, TypeError):
+                pass  # Keep original timestamp if parsing fails
 
         user_name = change.get("user_name", "Unknown")
         description = change.get("description", "No description")
@@ -2140,8 +2180,8 @@ async def ask_ai(interaction: discord.Interaction, question: str):
                 )
                 await interaction.response.send_message(embed=embed)
                 return
-            except:
-                pass  # If this fails, try followup
+            except discord.errors.InteractionResponded:
+                pass  # Already responded, try followup
         else:
             # Already sent initial response, use followup
             embed.description = f"Error getting AI response: {str(e)}"
@@ -2262,8 +2302,8 @@ async def check_time_status(interaction: discord.Interaction):
     # Defer immediately to prevent timeout
     try:
         await interaction.response.defer()
-    except:
-        # If already responded, skip
+    except discord.errors.InteractionResponded:
+        # Already responded, continue with followup
         pass
 
     if not timekeeper_manager:
@@ -3141,8 +3181,8 @@ async def nag_owner(interaction: discord.Interaction, interval: int = 5):
     try:
         app_info = await bot.application_info()
         bot_owner_id = app_info.owner.id if app_info.owner else None
-    except:
-        bot_owner_id = None
+    except Exception:
+        bot_owner_id = None  # Couldn't fetch app info
 
     if not bot_owner_id or interaction.user.id != bot_owner_id:
         await interaction.response.send_message(
@@ -3205,8 +3245,8 @@ async def stop_nag(interaction: discord.Interaction):
     try:
         app_info = await bot.application_info()
         bot_owner_id = app_info.owner.id if app_info.owner else None
-    except:
-        bot_owner_id = None
+    except Exception:
+        bot_owner_id = None  # Couldn't fetch app info
 
     if not bot_owner_id or interaction.user.id != bot_owner_id:
         await interaction.response.send_message(
@@ -3688,7 +3728,7 @@ async def list_bot_admins(interaction: discord.Interaction):
         try:
             user = await bot.fetch_user(admin_id)
             admin_info.append(f"• **{user.display_name}** (`{user.name}`) - ID: {admin_id}")
-        except:
+        except (discord.NotFound, discord.HTTPException):
             admin_info.append(f"• User ID: {admin_id} (user not found)")
 
     embed.add_field(
@@ -3816,7 +3856,7 @@ async def list_blocked_channels(interaction: discord.Interaction):
                 channel_info.append(f"• {channel.mention} (`#{channel.name}`) - ID: {channel_id}")
             else:
                 channel_info.append(f"• Channel ID: {channel_id} (channel not found)")
-        except:
+        except (discord.NotFound, discord.HTTPException):
             channel_info.append(f"• Channel ID: {channel_id} (error fetching info)")
 
     embed.add_field(
