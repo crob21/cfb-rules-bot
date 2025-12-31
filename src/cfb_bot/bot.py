@@ -2383,32 +2383,31 @@ FORMAT YOUR RESPONSE LIKE THIS:
 **📊 FULL RANKINGS (Best to Worst):**
 
 **#1. [Name]** ✅ RECOMMENDED
-- 📊 Activity: X/10 | 🤝 Helpful: X/10 | 👑 Leadership: X/10
-- 🚨 Asshole: X/10 | 🎭 Drama: X/10 | 😂 Vibes: X/10
-- **Overall: X/10** - [1-2 sentence roast/summary]
+📊 A:X | 🤝 H:X | 👑 L:X | 🚨 AH:X | 🎭 D:X | 😂 V:X | **Total: X/10**
+→ [Short 1 sentence roast]
 
 **#2. [Name]**
-- 📊 Activity: X/10 | 🤝 Helpful: X/10 | 👑 Leadership: X/10
-- 🚨 Asshole: X/10 | 🎭 Drama: X/10 | 😂 Vibes: X/10
-- **Overall: X/10** - [1-2 sentence roast/summary]
+📊 A:X | 🤝 H:X | 👑 L:X | 🚨 AH:X | 🎭 D:X | 😂 V:X | **Total: X/10**
+→ [Short 1 sentence roast]
 
-[Continue for ALL participants, ranked from best to worst candidate]
+[Continue for ALL participants, ranked best to worst]
 
-**#[Last]. [Name]** 🚨 DO NOT PICK
-- 📊 Activity: X/10 | 🤝 Helpful: X/10 | 👑 Leadership: X/10
-- 🚨 Asshole: X/10 | 🎭 Drama: X/10 | 😂 Vibes: X/10
-- **Overall: X/10** - [Brutal roast of why they're last]
+**#[Last]. [Name]** 🚨 WORST
+📊 A:X | 🤝 H:X | 👑 L:X | 🚨 AH:X | 🎭 D:X | 😂 V:X | **Total: X/10**
+→ [Brutal 1 sentence roast]
 
 ---
-🏆 **FINAL VERDICT:** [Winner Name] should be co-commish because [brief reason]
-🚨 **BIGGEST ASSHOLE:** [Name] - [One line roast]
+🏆 **WINNER:** [Name] - [5 words why]
+🚨 **BIGGEST ASSHOLE:** [Name] - [5 word roast]
 
-Be extremely sarcastic, funny, and insane. The asshole detector should be savage but funny. Reference specific behaviors from the chat if you can see them. RATE EVERYONE - don't skip anyone!"""
+KEY: A=Activity, H=Helpful, L=Leadership, AH=Asshole, D=Drama, V=Vibes (all /10)
 
-        # Ask AI
-        response = await ai_assistant.ask_openai(prompt, "Co-Commissioner Selection Analysis")
+Be sarcastic and funny. Keep roasts SHORT (1 sentence max). RATE EVERYONE!"""
+
+        # Ask AI with higher token limit for full analysis
+        response = await ai_assistant.ask_openai(prompt, "Co-Commissioner Selection Analysis", max_tokens=1500)
         if not response:
-            response = await ai_assistant.ask_anthropic(prompt, "Co-Commissioner Selection Analysis")
+            response = await ai_assistant.ask_anthropic(prompt, "Co-Commissioner Selection Analysis", max_tokens=1500)
 
         if not response:
             await interaction.followup.send("❌ AI couldn't analyze the chat. Maybe you're all equally terrible?")

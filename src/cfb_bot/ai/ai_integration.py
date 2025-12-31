@@ -95,7 +95,7 @@ class AICharterAssistant:
 
         return "\n".join(context_parts)
 
-    async def ask_openai(self, question: str, context: str) -> Optional[str]:
+    async def ask_openai(self, question: str, context: str, max_tokens: int = 500) -> Optional[str]:
         """Ask OpenAI about the charter"""
         if not self.openai_api_key:
             logger.warning("⚠️ OpenAI API key not found")
@@ -136,7 +136,7 @@ class AICharterAssistant:
                 {'role': 'system', 'content': 'You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Be hilariously sarcastic and helpful.'},
                 {'role': 'user', 'content': prompt}
             ],
-            'max_tokens': 500,
+            'max_tokens': max_tokens,
             'temperature': 0.7
         }
 
@@ -204,43 +204,43 @@ class AICharterAssistant:
             logger.error(f"Error calling OpenAI: {e}")
             return None
 
-    async def ask_anthropic(self, question: str, context: str) -> Optional[str]:
+    async def ask_anthropic(self, question: str, context: str, max_tokens: int = 500) -> Optional[str]:
         """Ask Anthropic Claude about the charter"""
         if not self.anthropic_api_key:
             logger.warning("⚠️ Anthropic API key not found")
             return None
-
+            
         headers = {
             'x-api-key': self.anthropic_api_key,
             'Content-Type': 'application/json',
             'anthropic-version': '2023-06-01'
         }
-
+        
         # Get schedule context
         schedule_context = self.get_schedule_context()
-
+        
         prompt = f"""
         You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks.
         Answer questions based on the league charter AND schedule information provided below.
-
+        
         League Charter Context:
         {context}
-
+        
         League Schedule Information:
         {schedule_context}
-
+        
         Question: {question}
-
+        
         IMPORTANT INSTRUCTIONS:
         - If you can answer the question based on the charter OR schedule content, provide a direct, helpful answer with maximum sarcasm
         - For schedule questions (matchups, byes, who plays who), use the schedule information above
         - Be extremely sarcastic and witty, like a completely insane but knowledgeable league member
         - Keep responses informative but hilariously sarcastic
         """
-
+        
         data = {
             'model': 'claude-3-haiku-20240307',
-            'max_tokens': 500,
+            'max_tokens': max_tokens,
             'messages': [
                 {'role': 'user', 'content': prompt}
             ]
