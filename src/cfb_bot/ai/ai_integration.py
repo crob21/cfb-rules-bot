@@ -64,7 +64,7 @@ class AICharterAssistant:
     def get_schedule_context(self) -> str:
         """Get schedule context for AI queries, including current week info"""
         context_parts = []
-        
+
         # Try to get current week/season from the bot's timekeeper_manager
         try:
             # Import bot module to access timekeeper_manager
@@ -76,14 +76,14 @@ class AICharterAssistant:
                     current_season = season_info['season']
                     week_name = season_info.get('week_name', f"Week {current_week}")
                     phase = season_info.get('phase', 'Unknown')
-                    
+
                     context_parts.append(f"**CURRENT STATUS: Season {current_season}, {week_name} (Week {current_week})**")
                     context_parts.append(f"Phase: {phase}")
                     context_parts.append(f"IMPORTANT: When the user says 'this week' or 'current week', they mean Week {current_week}.")
                     context_parts.append("")
         except Exception as e:
             logger.debug(f"Could not get current week context: {e}")
-        
+
         # Get full schedule
         try:
             from ..utils.schedule_manager import get_schedule_manager
@@ -92,7 +92,7 @@ class AICharterAssistant:
                 context_parts.append(schedule_mgr.get_schedule_context_for_ai())
         except Exception as e:
             logger.warning(f"⚠️ Could not get schedule context: {e}")
-        
+
         return "\n".join(context_parts)
 
     async def ask_openai(self, question: str, context: str) -> Optional[str]:

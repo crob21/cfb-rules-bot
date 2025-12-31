@@ -2276,6 +2276,161 @@ async def set_co_commish(
     else:
         await interaction.response.send_message("❌ Failed to set co-commish, mate!", ephemeral=True)
 
+@bot.tree.command(name="pick_commish", description="Harry analyzes the chat and picks a co-commissioner")
+@discord.app_commands.describe(
+    hours="How many hours of chat history to analyze (default: 168 = 1 week)"
+)
+async def pick_commish(interaction: discord.Interaction, hours: int = 168):
+    """Have Harry analyze chat activity and recommend a co-commissioner"""
+    # Check if user is admin
+    if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
+        await interaction.response.send_message(
+            "❌ Only admins can ask me to pick a commish, ya muppet!",
+            ephemeral=True
+        )
+        return
+
+    if not channel_summarizer:
+        await interaction.response.send_message("❌ Channel summarizer not available", ephemeral=True)
+        return
+
+    if not AI_AVAILABLE or not ai_assistant:
+        await interaction.response.send_message("❌ AI not available for this analysis", ephemeral=True)
+        return
+
+    # Validate hours
+    if hours < 24:
+        await interaction.response.send_message("❌ Need at least 24 hours of history to judge these muppets!", ephemeral=True)
+        return
+    if hours > 720:  # 30 days max
+        await interaction.response.send_message("❌ Max 720 hours (30 days). I ain't reading a novel!", ephemeral=True)
+        return
+
+    # Defer - this will take a while
+    await interaction.response.defer()
+
+    try:
+        # Fetch messages
+        messages = await channel_summarizer.fetch_messages(interaction.channel, hours, limit=1000)
+
+        if not messages or len(messages) < 10:
+            await interaction.followup.send(
+                "❌ Not enough chat activity to analyze! Need more messages to judge you lot."
+            )
+            return
+
+        # Format messages for analysis
+        formatted_messages = channel_summarizer.format_messages_for_summary(messages)
+
+        # Count participation
+        participant_counts = {}
+        for msg in messages:
+            author = msg.author.display_name
+            author_id = msg.author.id
+            if not msg.author.bot:  # Skip bots
+                if author not in participant_counts:
+                    participant_counts[author] = {"count": 0, "id": author_id}
+                participant_counts[author]["count"] += 1
+
+        # Sort by participation
+        sorted_participants = sorted(
+            participant_counts.items(),
+            key=lambda x: x[1]["count"],
+            reverse=True
+        )
+
+        # Build participation summary
+        participation_summary = "Chat Participation (last {} hours):\n".format(hours)
+        for name, data in sorted_participants[:15]:  # Top 15
+            participation_summary += f"- {name}: {data['count']} messages\n"
+
+        # Create the AI prompt
+        prompt = f"""You are Harry, a completely insane and hilariously sarcastic CFB 26 league assistant. You've been asked to analyze chat activity and recommend who should be the new co-commissioner.
+
+PARTICIPATION DATA:
+{participation_summary}
+
+RECENT CHAT MESSAGES (sample):
+{formatted_messages[:8000]}
+
+YOUR TASK:
+Analyze each active participant and rate them on these factors (1-10 scale):
+
+📊 **ANALYSIS FACTORS:**
+1. **Activity Level** - How often do they show up and participate?
+2. **Helpfulness** - Do they answer questions and help others?
+3. **Leadership** - Do they take initiative and organize things?
+4. **🚨 Asshole Detector** - Are they a dick? Do they start drama? Toxic behavior?
+5. **Reliability** - Do they follow through? Play their games on time?
+6. **Humor/Vibes** - Are they fun to have around or a buzzkill?
+7. **Knowledge** - Do they know the rules and the game?
+8. **Drama Score** - Do they cause unnecessary drama? (Lower is better)
+
+Based on your analysis:
+1. Pick your TOP RECOMMENDATION for co-commissioner
+2. Give 2 runner-ups
+3. Call out the BIGGEST ASSHOLE who should NEVER be commish
+4. Roast everyone appropriately
+
+FORMAT YOUR RESPONSE LIKE THIS:
+
+🏆 **HARRY'S CO-COMMISSIONER ANALYSIS**
+
+**📊 Top Candidates Breakdown:**
+
+**1. [Winner Name]** - RECOMMENDED ✅
+- Activity: X/10 | Helpful: X/10 | Leadership: X/10
+- Asshole Level: X/10 | Drama: X/10 | Vibes: X/10
+- [Sarcastic 2-3 sentence summary of why they should be commish]
+
+**2. [Runner-up #1]**
+- [Quick stats] 
+- [1-2 sentence roast/reason]
+
+**3. [Runner-up #2]**
+- [Quick stats]
+- [1-2 sentence roast/reason]
+
+🚨 **ASSHOLE ALERT - DO NOT PICK:**
+**[Name]** - Asshole Level: X/10
+[Brutal but funny roast of why they should NEVER be in charge]
+
+💀 **Dishonorable Mentions:**
+[Anyone else worth roasting]
+
+Be extremely sarcastic, funny, and insane. The asshole detector should be savage but funny. Reference specific behaviors from the chat if you can see them."""
+
+        # Ask AI
+        response = await ai_assistant.ask_openai(prompt, "Co-Commissioner Selection Analysis")
+        if not response:
+            response = await ai_assistant.ask_anthropic(prompt, "Co-Commissioner Selection Analysis")
+
+        if not response:
+            await interaction.followup.send("❌ AI couldn't analyze the chat. Maybe you're all equally terrible?")
+            return
+
+        # Create embed
+        embed = discord.Embed(
+            title="👑 Co-Commissioner Selection Analysis",
+            description=response,
+            color=0xffd700
+        )
+        embed.add_field(
+            name="📊 Analysis Details",
+            value=f"📨 Analyzed **{len(messages)}** messages over **{hours}** hours\n"
+                  f"👥 **{len(participant_counts)}** participants evaluated\n"
+                  f"🚨 Asshole detector: **ACTIVE**",
+            inline=False
+        )
+        embed.set_footer(text="Harry's Commish Picker 🏈 | Use /set_co_commish to make it official!")
+
+        await interaction.followup.send(embed=embed)
+        logger.info(f"👑 Co-commish analysis completed by {interaction.user}")
+
+    except Exception as e:
+        logger.error(f"❌ Error in pick_commish: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Something went wrong analyzing you muppets: {str(e)}")
+
 # ==================== Owner Nagging Commands (Bot Owner Only) ====================
 
 @bot.tree.command(name="nag_owner", description="Start spamming the league owner to advance (Bot Owner only)")
