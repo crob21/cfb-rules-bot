@@ -1,20 +1,34 @@
 # CFB Rules Bot 🏈
 
-A Discord bot for College Football 26 Online Dynasty League that provides league rule information, AI-powered responses, and fun rivalry interactions.
+A Discord bot for College Football 26 Online Dynasty League that provides league rule information, AI-powered responses, interactive charter management, and fun rivalry interactions.
 
 ## Features
 
+### Core Features
 - 🤖 **AI-Powered Responses** - Get intelligent answers about league rules and policies
 - 📋 **League Charter Access** - Quick access to league rules and regulations
 - ⏰ **Advance Timer** - Custom countdown timers with automatic reminders (persists across deployments!)
-- 📊 **Channel Summarization** - AI-powered summaries of channel discussions with optional focus
-- 📝 **Charter Management** - Edit and update league rules directly from Discord
-- 👔 **Commissioner Updates** - Natural language updates to league officers
-- 🔇 **Channel Management** - Control where Harry makes unprompted responses (@mentions work everywhere)
+- 📅 **Dynasty Week Tracking** - Full 30-week CFB 26 season structure with actions and notes
+
+### Charter Management
+- 📝 **Interactive Charter Updates** - Update the charter by talking to Harry naturally
+- 🔍 **Rule Scanning** - Scan voting channels for passed rules and apply to charter
+- 📜 **Charter History** - Track who changed what and when
+- 💾 **Auto-Backup** - Automatic backups before any charter change
+
+### League Management
+- 👔 **League Staff Tracking** - Track league owner and co-commissioner
+- 👑 **Co-Commish Picker** - AI analyzes chat to recommend new co-commissioners (with asshole detector!)
+- 📊 **Channel Summarization** - AI-powered summaries of channel discussions
+- 📅 **Schedule Integration** - Ask Harry about matchups and byes
+
+### Bot Administration
 - 🔐 **Bot Admin System** - Separate admin permissions for bot-specific features
+- 🔇 **Channel Management** - Control where Harry makes unprompted responses
 - 📨 **Message Relay** - Relay messages between users
-- 🏆 **Team Information** - Player rosters, team histories, and league standings
-- 😄 **Fun Interactions** - Rivalry responses and engaging conversations
+
+### Fun Features
+- 😄 **Rivalry Responses** - Engaging interactions (Fuck Oregon! 🦆💩)
 - ⚡ **Slash Commands** - Easy-to-use Discord slash commands
 - 🔍 **Smart Filtering** - Only responds to relevant league-related questions
 
@@ -22,7 +36,7 @@ A Discord bot for College Football 26 Online Dynasty League that provides league
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.11+ (3.13 recommended)
 - Discord Bot Token
 - OpenAI API Key (optional, for AI features)
 - Anthropic API Key (optional, for AI features)
@@ -81,107 +95,137 @@ GOOGLE_DOCS_DOCUMENT_ID=your_document_id_here
    - Server Members Intent
 6. Invite the bot to your server with appropriate permissions
 
-## Usage
+## Commands
 
-### Slash Commands
+### League Information
+| Command | Description |
+|---------|-------------|
+| `/harry <question>` | Ask Harry league-specific questions |
+| `/ask <question>` | Ask Harry general questions (not league-specific) |
+| `/charter` | Link to the full league charter |
+| `/rules` | Get league rules information |
+| `/help_cfb` | Show available commands |
 
-#### Core Commands
-- `/help_cfb` - Show available commands
-- `/rules` - Get league rules information
-- `/charter` - Link to the full league charter
-- `/harry <question>` - Ask Harry league-specific questions
-- `/ask <question>` - Ask Harry general questions (not league-specific)
-- `/tokens` - Show AI token usage statistics
+### Dynasty Week System
+| Command | Description |
+|---------|-------------|
+| `/week` | Show current week, phase, and actions |
+| `/weeks` | Show full 30-week dynasty schedule |
+| `/set_season_week <season> <week>` | Set current season and week (Admin) |
 
-#### Advance Timer (Admin Only)
-- `/advance [hours]` - Start countdown with auto-reminders **(Admin only)**
-  - Example: `/advance` - 48 hour countdown (default)
-  - Example: `/advance 24` - 24 hour countdown
-  - Example: `/advance 72` - 72 hour countdown
-  - **Persistence**: Timer state persists across deployments via Discord messages!
-- `/time_status` - Check countdown progress (Anyone can view)
-  - Shows time remaining, progress bar, and persistence status
-- `/stop_countdown` - Stop timer **(Admin only)**
-- **Quick Restart**: `@everyone Advanced` or `@here advanced` (Admin only)
-  - Mentions @everyone/@here + "advanced" (case-insensitive)
-  - Automatically stops current timer and starts new 48-hour countdown
-  - Example: `@everyone we've advanced!` will restart the timer
-  - Example: `@here ADVANCED` will restart the timer
+### Advance Timer
+| Command | Description |
+|---------|-------------|
+| `/advance [hours]` | Start countdown (default 48h) - Admin only |
+| `/time_status` | Check countdown progress |
+| `/stop_countdown` | Stop the timer - Admin only |
+| `@everyone Advanced` | Quick restart (Admin) |
 
-#### Channel Summarization
-- `/summarize [hours] [focus]` - Summarize channel activity
-  - Example: `/summarize 24` - Last 24 hours
-  - Example: `/summarize 48 recruiting` - Last 48h focused on recruiting
-  - Example: `/summarize 24 rules` - Last 24h focused on rules discussions
-  - `hours` (optional, default: 24): 1-168 hours
-  - `focus` (optional): Filter summary to specific topic
-- **Natural Language**: `@Harry what happened in this channel for the last 3 hours?`
-  - Detects summary requests via @mention
-  - Automatically extracts time period from question
+### Schedule
+| Command | Description |
+|---------|-------------|
+| `/schedule [week]` | Show matchups for a week |
+| `/matchup <team> [week]` | Find a team's opponent |
+| `/byes [week]` | Show bye teams for a week |
 
-#### Charter Management (Admin Only)
-- `/add_rule <title> <content>` - Add new rule to charter
-- `/update_rule <section> <content>` - Update existing rule
-- `/view_charter_backups` - View available backups
-- `/restore_charter_backup <file>` - Restore from backup
+### League Staff
+| Command | Description |
+|---------|-------------|
+| `/league_staff` | Show current owner and co-commish |
+| `/set_league_owner @user` | Set the league owner (Admin) |
+| `/set_co_commish @user` | Set the co-commissioner (Admin) |
+| `/pick_commish [hours]` | AI picks a new co-commish! (Admin) |
 
-#### Natural Language Features
-- **Commissioner Updates**: `@Harry update the league commish to Wusty`
-  - Supports multiple phrasings: update/change/set/make commish
-  - Handles @mentions: `@Harry update commish to @Wusty`
-  - Admin-only feature
-  - Automatically backs up charter before updating
-- **Message Relay**: `@Harry tell @User to message`
-  - Relay messages between users
-  - Example: `@Harry tell @wustyman to fuck off`
-- **Channel Summaries**: `@Harry what happened in this channel for the last 3 hours?`
-  - Natural language summary requests
-  - Automatically extracts time period
-  - Works in any channel where @Harry is mentioned
+### Interactive Charter Updates
+| Command | Description |
+|---------|-------------|
+| `@Harry update <rule>` | Update charter via natural language |
+| `/scan_rules #channel [hours]` | Scan for rule changes (Admin) |
+| `/charter_history` | View recent charter changes |
+| `/add_rule <title> <content>` | Add new rule (Admin) |
+| `/update_rule <section> <content>` | Update existing rule (Admin) |
 
-#### Bot Admin Management
-- `/add_bot_admin @user` - Add a user as bot admin **(Admin only)**
-- `/remove_bot_admin @user` - Remove a user as bot admin **(Admin only)**
-- `/list_bot_admins` - List all bot admins
+**Examples:**
+```
+@Harry update the advance time to 10am EST
+@Harry add a rule: no trading during playoffs
+@Harry change quarter length to 5 minutes
+@Harry scan #offseason-voting for rule changes
+```
 
-#### Channel Management (Admin Only)
-- `/block_channel #channel` - Block unprompted responses in a channel
-- `/unblock_channel #channel` - Allow unprompted responses in a channel
-- `/list_blocked_channels` - Show all blocked channels
+### Channel Summarization
+| Command | Description |
+|---------|-------------|
+| `/summarize [hours] [focus]` | Summarize channel activity |
+| `@Harry what happened in the last 3 hours?` | Natural language summary |
 
-**How It Works:**
-- **@mentions always work** - Harry responds when mentioned, even in blocked channels
-- **No unprompted replies** - Harry won't jump into conversations in blocked channels
-- **Slash commands work** - All `/` commands function normally in blocked channels
+### Bot Administration
+| Command | Description |
+|---------|-------------|
+| `/add_bot_admin @user` | Add a bot admin |
+| `/remove_bot_admin @user` | Remove a bot admin |
+| `/list_bot_admins` | List all bot admins |
+| `/block_channel #channel` | Block unprompted responses |
+| `/unblock_channel #channel` | Allow unprompted responses |
+| `/list_blocked_channels` | Show blocked channels |
 
-#### Version & Info
-- `/whats_new` - See latest features and updates
-- `/version` - Show current bot version
-- `/changelog [version]` - View version history
-  - Example: `/changelog` - All versions summary
-  - Example: `/changelog 1.1.0` - Details for v1.1.0
+### Version & Info
+| Command | Description |
+|---------|-------------|
+| `/whats_new` | See latest features |
+| `/version` | Show current version |
+| `/changelog [version]` | View version history |
 
-### Chat Interactions
+## Dynasty Week Structure
 
-- **Mention the bot** - `@Harry` works in **any channel** (even blocked ones)
-- **Ask questions** - "What are the recruiting rules?"
-- **Natural language commands**:
-  - `@Harry update the league commish to Wusty` - Update commissioner (admin only)
-  - `@Harry tell @User to message` - Relay messages
-  - `@Harry what happened in this channel for the last 3 hours?` - Channel summary
-- **Get help** - "harry help me with the league rules"
-- **Unprompted responses** - Only in channels that allow them (use `/block_channel` to control)
+The bot tracks a full 30-week CFB 26 dynasty season:
 
-### AI Features
+### Regular Season (Weeks 0-15)
+- Week 0: Season Kickoff
+- Weeks 1-12: Regular Season
+- Week 13: Rivalry Week
+- Week 14: Conference Championship Prep
+- Week 15: Conference Championships
 
-The bot uses AI to provide intelligent responses about league rules and policies. It can:
-- Answer specific questions about league rules (via `/harry`)
-- Provide general information (via `/ask` - no league context)
-- Summarize channel discussions with optional focus
-- Format charter rules professionally
-- Natural language understanding for commands
+### Post-Season (Weeks 16-21)
+- Week 16: Bowl Week 1 (12-team playoff begins)
+- Week 17: Bowl Week 2
+- Week 18: Bowl Week 3
+- Week 19: Bowl Week 4 (Championship)
+- Week 20: End of Season Recap
+- Week 21: Award Show
 
-**Note**: `/ask` always provides general AI answers without league charter context. Use `/harry` for league-specific questions.
+### Offseason (Weeks 22-29)
+- Week 22: Portal Week 1
+- Week 23: Portal Week 2
+- Week 24: Portal Week 3
+- Week 25: Portal Week 4 (Portal closes)
+- Week 26: National Signing Day
+- Week 27: Training Results
+- Week 28: Encourage Transfers
+- Week 29: Preseason → New Season!
+
+## AI Features
+
+The bot uses AI to provide intelligent responses:
+
+- **League Questions** - `/harry` uses charter context
+- **General Questions** - `/ask` for non-league topics
+- **Channel Summaries** - AI-powered discussion summaries
+- **Charter Updates** - Natural language rule parsing
+- **Co-Commish Picker** - Analyzes chat for recommendations
+
+### The Asshole Detector 🚨
+
+The `/pick_commish` command includes Harry's famous asshole detector:
+- Activity Level
+- Helpfulness
+- Leadership
+- **Asshole Score** (Are they a dick?)
+- Drama Score
+- Vibes/Humor
+- Reliability
+- Knowledge
 
 ## Project Structure
 
@@ -193,14 +237,19 @@ cfb-rules-bot/
 │   ├── ai/                    # AI integration
 │   ├── integrations/          # External services
 │   └── utils/                 # Utility functions
+│       ├── timekeeper.py      # Timer & week tracking
+│       ├── charter_editor.py  # Charter management
+│       ├── schedule_manager.py # Schedule data
+│       └── summarizer.py      # Channel summaries
 ├── config/                    # Configuration files
 ├── data/                      # Data files
+│   ├── charter_content.txt    # League charter
+│   ├── schedule.json          # Season schedule
+│   └── charter_changelog.json # Update history
 ├── tests/                     # Test files
 ├── docs/                      # Documentation
 └── scripts/                   # Utility scripts
 ```
-
-See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for detailed information.
 
 ## Deployment
 
@@ -230,14 +279,6 @@ python -m pytest tests/
 ### Code Style
 
 This project follows PEP 8 style guidelines. Use a formatter like `black` for consistent formatting.
-
-### Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
 
 ## License
 

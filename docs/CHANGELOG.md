@@ -5,12 +5,89 @@ All notable changes to the CFB 26 Rules Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.0] - 2025-12-31
 
 ### Added
-- Comprehensive documentation updates
-- Timer persistence testing guide
-- Natural language command examples
+
+- **Interactive Charter Updates**
+  - Update the charter by talking to Harry naturally
+  - `@Harry update the advance time to 10am`
+  - `@Harry add a rule: no trading during playoffs`
+  - `@Harry change quarter length to 5 minutes`
+  - Before/after preview with reaction confirmation (✅/❌)
+  - Automatic backup before any change
+  - Changelog tracks who changed what and when
+  - `/charter_history` command to view recent changes
+
+- **Rule Scanning from Voting Channels**
+  - `/scan_rules #channel [hours]` - Scan for rule changes
+  - Natural language: `@Harry scan #voting for rule changes`
+  - AI identifies passed, failed, and proposed rules
+  - Shows vote counts when mentioned in messages
+  - React with 📝 to generate charter updates from passed rules
+  - Apply all updates with a single confirmation
+
+- **Co-Commissioner Picker**
+  - `/pick_commish [hours]` - AI-powered co-commish recommendations
+  - Analyzes chat activity and participation
+  - 🚨 **ASSHOLE DETECTOR** - rates toxic behavior!
+  - Scores: Activity, Helpfulness, Leadership, Drama, Vibes
+  - Ranks ALL participants from best to worst
+  - Personalized roasts for each candidate
+  - Identifies biggest asshole who should NEVER be commish
+
+- **League Staff Tracking**
+  - `/league_staff` - View current owner and co-commissioner
+  - `/set_league_owner @user` - Set the league owner (Admin)
+  - `/set_co_commish @user` - Set the co-commissioner (Admin)
+  - Special option: "We don't fucking have one" for co-commish
+  - Persists across bot restarts and deployments
+
+- **Schedule Integration**
+  - `/schedule [week]` - View matchups for a specific week
+  - `/matchup <team> [week]` - Find a team's opponent
+  - `/byes [week]` - Show teams with byes
+  - Ask Harry naturally: "Who does Hawaii play in week 4?"
+  - AI knows current week for "this week" questions
+
+### Changed
+- `/pick_commish` uses 2000 tokens for full roasts
+- Improved token limit parameters in AI integration
+- Better message chunking for long responses
+
+### Fixed
+- All bare `except:` blocks replaced with specific exceptions
+- Memory leak from pending charter updates (cleanup task added)
+- `processed_messages` set now trimmed to prevent unbounded growth
+- Discord interaction timeouts with proper defer handling
+
+### Security
+- Charter updates require admin permissions
+- Rule scanning requires admin permissions
+- Reaction-based confirmations prevent accidental changes
+
+## [1.2.0] - 2025-12-29
+
+### Added
+
+- **Dynasty Week System**
+  - Full 30-week CFB 26 dynasty season structure
+  - Week 0-15: Regular Season
+  - Week 16-21: Post-Season (Bowl games, playoffs)
+  - Week 22-29: Offseason (Portal, signing day, preseason)
+  - `/week` - Show current week and actions
+  - `/weeks` - Full 30-week schedule display
+  
+- **Week Actions & Notes**
+  - Each week shows available actions (staff moves, job offers, etc.)
+  - Important notes and deadline reminders
+  - Bowl weeks show hiring/firing windows
+  - Offseason weeks show portal and recruiting actions
+
+- **Automatic Season Rollover**
+  - Preseason (Week 29) advances to Week 0 of next season
+  - New season celebration announcement
+  - Season counter automatically increments
 
 ## [1.1.1] - 2025-11-04
 

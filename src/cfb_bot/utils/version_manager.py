@@ -11,10 +11,75 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.2.0"
+CURRENT_VERSION = "1.3.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.3.0": {
+        "date": "2025-12-31",
+        "title": "Interactive Charter & Co-Commish Picker",
+        "emoji": "👑",
+        "features": [
+            {
+                "category": "Interactive Charter Updates",
+                "emoji": "📝",
+                "changes": [
+                    "Update charter by talking to Harry naturally!",
+                    "Example: '@Harry update the advance time to 10am'",
+                    "Example: '@Harry add a rule: no trading during playoffs'",
+                    "Before/after preview with ✅/❌ confirmation",
+                    "Automatic backup before any change",
+                    "Changelog tracks who changed what and when",
+                    "/charter_history command to view recent changes"
+                ]
+            },
+            {
+                "category": "Rule Scanning",
+                "emoji": "🔍",
+                "changes": [
+                    "/scan_rules command to find rule changes in voting channels",
+                    "Natural language: '@Harry scan #voting for rule changes'",
+                    "AI identifies passed/failed/proposed rules",
+                    "Shows vote counts when available",
+                    "React with 📝 to generate charter updates",
+                    "Apply all passed rules to charter with one click"
+                ]
+            },
+            {
+                "category": "Co-Commissioner Picker",
+                "emoji": "👑",
+                "changes": [
+                    "/pick_commish command for AI-powered recommendations",
+                    "Analyzes chat activity and participation",
+                    "🚨 ASSHOLE DETECTOR - rates toxic behavior!",
+                    "Scores: Activity, Helpfulness, Leadership, Drama, Vibes",
+                    "Ranks ALL participants with personalized roasts",
+                    "Calls out biggest asshole who should NEVER be commish"
+                ]
+            },
+            {
+                "category": "League Staff Tracking",
+                "emoji": "👔",
+                "changes": [
+                    "/league_staff - View current owner and co-commissioner",
+                    "/set_league_owner - Set the league owner",
+                    "/set_co_commish - Set the co-commissioner",
+                    "Special option: 'We don't fucking have one' for co-commish",
+                    "Persists across bot restarts"
+                ]
+            },
+            {
+                "category": "Code Quality",
+                "emoji": "🔧",
+                "changes": [
+                    "Fixed all bare 'except:' blocks with specific exceptions",
+                    "Added cleanup task for expired pending requests",
+                    "Memory leak prevention for processed messages",
+                    "Python 3.13 compatibility improvements"
+                ]
+            }
+        ]
+    },
     "1.2.0": {
         "date": "2025-12-29",
         "title": "CFB 26 Dynasty Week System",

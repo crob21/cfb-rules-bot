@@ -124,25 +124,25 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 async def cleanup_expired_pending():
     """Clean up expired pending charter updates and rule scans"""
     now = datetime.now().timestamp()
-    
+
     # Clean up pending charter updates
     if hasattr(bot, 'pending_charter_updates'):
-        expired = [msg_id for msg_id, data in bot.pending_charter_updates.items() 
+        expired = [msg_id for msg_id, data in bot.pending_charter_updates.items()
                    if now > data.get("expires", 0)]
         for msg_id in expired:
             del bot.pending_charter_updates[msg_id]
         if expired:
             logger.info(f"🧹 Cleaned up {len(expired)} expired charter update(s)")
-    
+
     # Clean up pending rule scans
     if hasattr(bot, 'pending_rule_scans'):
-        expired = [msg_id for msg_id, data in bot.pending_rule_scans.items() 
+        expired = [msg_id for msg_id, data in bot.pending_rule_scans.items()
                    if now > data.get("expires", 0)]
         for msg_id in expired:
             del bot.pending_rule_scans[msg_id]
         if expired:
             logger.info(f"🧹 Cleaned up {len(expired)} expired rule scan(s)")
-    
+
     # Clean up old processed messages (keep last 1000)
     global processed_messages
     if len(processed_messages) > 1000:
@@ -1840,82 +1840,111 @@ async def help_cfb(interaction: discord.Interaction):
     """Show help information"""
     embed = discord.Embed(
         title="🏈 CFB 26 League Bot Commands",
-        description="Oi! Here's what I can do for ya, mate!",
+        description="Oi! Here's what I can do for ya, mate! **v1.3.0**",
         color=0x1e90ff
-    )
-
-    # League Rules Commands
-    embed.add_field(
-        name="📋 **League Rules Commands**",
-        value=(
-            "• `/rule <rule_name>` - Look up specific league rules\n"
-            "• `/recruiting <topic>` - Get recruiting rules\n"
-            "• `/dynasty <topic>` - Dynasty management rules\n"
-            "• `/charter` - Link to official charter\n"
-            "• `/search <term>` - Search the charter"
-        ),
-        inline=False
     )
 
     # AI Commands
     embed.add_field(
-        name="🤖 **AI Assistant Commands**",
+        name="🤖 **AI Assistant**",
         value=(
-            "• `/harry <question>` - Ask me anything!\n"
-            "• `/ask <question>` - AI-powered rule answers"
+            "• `/harry <question>` - Ask me league questions\n"
+            "• `/ask <question>` - General AI answers\n"
+            "• `@Harry <message>` - Chat naturally!"
         ),
         inline=False
     )
 
-    # NEW: Timekeeper Commands
+    # Dynasty Week Commands
     embed.add_field(
-        name="⏰ **Advance Timer Commands**",
+        name="📅 **Dynasty Week**",
         value=(
-            "• `/advance [hours]` - Start countdown **(Admin only)**\n"
-            "  Example: `/advance` = 48 hours\n"
-            "  Example: `/advance 24` = 24 hours\n"
-            "• `/time_status` - Check countdown progress\n"
-            "• `/stop_countdown` - Stop timer **(Admin only)**"
+            "• `/week` - Current week, phase & actions\n"
+            "• `/weeks` - Full 30-week schedule\n"
+            "• `/set_season_week` - Set week **(Admin)**"
         ),
-        inline=False
+        inline=True
     )
 
-    # NEW: Summarization Commands
+    # Advance Timer Commands
     embed.add_field(
-        name="📊 **Channel Summarization**",
+        name="⏰ **Advance Timer**",
         value=(
-            "• `/summarize [hours] [focus]` - Summarize channel activity\n"
-            "  Example: `/summarize 24` - Last 24 hours\n"
-            "  Example: `/summarize 48 recruiting` - Last 48h, focus on recruiting"
+            "• `/advance [hours]` - Start countdown **(Admin)**\n"
+            "• `/time_status` - Check progress\n"
+            "• `/stop_countdown` - Stop timer **(Admin)**"
         ),
-        inline=False
+        inline=True
     )
 
-    # NEW: Charter Editing Commands
+    # Schedule Commands
     embed.add_field(
-        name="📝 **Charter Management (Admin Only)**",
+        name="📊 **Schedule**",
         value=(
-            "• `/add_rule <title> <content>` - Add new rule\n"
-            "• `/update_rule <section> <content>` - Update rule\n"
-            "• `/view_charter_backups` - View backups\n"
-            "• `/restore_charter_backup <file>` - Restore backup"
+            "• `/schedule [week]` - Week matchups\n"
+            "• `/matchup <team>` - Team's opponent\n"
+            "• `/byes [week]` - Bye teams"
         ),
-        inline=False
+        inline=True
     )
 
-    # Other Commands
+    # League Staff
     embed.add_field(
-        name="🛠️ **Other Commands**",
+        name="👔 **League Staff**",
         value=(
-            "• `/team <team_name>` - Team information\n"
-            "• `/tokens` - AI usage statistics\n"
-            "• `/whats_new` - See latest features!\n"
-            "• `/version` - Current bot version\n"
-            "• `/changelog [version]` - View version history\n"
-            "• `/help_cfb` - Show this message"
+            "• `/league_staff` - View owner & co-commish\n"
+            "• `/set_league_owner` - Set owner **(Admin)**\n"
+            "• `/set_co_commish` - Set co-commish **(Admin)**\n"
+            "• `/pick_commish` - AI picks co-commish! 👑"
         ),
-        inline=False
+        inline=True
     )
+
+    # Interactive Charter
+    embed.add_field(
+        name="📝 **Charter Updates**",
+        value=(
+            "• `@Harry update <rule>` - Natural language!\n"
+            "• `/scan_rules #channel` - Find rule votes\n"
+            "• `/charter_history` - Recent changes\n"
+            "• `/charter` - Link to charter"
+        ),
+        inline=True
+    )
+
+    # Channel Summary
+    embed.add_field(
+        name="💬 **Summaries**",
+        value=(
+            "• `/summarize [hours] [focus]` - Summarize\n"
+            "• `@Harry what happened?` - Natural!"
+        ),
+        inline=True
+    )
+
+    # Admin Commands
+    embed.add_field(
+        name="🔐 **Bot Admin**",
+        value=(
+            "• `/add_bot_admin` `/remove_bot_admin`\n"
+            "• `/list_bot_admins`\n"
+            "• `/block_channel` `/unblock_channel`"
+        ),
+        inline=True
+    )
+
+    # Version Info
+    embed.add_field(
+        name="ℹ️ **Info**",
+        value=(
+            "• `/whats_new` - Latest features\n"
+            "• `/version` - Bot version\n"
+            "• `/changelog` - Version history"
+        ),
+        inline=True
+    )
+
+    embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈 | @Harry works anywhere!")
 
     # Admin Management Commands
     embed.add_field(
