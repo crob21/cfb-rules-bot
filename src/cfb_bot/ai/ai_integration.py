@@ -20,18 +20,18 @@ logger = logging.getLogger('CFB26Bot.AI')
 
 class AICharterAssistant:
     """AI-powered assistant for league charter questions"""
-    
+
     def __init__(self):
         self.openai_api_key = os.getenv('OPENAI_API_KEY')
         self.anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
         self.charter_url = "https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit"
         self.charter_content = None
-        
+
         # Token usage tracking
         self.total_openai_tokens = 0
         self.total_anthropic_tokens = 0
         self.total_requests = 0
-        
+
     async def get_charter_content(self) -> Optional[str]:
         """Get charter content for AI context"""
         # Try to get content from local file first
@@ -45,7 +45,7 @@ class AICharterAssistant:
                         return content
         except Exception as e:
             logger.warning(f"⚠️  Local charter file failed: {e}")
-        
+
         # Try to get content from Google Docs as fallback
         try:
             from google_docs_integration import GoogleDocsIntegration
@@ -56,61 +56,71 @@ class AICharterAssistant:
                     return content
         except Exception as e:
             logger.warning(f"⚠️  Google Docs integration failed: {e}")
-        
+
         # No charter content available
         logger.info("📄 No charter content available - using fallback context")
         return None
-    
+
     def get_schedule_context(self) -> str:
-        """Get schedule context for AI queries"""
+        """Get schedule context for AI queries, including current week info"""
+        context_parts = []
+        
+        # Try to get current week/season from the bot's timekeeper_manager
+        try:
+            # Import bot module to access timekeeper_manager
+            from .. import bot as bot_module
+            if hasattr(bot_module, 'timekeeper_manager') and bot_module.timekeeper_manager:
+                season_info = bot_module.timekeeper_manager.get_season_week()
+                if season_info.get('season') and season_info.get('week') is not None:
+                    current_week = season_info['week']
+                    current_season = season_info['season']
+                    week_name = season_info.get('week_name', f"Week {current_week}")
+                    phase = season_info.get('phase', 'Unknown')
+                    
+                    context_parts.append(f"**CURRENT STATUS: Season {current_season}, {week_name} (Week {current_week})**")
+                    context_parts.append(f"Phase: {phase}")
+                    context_parts.append(f"IMPORTANT: When the user says 'this week' or 'current week', they mean Week {current_week}.")
+                    context_parts.append("")
+        except Exception as e:
+            logger.debug(f"Could not get current week context: {e}")
+        
+        # Get full schedule
         try:
             from ..utils.schedule_manager import get_schedule_manager
             schedule_mgr = get_schedule_manager()
             if schedule_mgr:
-                return schedule_mgr.get_schedule_context_for_ai()
+                context_parts.append(schedule_mgr.get_schedule_context_for_ai())
         except Exception as e:
             logger.warning(f"⚠️ Could not get schedule context: {e}")
-        return ""
-    
-    def get_current_week_context(self) -> str:
-        """Get current week context for AI queries"""
-        try:
-            from ..utils.schedule_manager import get_schedule_manager
-            from ..utils.timekeeper import get_week_name, get_week_info
-            
-            # Try to get current week from a global or passed context
-            # For now, return empty - will be passed in from bot
-            return ""
-        except Exception as e:
-            logger.warning(f"⚠️ Could not get week context: {e}")
-        return ""
-    
+        
+        return "\n".join(context_parts)
+
     async def ask_openai(self, question: str, context: str) -> Optional[str]:
         """Ask OpenAI about the charter"""
         if not self.openai_api_key:
             logger.warning("⚠️ OpenAI API key not found")
             return None
-            
+
         headers = {
             'Authorization': f'Bearer {self.openai_api_key}',
             'Content-Type': 'application/json'
         }
-        
+
         # Get schedule context
         schedule_context = self.get_schedule_context()
-        
+
         prompt = f"""
         You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks.
         Answer questions based on the league charter AND schedule information provided below in a hilariously sarcastic way.
-        
+
         League Charter Context:
         {context}
-        
+
         League Schedule Information:
         {schedule_context}
-        
+
         Question: {question}
-        
+
         IMPORTANT INSTRUCTIONS:
         - If you can answer the question based on the charter OR schedule content, provide a direct, helpful answer with maximum sarcasm
         - For schedule questions (matchups, byes, who plays who), use the schedule information above
@@ -119,7 +129,7 @@ class AICharterAssistant:
         - If the information isn't available, say so with sarcasm
         - Keep responses informative but hilariously sarcastic and insane
         """
-        
+
         data = {
             'model': 'gpt-3.5-turbo',
             'messages': [
@@ -129,17 +139,17 @@ class AICharterAssistant:
             'max_tokens': 500,
             'temperature': 0.7
         }
-        
+
         try:
             # Log the full prompt being sent
             logger.info(f"🤖 Asking OpenAI: {question[:100]}...")
             logger.info(f"📝 Full prompt length: {len(prompt)} characters")
             logger.info(f"📄 Context length: {len(context)} characters")
-            
+
             # Estimate token count (rough approximation: 1 token ≈ 4 characters)
             estimated_tokens = len(prompt) // 4
             logger.info(f"🔢 Estimated input tokens: ~{estimated_tokens}")
-            
+
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     'https://api.openai.com/v1/chat/completions',
@@ -148,43 +158,43 @@ class AICharterAssistant:
                 ) as response:
                     if response.status == 200:
                         result = await response.json()
-                        
+
                         # Extract token usage information
                         usage = result.get('usage', {})
                         prompt_tokens = usage.get('prompt_tokens', 0)
                         completion_tokens = usage.get('completion_tokens', 0)
                         total_tokens = usage.get('total_tokens', 0)
-                        
+
                         # Log detailed usage information
                         logger.info(f"✅ OpenAI response received")
                         logger.info(f"🔢 Token usage - Prompt: {prompt_tokens}, Completion: {completion_tokens}, Total: {total_tokens}")
-                        
+
                         # Log any rate limit information if available
                         if 'x-ratelimit-remaining-requests' in response.headers:
                             remaining_requests = response.headers.get('x-ratelimit-remaining-requests')
                             logger.info(f"⏱️ Rate limit - Remaining requests: {remaining_requests}")
-                        
+
                         if 'x-ratelimit-remaining-tokens' in response.headers:
                             remaining_tokens = response.headers.get('x-ratelimit-remaining-tokens')
                             logger.info(f"⏱️ Rate limit - Remaining tokens: {remaining_tokens}")
-                        
+
                         if 'x-ratelimit-reset-requests' in response.headers:
                             reset_requests = response.headers.get('x-ratelimit-reset-requests')
                             logger.info(f"⏱️ Rate limit - Requests reset at: {reset_requests}")
-                        
+
                         if 'x-ratelimit-reset-tokens' in response.headers:
                             reset_tokens = response.headers.get('x-ratelimit-reset-tokens')
                             logger.info(f"⏱️ Rate limit - Tokens reset at: {reset_tokens}")
-                        
+
                         # Update token counters
                         self.total_openai_tokens += total_tokens
                         self.total_requests += 1
-                        
+
                         logger.info(f"📊 Total OpenAI tokens used: {self.total_openai_tokens} (across {self.total_requests} requests)")
-                        
+
                         response_text = result['choices'][0]['message']['content'].strip()
                         logger.info(f"📝 Response length: {len(response_text)} characters")
-                        
+
                         return response_text
                     else:
                         error_text = await response.text()
@@ -193,41 +203,41 @@ class AICharterAssistant:
         except Exception as e:
             logger.error(f"Error calling OpenAI: {e}")
             return None
-    
+
     async def ask_anthropic(self, question: str, context: str) -> Optional[str]:
         """Ask Anthropic Claude about the charter"""
         if not self.anthropic_api_key:
             logger.warning("⚠️ Anthropic API key not found")
             return None
-            
+
         headers = {
             'x-api-key': self.anthropic_api_key,
             'Content-Type': 'application/json',
             'anthropic-version': '2023-06-01'
         }
-        
+
         # Get schedule context
         schedule_context = self.get_schedule_context()
-        
+
         prompt = f"""
         You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks.
         Answer questions based on the league charter AND schedule information provided below.
-        
+
         League Charter Context:
         {context}
-        
+
         League Schedule Information:
         {schedule_context}
-        
+
         Question: {question}
-        
+
         IMPORTANT INSTRUCTIONS:
         - If you can answer the question based on the charter OR schedule content, provide a direct, helpful answer with maximum sarcasm
         - For schedule questions (matchups, byes, who plays who), use the schedule information above
         - Be extremely sarcastic and witty, like a completely insane but knowledgeable league member
         - Keep responses informative but hilariously sarcastic
         """
-        
+
         data = {
             'model': 'claude-3-haiku-20240307',
             'max_tokens': 500,
@@ -235,17 +245,17 @@ class AICharterAssistant:
                 {'role': 'user', 'content': prompt}
             ]
         }
-        
+
         try:
             # Log the request details
             logger.info(f"🤖 Asking Anthropic: {question[:100]}...")
             logger.info(f"📝 Full prompt length: {len(prompt)} characters")
             logger.info(f"📄 Context length: {len(context)} characters")
-            
+
             # Estimate token count (rough approximation: 1 token ≈ 4 characters)
             estimated_tokens = len(prompt) // 4
             logger.info(f"🔢 Estimated input tokens: ~{estimated_tokens}")
-            
+
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     'https://api.anthropic.com/v1/messages',
@@ -254,24 +264,24 @@ class AICharterAssistant:
                 ) as response:
                     if response.status == 200:
                         result = await response.json()
-                        
+
                         # Extract token usage information
                         usage = result.get('usage', {})
                         input_tokens = usage.get('input_tokens', 0)
                         output_tokens = usage.get('output_tokens', 0)
-                        
+
                         # Update token counters
                         total_tokens = input_tokens + output_tokens
                         self.total_anthropic_tokens += total_tokens
                         self.total_requests += 1
-                        
+
                         logger.info(f"✅ Anthropic response received")
                         logger.info(f"🔢 Token usage - Input: {input_tokens}, Output: {output_tokens}")
                         logger.info(f"📊 Total Anthropic tokens used: {self.total_anthropic_tokens} (across {self.total_requests} requests)")
-                        
+
                         response_text = result['content'][0]['text'].strip()
                         logger.info(f"📝 Response length: {len(response_text)} characters")
-                        
+
                         return response_text
                     else:
                         error_text = await response.text()
@@ -280,30 +290,30 @@ class AICharterAssistant:
         except Exception as e:
             logger.error(f"Error calling Anthropic: {e}")
             return None
-    
+
     async def ask_ai(self, question: str, user_info: str = None) -> Optional[str]:
         """Ask AI about the charter (tries OpenAI first, then Anthropic)"""
         if user_info:
             logger.info(f"🤖 AI asked by {user_info}: {question[:100]}...")
         else:
             logger.info(f"🤖 AI asked: {question[:100]}...")
-        
+
         context = await self.get_charter_content()
-        
+
         # Use empty context if no charter content available
         if not context:
             context = "No charter content available. Please provide general information about CFB 26 league rules, recruiting, transfers, or dynasty management."
             logger.info("📄 Using fallback context (no charter content)")
         else:
             logger.info(f"📄 Using charter context ({len(context)} characters)")
-        
+
         # Try OpenAI first
         logger.info("🔄 Trying OpenAI...")
         response = await self.ask_openai(question, context)
         if response:
             logger.info("✅ OpenAI response received")
             return response
-        
+
         # Fallback to Anthropic
         logger.info("🔄 Trying Anthropic...")
         response = await self.ask_anthropic(question, context)
@@ -312,7 +322,7 @@ class AICharterAssistant:
         else:
             logger.warning("❌ No AI response from either provider")
         return response
-    
+
     def get_token_usage(self) -> dict:
         """Get current token usage statistics"""
         return {
@@ -321,7 +331,7 @@ class AICharterAssistant:
             'anthropic_tokens': self.total_anthropic_tokens,
             'total_tokens': self.total_openai_tokens + self.total_anthropic_tokens
         }
-    
+
     def log_token_summary(self):
         """Log a summary of token usage"""
         stats = self.get_token_usage()
