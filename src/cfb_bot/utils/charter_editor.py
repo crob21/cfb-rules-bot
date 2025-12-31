@@ -433,7 +433,7 @@ Just provide the formatted rule text, nothing else."""
         """Add an entry to the changelog"""
         try:
             changelog = self._load_changelog()
-            
+
             entry = {
                 "timestamp": datetime.now().isoformat(),
                 "user_id": user_id,
@@ -443,13 +443,13 @@ Just provide the formatted rule text, nothing else."""
                 "before": before_text[:500] if before_text else None,  # Limit size
                 "after": after_text[:500] if after_text else None
             }
-            
+
             changelog.append(entry)
-            
+
             # Keep only last 100 entries
             if len(changelog) > 100:
                 changelog = changelog[-100:]
-            
+
             return self._save_changelog(changelog)
         except Exception as e:
             logger.error(f"❌ Error adding changelog entry: {e}")
@@ -463,7 +463,7 @@ Just provide the formatted rule text, nothing else."""
     async def parse_update_request(self, request: str) -> Optional[Dict]:
         """
         Use AI to parse a natural language update request
-        
+
         Returns dict with:
         - action: 'update', 'add', 'remove', 'unknown'
         - section: which section to modify
@@ -512,7 +512,7 @@ If you cannot understand the request, respond with:
             response = await self.ai_assistant.ask_openai(prompt, "Charter Update Parser", max_tokens=1000)
             if not response:
                 response = await self.ai_assistant.ask_anthropic(prompt, "Charter Update Parser", max_tokens=1000)
-            
+
             if not response:
                 return None
 
@@ -521,7 +521,7 @@ If you cannot understand the request, respond with:
             if response.startswith("```"):
                 response = re.sub(r'^```\w*\n?', '', response)
                 response = re.sub(r'\n?```$', '', response)
-            
+
             # Parse JSON
             parsed = json.loads(response)
             logger.info(f"📝 Parsed update request: {parsed.get('action')} - {parsed.get('summary')}")
@@ -538,10 +538,10 @@ If you cannot understand the request, respond with:
     async def generate_update_preview(self, parsed_request: Dict) -> Optional[Dict]:
         """
         Generate a before/after preview of the proposed change
-        
+
         Returns dict with:
         - before: the text before the change
-        - after: the text after the change  
+        - after: the text after the change
         - full_new_charter: the complete updated charter
         """
         current_charter = self.read_charter()
@@ -577,17 +577,17 @@ If you cannot understand the request, respond with:
                 if section:
                     # Look for the section header
                     section_pattern = re.compile(
-                        rf'(###?\s*{re.escape(section)}.*?)(\n##|\n###|\Z)', 
+                        rf'(###?\s*{re.escape(section)}.*?)(\n##|\n###|\Z)',
                         re.IGNORECASE | re.DOTALL
                     )
                     match = section_pattern.search(current_charter)
-                    
+
                     if match:
                         section_content = match.group(1)
                         insert_pos = match.start() + len(section_content)
                         new_charter = (
-                            current_charter[:insert_pos] + 
-                            f"\n\n{new_text}" + 
+                            current_charter[:insert_pos] +
+                            f"\n\n{new_text}" +
                             current_charter[insert_pos:]
                         )
                         return {
@@ -595,7 +595,7 @@ If you cannot understand the request, respond with:
                             "after": new_text,
                             "full_new_charter": new_charter
                         }
-                
+
                 # Default: add at end
                 new_charter = current_charter + f"\n\n{new_text}"
                 return {
@@ -640,7 +640,7 @@ Return ONLY the updated charter text, nothing else."""
             new_charter = await self.ai_assistant.ask_openai(prompt, "Charter Fuzzy Update", max_tokens=4000)
             if not new_charter:
                 new_charter = await self.ai_assistant.ask_anthropic(prompt, "Charter Fuzzy Update", max_tokens=4000)
-            
+
             if new_charter:
                 return {
                     "before": parsed_request.get("old_text", "(Section being modified)"),
@@ -684,3 +684,157 @@ Return ONLY the updated charter text, nothing else."""
         except Exception as e:
             logger.error(f"❌ Error applying update: {e}")
             return False
+
+    async def find_rule_changes_in_messages(
+        self,
+        messages: List[str],
+        channel_name: str = "voting channel"
+    ) -> Optional[List[Dict]]:
+        """
+        Analyze messages to find rule changes, votes, and decisions
+        
+        Returns list of:
+        - rule: the rule text
+        - status: passed/failed/proposed
+        - votes_for: count (if available)
+        - votes_against: count (if available)
+        - context: additional context
+        """
+        if not self.ai_assistant:
+            logger.warning("⚠️ AI assistant not available for message analysis")
+            return None
+
+        if not messages:
+            return None
+
+        # Join messages for analysis
+        messages_text = "\n".join(messages[:100])  # Limit to recent 100
+
+        prompt = f"""You are analyzing a Discord channel called "{channel_name}" for rule changes and votes in a CFB 26 dynasty league.
+
+MESSAGES FROM THE CHANNEL:
+{messages_text}
+
+Find any:
+1. Rule proposals
+2. Votes on rules (passed or failed)
+3. Rule changes that were decided
+4. Policy updates
+
+For each rule change found, extract:
+- The rule/change description
+- Whether it passed, failed, or is just proposed
+- Vote counts if mentioned
+- Any relevant context
+
+Respond in this EXACT JSON format (no markdown, just raw JSON array):
+[
+    {{
+        "rule": "Description of the rule or change",
+        "status": "passed|failed|proposed|decided",
+        "votes_for": null or number,
+        "votes_against": null or number,
+        "context": "Any additional context or notes"
+    }}
+]
+
+If no rule changes are found, respond with: []"""
+
+        try:
+            response = await self.ai_assistant.ask_openai(prompt, "Rule Change Finder", max_tokens=2000)
+            if not response:
+                response = await self.ai_assistant.ask_anthropic(prompt, "Rule Change Finder", max_tokens=2000)
+            
+            if not response:
+                return None
+
+            # Clean up response
+            response = response.strip()
+            if response.startswith("```"):
+                response = re.sub(r'^```\w*\n?', '', response)
+                response = re.sub(r'\n?```$', '', response)
+            
+            # Parse JSON
+            changes = json.loads(response)
+            logger.info(f"📜 Found {len(changes)} rule changes in {channel_name}")
+            return changes
+
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ Failed to parse rule changes JSON: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"❌ Error finding rule changes: {e}")
+            return None
+
+    async def generate_charter_updates_from_rules(
+        self,
+        rule_changes: List[Dict]
+    ) -> Optional[List[Dict]]:
+        """
+        Generate charter update suggestions based on found rule changes
+        
+        Returns list of suggested updates with before/after text
+        """
+        if not self.ai_assistant or not rule_changes:
+            return None
+
+        current_charter = self.read_charter()
+        if not current_charter:
+            return None
+
+        # Filter to only passed/decided rules
+        passed_rules = [r for r in rule_changes if r.get("status") in ["passed", "decided"]]
+        
+        if not passed_rules:
+            return None
+
+        prompt = f"""You are updating a CFB 26 league charter based on rules that were voted on and passed.
+
+CURRENT CHARTER:
+{current_charter}
+
+RULES THAT PASSED (need to be added/updated in charter):
+{json.dumps(passed_rules, indent=2)}
+
+For each passed rule, determine:
+1. Is this a NEW rule that needs to be added?
+2. Is this an UPDATE to an existing rule?
+3. Where in the charter should it go?
+
+Generate the charter updates needed. Respond in this EXACT JSON format:
+[
+    {{
+        "rule_description": "Brief description of what's being changed",
+        "action": "add|update",
+        "section": "Which section this belongs to",
+        "old_text": "Text to find and replace (null if adding new)",
+        "new_text": "The new or updated text to insert"
+    }}
+]
+
+If no updates are needed (rules already in charter), respond with: []"""
+
+        try:
+            response = await self.ai_assistant.ask_openai(prompt, "Charter Update Generator", max_tokens=3000)
+            if not response:
+                response = await self.ai_assistant.ask_anthropic(prompt, "Charter Update Generator", max_tokens=3000)
+            
+            if not response:
+                return None
+
+            # Clean up response
+            response = response.strip()
+            if response.startswith("```"):
+                response = re.sub(r'^```\w*\n?', '', response)
+                response = re.sub(r'\n?```$', '', response)
+            
+            updates = json.loads(response)
+            logger.info(f"📝 Generated {len(updates)} charter update suggestions")
+            return updates
+
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ Failed to parse charter updates JSON: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"❌ Error generating charter updates: {e}")
+            return None

@@ -31,6 +31,7 @@ import aiohttp
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+
 from .utils.admin_check import AdminManager
 from .utils.channel_manager import ChannelManager
 from .utils.charter_editor import CharterEditor
@@ -648,11 +649,11 @@ async def on_message(message):
                 'add a rule', 'add rule', 'new rule', 'remove the', 'delete the',
                 'update rule', 'change rule', 'set the'
             ]
-            
+
             # Check for charter-related update patterns
             message_lower = message.content.lower()
             is_charter_update = (
-                bot_mentioned and 
+                bot_mentioned and
                 any(keyword in message_lower for keyword in charter_update_keywords) and
                 any(term in message_lower for term in ['rule', 'charter', 'policy', 'schedule', 'advance', 'recruiting', 'transfer', 'quarter', 'difficulty', 'setting'])
             )
@@ -669,7 +670,7 @@ async def on_message(message):
 
                 if not AI_AVAILABLE or not ai_assistant:
                     embed = discord.Embed(
-                        title="❌ Error", 
+                        title="❌ Error",
                         description="AI not available for charter updates",
                         color=0xff0000
                     )
@@ -684,7 +685,7 @@ async def on_message(message):
                 try:
                     # Parse the update request
                     parsed = await charter_editor.parse_update_request(message.content)
-                    
+
                     if not parsed or parsed.get("action") == "unknown":
                         error_msg = parsed.get("error", "I couldn't understand that update request") if parsed else "Failed to parse request"
                         await thinking_msg.edit(content=f"❌ {error_msg}\n\nTry being more specific, like:\n• `update the advance time to 10am`\n• `add a rule: no trading during playoffs`\n• `change quarter length to 5 minutes`")
@@ -692,7 +693,7 @@ async def on_message(message):
 
                     # Generate preview
                     preview = await charter_editor.generate_update_preview(parsed)
-                    
+
                     if not preview:
                         await thinking_msg.edit(content="❌ Couldn't generate a preview for this change. The section might not exist or the request was unclear.")
                         return
@@ -706,23 +707,23 @@ async def on_message(message):
                         description=f"**{parsed.get('summary', 'Proposed change')}**",
                         color=0xffa500
                     )
-                    
+
                     # Truncate long text for display
                     before_text = preview.get("before", "N/A")
                     after_text = preview.get("after", "N/A")
-                    
+
                     if len(before_text) > 500:
                         before_text = before_text[:500] + "..."
                     if len(after_text) > 500:
                         after_text = after_text[:500] + "..."
-                    
+
                     embed.add_field(
                         name="📄 BEFORE",
                         value=f"```\n{before_text}\n```",
                         inline=False
                     )
                     embed.add_field(
-                        name="📝 AFTER", 
+                        name="📝 AFTER",
                         value=f"```\n{after_text}\n```",
                         inline=False
                     )
@@ -734,7 +735,7 @@ async def on_message(message):
                     embed.set_footer(text=f"Requested by {message.author.display_name} | Expires in 60 seconds")
 
                     preview_msg = await message.channel.send(embed=embed)
-                    
+
                     # Add reaction options
                     await preview_msg.add_reaction("✅")
                     await preview_msg.add_reaction("❌")
@@ -742,7 +743,7 @@ async def on_message(message):
                     # Store pending update for reaction handler
                     if not hasattr(bot, 'pending_charter_updates'):
                         bot.pending_charter_updates = {}
-                    
+
                     bot.pending_charter_updates[preview_msg.id] = {
                         "user_id": message.author.id,
                         "user_name": message.author.display_name,
@@ -766,6 +767,120 @@ async def on_message(message):
                 embed = discord.Embed(
                     title="❌ Permission Denied",
                     description="You need to be a bot admin to update the charter, ya muppet!",
+                    color=0xff0000
+                )
+                await message.channel.send(embed=embed)
+                return
+
+            # Check if this is a rule scan request (e.g., "scan #channel for rules")
+            rule_scan_patterns = [
+                r'scan\s+(?:<#(\d+)>|#?(\w+[-\w]*))\s+for\s+(?:rule|voting|changes)',
+                r'check\s+(?:<#(\d+)>|#?(\w+[-\w]*))\s+for\s+(?:rule|voting|changes)',
+                r'find\s+(?:rule|voting)\s+(?:changes\s+)?in\s+(?:<#(\d+)>|#?(\w+[-\w]*))',
+                r'what\s+rules?\s+(?:passed|changed|were voted)\s+in\s+(?:<#(\d+)>|#?(\w+[-\w]*))',
+            ]
+
+            channel_to_scan = None
+            for pattern in rule_scan_patterns:
+                match = re.search(pattern, message.content, re.IGNORECASE)
+                if match:
+                    # Try to get channel from mention or name
+                    channel_id = match.group(1) if match.group(1) else None
+                    channel_name = match.group(2) if len(match.groups()) > 1 and match.group(2) else None
+                    
+                    if channel_id:
+                        channel_to_scan = message.guild.get_channel(int(channel_id))
+                    elif channel_name and message.guild:
+                        # Try to find channel by name
+                        for ch in message.guild.text_channels:
+                            if ch.name.lower() == channel_name.lower() or channel_name.lower() in ch.name.lower():
+                                channel_to_scan = ch
+                                break
+                    break
+
+            if channel_to_scan and bot_mentioned and admin_manager and admin_manager.is_admin(message.author, message):
+                if not charter_editor or not channel_summarizer or not AI_AVAILABLE:
+                    await message.channel.send("❌ Required components not available for rule scanning")
+                    return
+
+                logger.info(f"📜 Rule scan request from {message.author} for #{channel_to_scan.name}")
+                
+                thinking_msg = await message.channel.send(f"🔍 Scanning #{channel_to_scan.name} for rule changes...")
+
+                try:
+                    # Fetch and analyze messages
+                    messages_list = await channel_summarizer.fetch_messages(channel_to_scan, hours=168, limit=500)
+                    
+                    if not messages_list:
+                        await thinking_msg.edit(content=f"❌ No messages found in #{channel_to_scan.name}")
+                        return
+
+                    formatted = [f"[{m.author.display_name}]: {m.content}" for m in messages_list]
+                    rule_changes = await charter_editor.find_rule_changes_in_messages(formatted, channel_to_scan.name)
+
+                    await thinking_msg.delete()
+
+                    if not rule_changes:
+                        embed = discord.Embed(
+                            title=f"📜 Rule Scan: #{channel_to_scan.name}",
+                            description="No rule changes or votes found in the last week.",
+                            color=0xffaa00
+                        )
+                        await message.channel.send(embed=embed)
+                        return
+
+                    # Show found rules
+                    embed = discord.Embed(
+                        title=f"📜 Rule Changes Found in #{channel_to_scan.name}",
+                        description=f"Found **{len(rule_changes)}** rule changes/votes",
+                        color=0x1e90ff
+                    )
+
+                    passed_rules = []
+                    for i, rule in enumerate(rule_changes[:8], 1):
+                        status = rule.get("status", "unknown")
+                        emoji = {"passed": "✅", "failed": "❌", "proposed": "📋", "decided": "✅"}.get(status, "❓")
+                        
+                        rule_text = rule.get("rule", "")[:80]
+                        if len(rule.get("rule", "")) > 80:
+                            rule_text += "..."
+                        
+                        embed.add_field(name=f"{emoji} {status.upper()}", value=rule_text, inline=False)
+                        
+                        if status in ["passed", "decided"]:
+                            passed_rules.append(rule)
+
+                    if passed_rules:
+                        embed.add_field(
+                            name="🔧 Update Charter?",
+                            value=f"Found **{len(passed_rules)}** passed rules. React with 📝 to generate charter updates.",
+                            inline=False
+                        )
+
+                    msg = await message.channel.send(embed=embed)
+
+                    if passed_rules:
+                        await msg.add_reaction("📝")
+                        if not hasattr(bot, 'pending_rule_scans'):
+                            bot.pending_rule_scans = {}
+                        bot.pending_rule_scans[msg.id] = {
+                            "user_id": message.author.id,
+                            "user_name": message.author.display_name,
+                            "rule_changes": passed_rules,
+                            "channel_name": channel_to_scan.name,
+                            "expires": datetime.now().timestamp() + 120
+                        }
+
+                except Exception as e:
+                    logger.error(f"❌ Error in rule scan: {e}", exc_info=True)
+                    await thinking_msg.edit(content=f"❌ Error scanning: {str(e)}")
+                
+                return
+
+            elif channel_to_scan and bot_mentioned:
+                embed = discord.Embed(
+                    title="❌ Permission Denied",
+                    description="You need to be a bot admin to scan for rules, ya muppet!",
                     color=0xff0000
                 )
                 await message.channel.send(embed=embed)
@@ -1026,11 +1141,11 @@ async def on_reaction_add(reaction, user):
     # Handle charter update confirmations
     if hasattr(bot, 'pending_charter_updates') and reaction.message.id in bot.pending_charter_updates:
         pending = bot.pending_charter_updates[reaction.message.id]
-        
+
         # Only the original requester can confirm/cancel
         if user.id != pending["user_id"]:
             return
-        
+
         # Check if expired
         if datetime.now().timestamp() > pending["expires"]:
             del bot.pending_charter_updates[reaction.message.id]
@@ -1052,7 +1167,7 @@ async def on_reaction_add(reaction, user):
                     before_text=pending.get("before"),
                     after_text=pending.get("after")
                 )
-                
+
                 if success:
                     embed = discord.Embed(
                         title="✅ Charter Updated!",
@@ -1071,7 +1186,7 @@ async def on_reaction_add(reaction, user):
                     )
                     await reaction.message.edit(embed=embed)
                     await reaction.message.clear_reactions()
-            
+
             del bot.pending_charter_updates[reaction.message.id]
             return
 
@@ -1086,6 +1201,173 @@ async def on_reaction_add(reaction, user):
             await reaction.message.clear_reactions()
             del bot.pending_charter_updates[reaction.message.id]
             logger.info(f"❌ Charter update cancelled by {pending['user_name']}")
+            return
+
+    # Handle rule scan -> charter update requests
+    if hasattr(bot, 'pending_rule_scans') and reaction.message.id in bot.pending_rule_scans:
+        pending = bot.pending_rule_scans[reaction.message.id]
+        
+        # Only the original requester can trigger
+        if user.id != pending["user_id"]:
+            return
+        
+        # Check if expired
+        if datetime.now().timestamp() > pending["expires"]:
+            del bot.pending_rule_scans[reaction.message.id]
+            return
+
+        if str(reaction.emoji) == "📝":
+            # Generate charter updates from the found rules
+            await reaction.message.clear_reactions()
+            
+            thinking_embed = discord.Embed(
+                title="🔧 Generating Charter Updates...",
+                description="Analyzing passed rules and generating charter updates...",
+                color=0xffaa00
+            )
+            await reaction.message.edit(embed=thinking_embed)
+
+            try:
+                # Generate updates
+                updates = await charter_editor.generate_charter_updates_from_rules(
+                    pending["rule_changes"]
+                )
+
+                if not updates:
+                    embed = discord.Embed(
+                        title="📜 No Updates Needed",
+                        description="The passed rules are either already in the charter or couldn't be automatically applied.",
+                        color=0x00ff00
+                    )
+                    await reaction.message.edit(embed=embed)
+                    del bot.pending_rule_scans[reaction.message.id]
+                    return
+
+                # Show the suggested updates
+                embed = discord.Embed(
+                    title="📝 Suggested Charter Updates",
+                    description=f"Based on passed rules in #{pending['channel_name']}",
+                    color=0x1e90ff
+                )
+
+                for i, update in enumerate(updates[:5], 1):  # Show max 5
+                    action = update.get("action", "update")
+                    action_emoji = "➕" if action == "add" else "✏️"
+                    
+                    new_text = update.get("new_text", "")[:200]
+                    if len(update.get("new_text", "")) > 200:
+                        new_text += "..."
+                    
+                    embed.add_field(
+                        name=f"{action_emoji} {update.get('rule_description', 'Update')[:50]}",
+                        value=f"**Section:** {update.get('section', 'Unknown')}\n```\n{new_text}\n```",
+                        inline=False
+                    )
+
+                embed.add_field(
+                    name="⚠️ Apply Updates?",
+                    value="React with ✅ to apply ALL these updates, or ❌ to cancel.\n*Each change will be backed up automatically.*",
+                    inline=False
+                )
+
+                await reaction.message.edit(embed=embed)
+                await reaction.message.add_reaction("✅")
+                await reaction.message.add_reaction("❌")
+
+                # Update the pending data with the generated updates
+                pending["generated_updates"] = updates
+                pending["expires"] = datetime.now().timestamp() + 120  # Reset timeout
+
+            except Exception as e:
+                logger.error(f"❌ Error generating charter updates: {e}", exc_info=True)
+                embed = discord.Embed(
+                    title="❌ Error",
+                    description=f"Failed to generate updates: {str(e)}",
+                    color=0xff0000
+                )
+                await reaction.message.edit(embed=embed)
+                del bot.pending_rule_scans[reaction.message.id]
+            
+            return
+
+        elif str(reaction.emoji) == "✅" and pending.get("generated_updates"):
+            # Apply the generated updates
+            await reaction.message.clear_reactions()
+            
+            updates = pending["generated_updates"]
+            current_charter = charter_editor.read_charter()
+            
+            if not current_charter:
+                embed = discord.Embed(
+                    title="❌ Error",
+                    description="Could not read current charter",
+                    color=0xff0000
+                )
+                await reaction.message.edit(embed=embed)
+                del bot.pending_rule_scans[reaction.message.id]
+                return
+
+            # Apply updates one by one
+            applied = 0
+            new_charter = current_charter
+            
+            for update in updates:
+                old_text = update.get("old_text")
+                new_text = update.get("new_text")
+                
+                if update.get("action") == "add":
+                    # Add new content at end of relevant section or end of charter
+                    section = update.get("section", "")
+                    # Simple append for now
+                    new_charter = new_charter + f"\n\n{new_text}"
+                    applied += 1
+                elif old_text and new_text and old_text in new_charter:
+                    new_charter = new_charter.replace(old_text, new_text, 1)
+                    applied += 1
+
+            if applied > 0:
+                success = charter_editor.apply_update(
+                    new_charter=new_charter,
+                    user_id=pending["user_id"],
+                    user_name=pending["user_name"],
+                    description=f"Applied {applied} rule updates from #{pending['channel_name']}",
+                    before_text=f"Applied {applied} updates from voting",
+                    after_text=f"Rules from #{pending['channel_name']}"
+                )
+
+                if success:
+                    embed = discord.Embed(
+                        title="✅ Charter Updated!",
+                        description=f"Applied **{applied}** rule updates from #{pending['channel_name']}!\n\nBackup created automatically.",
+                        color=0x00ff00
+                    )
+                    embed.set_footer(text=f"Updated by {pending['user_name']} 🏈")
+                else:
+                    embed = discord.Embed(
+                        title="❌ Update Failed",
+                        description="Failed to apply updates to the charter.",
+                        color=0xff0000
+                    )
+            else:
+                embed = discord.Embed(
+                    title="⚠️ No Updates Applied",
+                    description="Could not apply any updates - text may not match exactly.",
+                    color=0xffaa00
+                )
+
+            await reaction.message.edit(embed=embed)
+            del bot.pending_rule_scans[reaction.message.id]
+            return
+
+        elif str(reaction.emoji) == "❌":
+            embed = discord.Embed(
+                title="❌ Updates Cancelled",
+                description="Charter updates cancelled. No changes were made.",
+                color=0xff6600
+            )
+            await reaction.message.edit(embed=embed)
+            await reaction.message.clear_reactions()
+            del bot.pending_rule_scans[reaction.message.id]
             return
 
     # Handle different emoji reactions
@@ -1331,6 +1613,142 @@ async def charter(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed)
 
+@bot.tree.command(name="scan_rules", description="Scan a channel for rule changes and votes")
+@discord.app_commands.describe(
+    channel="Channel to scan (e.g., #offseason-voting)",
+    hours="Hours of history to scan (default: 168 = 1 week)"
+)
+async def scan_rules(
+    interaction: discord.Interaction,
+    channel: discord.TextChannel,
+    hours: int = 168
+):
+    """Scan a channel for rule changes and offer to update the charter"""
+    # Check if user is admin
+    if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
+        await interaction.response.send_message(
+            "❌ Only admins can scan for rule changes, ya muppet!",
+            ephemeral=True
+        )
+        return
+
+    if not charter_editor:
+        await interaction.response.send_message("❌ Charter editor not available", ephemeral=True)
+        return
+
+    if not channel_summarizer:
+        await interaction.response.send_message("❌ Channel summarizer not available", ephemeral=True)
+        return
+
+    if not AI_AVAILABLE or not ai_assistant:
+        await interaction.response.send_message("❌ AI not available for this analysis", ephemeral=True)
+        return
+
+    # Validate hours
+    if hours < 24:
+        await interaction.response.send_message("❌ Need at least 24 hours of history!", ephemeral=True)
+        return
+    if hours > 720:  # 30 days max
+        await interaction.response.send_message("❌ Max 720 hours (30 days)", ephemeral=True)
+        return
+
+    await interaction.response.defer()
+
+    try:
+        # Fetch messages from the channel
+        messages = await channel_summarizer.fetch_messages(channel, hours=hours, limit=500)
+        
+        if not messages:
+            await interaction.followup.send(f"❌ No messages found in {channel.mention} in the last {hours} hours")
+            return
+
+        # Format messages for analysis
+        formatted_messages = []
+        for msg in messages:
+            formatted_messages.append(f"[{msg.author.display_name}]: {msg.content}")
+
+        # Find rule changes
+        rule_changes = await charter_editor.find_rule_changes_in_messages(
+            formatted_messages,
+            channel_name=channel.name
+        )
+
+        if not rule_changes:
+            embed = discord.Embed(
+                title=f"📜 Rule Scan: #{channel.name}",
+                description=f"No rule changes or votes found in the last {hours} hours.",
+                color=0xffaa00
+            )
+            embed.set_footer(text=f"Scanned {len(messages)} messages")
+            await interaction.followup.send(embed=embed)
+            return
+
+        # Create embed showing found rules
+        embed = discord.Embed(
+            title=f"📜 Rule Changes Found in #{channel.name}",
+            description=f"Found **{len(rule_changes)}** rule changes/votes",
+            color=0x1e90ff
+        )
+
+        passed_rules = []
+        for i, rule in enumerate(rule_changes[:10], 1):  # Show max 10
+            status = rule.get("status", "unknown")
+            status_emoji = {
+                "passed": "✅",
+                "failed": "❌",
+                "proposed": "📋",
+                "decided": "✅"
+            }.get(status, "❓")
+            
+            votes = ""
+            if rule.get("votes_for") is not None:
+                votes = f" ({rule.get('votes_for', 0)}-{rule.get('votes_against', 0)})"
+            
+            rule_text = rule.get("rule", "Unknown rule")[:100]
+            if len(rule.get("rule", "")) > 100:
+                rule_text += "..."
+            
+            embed.add_field(
+                name=f"{i}. {status_emoji} {status.upper()}{votes}",
+                value=rule_text,
+                inline=False
+            )
+            
+            if status in ["passed", "decided"]:
+                passed_rules.append(rule)
+
+        embed.set_footer(text=f"Scanned {len(messages)} messages over {hours} hours")
+
+        if passed_rules:
+            embed.add_field(
+                name="🔧 Update Charter?",
+                value=f"Found **{len(passed_rules)}** passed rules. React with 📝 to generate charter updates.",
+                inline=False
+            )
+
+        msg = await interaction.followup.send(embed=embed)
+
+        if passed_rules:
+            await msg.add_reaction("📝")
+            
+            # Store for reaction handler
+            if not hasattr(bot, 'pending_rule_scans'):
+                bot.pending_rule_scans = {}
+            
+            bot.pending_rule_scans[msg.id] = {
+                "user_id": interaction.user.id,
+                "user_name": interaction.user.display_name,
+                "rule_changes": passed_rules,
+                "channel_name": channel.name,
+                "expires": datetime.now().timestamp() + 120  # 2 minute timeout
+            }
+
+        logger.info(f"📜 Rule scan completed for #{channel.name} by {interaction.user}")
+
+    except Exception as e:
+        logger.error(f"❌ Error scanning rules: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error scanning for rules: {str(e)}")
+
 @bot.tree.command(name="charter_history", description="View recent charter changes")
 async def charter_history(interaction: discord.Interaction):
     """View recent charter update history"""
@@ -1339,7 +1757,7 @@ async def charter_history(interaction: discord.Interaction):
         return
 
     changes = charter_editor.get_recent_changes(limit=10)
-    
+
     if not changes:
         embed = discord.Embed(
             title="📜 Charter History",
@@ -1364,10 +1782,10 @@ async def charter_history(interaction: discord.Interaction):
                 timestamp = dt.strftime("%b %d, %Y %I:%M %p")
             except:
                 pass
-        
+
         user_name = change.get("user_name", "Unknown")
         description = change.get("description", "No description")
-        
+
         embed.add_field(
             name=f"{i}. {timestamp}",
             value=f"**By:** {user_name}\n**Change:** {description[:100]}{'...' if len(description) > 100 else ''}",
