@@ -1920,7 +1920,7 @@ async def help_cfb(interaction: discord.Interaction):
             "• `/league_staff` - View owner & co-commish\n"
             "• `/set_league_owner` - Set owner **(Admin)**\n"
             "• `/set_co_commish` - Set co-commish **(Admin)**\n"
-            "• `/pick_commish` - AI picks co-commish! 👑"
+            "• `/pick_commish [#channel]` - AI picks co-commish! 👑"
         ),
         inline=True
     )
@@ -3077,9 +3077,14 @@ async def set_co_commish(
 
 @bot.tree.command(name="pick_commish", description="Harry analyzes the chat and picks a co-commissioner")
 @discord.app_commands.describe(
+    channel="Channel to analyze (default: current channel)",
     hours="How many hours of chat history to analyze (default: 168 = 1 week)"
 )
-async def pick_commish(interaction: discord.Interaction, hours: int = 168):
+async def pick_commish(
+    interaction: discord.Interaction,
+    channel: Optional[discord.TextChannel] = None,
+    hours: int = 168
+):
     """Have Harry analyze chat activity and recommend a co-commissioner"""
     # Defer IMMEDIATELY - this takes a while and Discord times out after 3 seconds
     await interaction.response.defer()
@@ -3091,6 +3096,9 @@ async def pick_commish(interaction: discord.Interaction, hours: int = 168):
             ephemeral=True
         )
         return
+
+    # Use provided channel or fall back to current channel
+    target_channel = channel or interaction.channel
 
     if not channel_summarizer:
         await interaction.followup.send("❌ Channel summarizer not available", ephemeral=True)
@@ -3110,11 +3118,11 @@ async def pick_commish(interaction: discord.Interaction, hours: int = 168):
 
     try:
         # Fetch messages
-        messages = await channel_summarizer.fetch_messages(interaction.channel, hours, limit=1000)
+        messages = await channel_summarizer.fetch_messages(target_channel, hours, limit=1000)
 
         if not messages or len(messages) < 10:
             await interaction.followup.send(
-                "❌ Not enough chat activity to analyze! Need more messages to judge you lot."
+                f"❌ Not enough chat activity in #{target_channel.name} to analyze! Need more messages to judge you lot."
             )
             return
 
@@ -3227,6 +3235,7 @@ Be extremely sarcastic, funny, and insane. Give each person a proper roast!"""
         # Discord embed description limit is 4096 chars
         # If response is too long, send as regular message(s) instead
         stats_text = (f"\n\n---\n📊 **Analysis Details**\n"
+                      f"📍 Channel: **#{target_channel.name}**\n"
                       f"📨 Analyzed **{len(messages)}** messages over **{hours}** hours\n"
                       f"👥 **{len(participant_counts)}** participants evaluated\n"
                       f"🚨 Asshole detector: **ACTIVE**\n"
@@ -3258,7 +3267,7 @@ Be extremely sarcastic, funny, and insane. Give each person a proper roast!"""
                     await interaction.followup.send(chunk)
                 else:
                     await interaction.channel.send(chunk)
-        logger.info(f"👑 Co-commish analysis completed by {interaction.user}")
+        logger.info(f"👑 Co-commish analysis completed by {interaction.user} for #{target_channel.name}")
 
     except Exception as e:
         logger.error(f"❌ Error in pick_commish: {e}", exc_info=True)
