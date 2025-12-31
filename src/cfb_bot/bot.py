@@ -2034,7 +2034,7 @@ async def find_matchup(interaction: discord.Interaction, team: str, week: Option
     else:
         location_emoji = "🏠" if game['location'] == 'home' else "✈️"
         location_text = "HOME" if game['location'] == 'home' else "AWAY"
-        
+
         embed = discord.Embed(
             title=f"🏈 {found_team} - Week {week}",
             description=f"**{game['matchup']}**",
@@ -2081,7 +2081,7 @@ async def view_byes(interaction: discord.Interaction, week: Optional[int] = None
             return
 
     bye_teams = schedule_manager.get_bye_teams(week)
-    
+
     if bye_teams:
         embed = discord.Embed(
             title=f"🛋️ Week {week} Bye Teams",

@@ -48,10 +48,10 @@ class ScheduleManager:
     def get_week_schedule(self, week: int) -> Optional[Dict]:
         """
         Get the schedule for a specific week.
-        
+
         Args:
             week: Week number (0-13 for regular season)
-            
+
         Returns:
             Dict with 'bye_teams' and 'games' lists, or None if not found
         """
@@ -61,25 +61,25 @@ class ScheduleManager:
     def get_team_game(self, team: str, week: int) -> Optional[Dict]:
         """
         Get a specific team's game for a week.
-        
+
         Args:
             team: Team name (case-insensitive)
             week: Week number
-            
+
         Returns:
             Dict with game info including 'opponent', 'location' (home/away), or None if bye/not found
         """
         week_data = self.get_week_schedule(week)
         if not week_data:
             return None
-        
+
         team_lower = team.lower()
-        
+
         # Check if team has a bye
         bye_teams = [t.lower() for t in week_data.get('bye_teams', [])]
         if team_lower in bye_teams:
             return {'bye': True, 'team': team}
-        
+
         # Find the game
         for game in week_data.get('games', []):
             if game['home'].lower() == team_lower:
@@ -98,7 +98,7 @@ class ScheduleManager:
                     'location': 'away',
                     'matchup': f"{game['away']} at {game['home']}"
                 }
-        
+
         return None
 
     def get_bye_teams(self, week: int) -> List[str]:
@@ -118,25 +118,25 @@ class ScheduleManager:
     def find_team(self, query: str) -> Optional[str]:
         """
         Find a team by partial name match.
-        
+
         Args:
             query: Search query (case-insensitive)
-            
+
         Returns:
             Full team name if found, None otherwise
         """
         query_lower = query.lower()
-        
+
         # Try exact match first
         for team in self.teams:
             if team.lower() == query_lower:
                 return team
-        
+
         # Try partial match
         for team in self.teams:
             if query_lower in team.lower():
                 return team
-        
+
         # Try matching common abbreviations
         abbreviations = {
             'msu': 'Michigan St',
@@ -152,19 +152,19 @@ class ScheduleManager:
             'rainbow warriors': 'Hawaii',
             'warriors': 'Hawaii',
         }
-        
+
         if query_lower in abbreviations:
             return abbreviations[query_lower]
-        
+
         return None
 
     def get_team_full_schedule(self, team: str) -> List[Dict]:
         """
         Get a team's full season schedule.
-        
+
         Args:
             team: Team name
-            
+
         Returns:
             List of game info for each week
         """
@@ -179,37 +179,37 @@ class ScheduleManager:
     def format_week_schedule(self, week: int) -> str:
         """
         Format the week's schedule as a readable string.
-        
+
         Args:
             week: Week number
-            
+
         Returns:
             Formatted string of the week's schedule
         """
         week_data = self.get_week_schedule(week)
         if not week_data:
             return f"No schedule data for Week {week}"
-        
+
         lines = [f"**Week {week} Schedule:**\n"]
-        
+
         # Bye teams
         bye_teams = week_data.get('bye_teams', [])
         if bye_teams:
             lines.append(f"🛋️ **Bye Week:** {', '.join(bye_teams)}\n")
-        
+
         # Games
         games = week_data.get('games', [])
         if games:
             lines.append("**Games:**")
             for game in games:
                 lines.append(f"• {game['away']} at {game['home']}")
-        
+
         return "\n".join(lines)
 
     def get_schedule_context_for_ai(self) -> str:
         """
         Generate a context string about the schedule for the AI.
-        
+
         Returns:
             String containing schedule information for AI context
         """
@@ -219,19 +219,19 @@ class ScheduleManager:
             "",
             "Schedule by week:"
         ]
-        
+
         schedule = self.schedule_data.get('schedule', {})
         for week_num in sorted(schedule.keys(), key=int):
             week_data = schedule[week_num]
             bye_teams = week_data.get('bye_teams', [])
             games = week_data.get('games', [])
-            
+
             context_lines.append(f"\nWeek {week_num}:")
             if bye_teams:
                 context_lines.append(f"  Bye: {', '.join(bye_teams)}")
             for game in games:
                 context_lines.append(f"  {game['away']} at {game['home']}")
-        
+
         return "\n".join(context_lines)
 
 
@@ -245,4 +245,3 @@ def get_schedule_manager() -> ScheduleManager:
     if schedule_manager is None:
         schedule_manager = ScheduleManager()
     return schedule_manager
-
