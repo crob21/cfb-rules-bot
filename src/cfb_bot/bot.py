@@ -12,9 +12,12 @@ Author: CFB 26 League
 License: MIT
 Version: 1.0.0
 """
-
-# Fix for Python 3.13 audioop compatibility - MUST be before discord import!
-from .utils import audioop_fix  # noqa: E402 - Must be first!
+# =============================================================================
+# CRITICAL: audioop fix MUST be imported before discord!
+# Python 3.13 removed audioop module which discord.py needs.
+# DO NOT let linters/formatters move this import!
+# =============================================================================
+from .utils import audioop_fix  # noqa: E402, I001, I002 - MUST BE FIRST!
 
 import asyncio
 import json
@@ -2420,22 +2423,40 @@ Be extremely sarcastic, funny, and insane. Give each person a proper roast! Refe
             await interaction.followup.send("❌ AI couldn't analyze the chat. Maybe you're all equally terrible?")
             return
 
-        # Create embed
-        embed = discord.Embed(
-            title="👑 Co-Commissioner Selection Analysis",
-            description=response,
-            color=0xffd700
-        )
-        embed.add_field(
-            name="📊 Analysis Details",
-            value=f"📨 Analyzed **{len(messages)}** messages over **{hours}** hours\n"
-                  f"👥 **{len(participant_counts)}** participants evaluated\n"
-                  f"🚨 Asshole detector: **ACTIVE**",
-            inline=False
-        )
-        embed.set_footer(text="Harry's Commish Picker 🏈 | Use /set_co_commish to make it official!")
-
-        await interaction.followup.send(embed=embed)
+        # Discord embed description limit is 4096 chars
+        # If response is too long, send as regular message(s) instead
+        stats_text = (f"\n\n---\n📊 **Analysis Details**\n"
+                      f"📨 Analyzed **{len(messages)}** messages over **{hours}** hours\n"
+                      f"👥 **{len(participant_counts)}** participants evaluated\n"
+                      f"🚨 Asshole detector: **ACTIVE**\n"
+                      f"*Use /set_co_commish to make it official!*")
+        
+        full_response = f"# 👑 Co-Commissioner Selection Analysis\n\n{response}{stats_text}"
+        
+        # Discord message limit is 2000 chars - split if needed
+        if len(full_response) <= 2000:
+            await interaction.followup.send(full_response)
+        else:
+            # Split into chunks
+            chunks = []
+            current_chunk = ""
+            
+            for line in full_response.split('\n'):
+                if len(current_chunk) + len(line) + 1 > 1900:  # Leave some buffer
+                    chunks.append(current_chunk)
+                    current_chunk = line
+                else:
+                    current_chunk += '\n' + line if current_chunk else line
+            
+            if current_chunk:
+                chunks.append(current_chunk)
+            
+            # Send each chunk
+            for i, chunk in enumerate(chunks):
+                if i == 0:
+                    await interaction.followup.send(chunk)
+                else:
+                    await interaction.channel.send(chunk)
         logger.info(f"👑 Co-commish analysis completed by {interaction.user}")
 
     except Exception as e:
