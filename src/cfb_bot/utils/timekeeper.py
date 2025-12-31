@@ -484,10 +484,10 @@ class AdvanceTimer:
             # @everyone for TIME'S UP - this is the most important one!
             await self.channel.send(content="@everyone", embed=embed)
             logger.info("📢 Sent TIMES UP message with @everyone ping")
-            
+
             # Send the upcoming week's schedule if we're in regular season
             await self._send_upcoming_schedule()
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to send times up message: {e}")
 
@@ -496,37 +496,37 @@ class AdvanceTimer:
         try:
             # Import here to avoid circular imports
             from .schedule_manager import get_schedule_manager
-            
+
             if not self.manager:
                 return
-            
+
             season_info = self.manager.get_season_week()
             if not season_info or season_info['week'] is None:
                 return
-            
+
             new_week = season_info['week']
-            
+
             # Only send schedule for regular season weeks (0-13)
             if new_week > 13:
                 logger.info(f"📅 Week {new_week} is not regular season, skipping schedule announcement")
                 return
-            
+
             schedule_mgr = get_schedule_manager()
             if not schedule_mgr:
                 return
-            
+
             week_data = schedule_mgr.get_week_schedule(new_week)
             if not week_data:
                 logger.warning(f"⚠️ No schedule data for Week {new_week}")
                 return
-            
+
             # Build the schedule embed
             schedule_embed = discord.Embed(
                 title=f"📅 Week {new_week} Matchups",
                 description="Here's what's on the slate this week, ya muppets!",
                 color=0x00ff00
             )
-            
+
             # Bye teams
             bye_teams = week_data.get('bye_teams', [])
             if bye_teams:
@@ -535,7 +535,7 @@ class AdvanceTimer:
                     value=", ".join(bye_teams),
                     inline=False
                 )
-            
+
             # Games
             games = week_data.get('games', [])
             if games:
@@ -545,12 +545,12 @@ class AdvanceTimer:
                     value=games_text,
                     inline=False
                 )
-            
+
             schedule_embed.set_footer(text="Harry's Schedule Tracker 🏈 | Get your games done!")
-            
+
             await self.channel.send(embed=schedule_embed)
             logger.info(f"📅 Sent Week {new_week} schedule announcement")
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to send schedule announcement: {e}")
 

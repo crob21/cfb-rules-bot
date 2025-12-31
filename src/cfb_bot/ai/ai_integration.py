@@ -61,6 +61,30 @@ class AICharterAssistant:
         logger.info("📄 No charter content available - using fallback context")
         return None
     
+    def get_schedule_context(self) -> str:
+        """Get schedule context for AI queries"""
+        try:
+            from ..utils.schedule_manager import get_schedule_manager
+            schedule_mgr = get_schedule_manager()
+            if schedule_mgr:
+                return schedule_mgr.get_schedule_context_for_ai()
+        except Exception as e:
+            logger.warning(f"⚠️ Could not get schedule context: {e}")
+        return ""
+    
+    def get_current_week_context(self) -> str:
+        """Get current week context for AI queries"""
+        try:
+            from ..utils.schedule_manager import get_schedule_manager
+            from ..utils.timekeeper import get_week_name, get_week_info
+            
+            # Try to get current week from a global or passed context
+            # For now, return empty - will be passed in from bot
+            return ""
+        except Exception as e:
+            logger.warning(f"⚠️ Could not get week context: {e}")
+        return ""
+    
     async def ask_openai(self, question: str, context: str) -> Optional[str]:
         """Ask OpenAI about the charter"""
         if not self.openai_api_key:
@@ -72,20 +96,27 @@ class AICharterAssistant:
             'Content-Type': 'application/json'
         }
         
+        # Get schedule context
+        schedule_context = self.get_schedule_context()
+        
         prompt = f"""
         You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks.
-        Answer questions based on the league charter provided below in a hilariously sarcastic way.
+        Answer questions based on the league charter AND schedule information provided below in a hilariously sarcastic way.
         
         League Charter Context:
         {context}
         
+        League Schedule Information:
+        {schedule_context}
+        
         Question: {question}
         
         IMPORTANT INSTRUCTIONS:
-        - If you can answer the question based on the charter content, provide a direct, helpful answer with maximum sarcasm
+        - If you can answer the question based on the charter OR schedule content, provide a direct, helpful answer with maximum sarcasm
+        - For schedule questions (matchups, byes, who plays who), use the schedule information above
         - Do NOT mention "check the full charter" or "charter" unless you truly don't know the answer
         - Be extremely sarcastic and witty, like a completely insane but knowledgeable league member
-        - If the information isn't in the charter, then say "I don't have that specific information in our charter, but you can check the full charter for more details" with sarcasm
+        - If the information isn't available, say so with sarcasm
         - Keep responses informative but hilariously sarcastic and insane
         """
         
@@ -175,18 +206,26 @@ class AICharterAssistant:
             'anthropic-version': '2023-06-01'
         }
         
+        # Get schedule context
+        schedule_context = self.get_schedule_context()
+        
         prompt = f"""
-        You are an AI assistant for the CFB 26 online dynasty league. 
-        Answer questions based on the league charter provided below.
+        You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks.
+        Answer questions based on the league charter AND schedule information provided below.
         
         League Charter Context:
         {context}
         
+        League Schedule Information:
+        {schedule_context}
+        
         Question: {question}
         
-        Please provide a helpful, accurate answer based on the charter. 
-        If the information isn't in the charter, say so and suggest checking the full charter.
-        Keep responses concise but informative.
+        IMPORTANT INSTRUCTIONS:
+        - If you can answer the question based on the charter OR schedule content, provide a direct, helpful answer with maximum sarcasm
+        - For schedule questions (matchups, byes, who plays who), use the schedule information above
+        - Be extremely sarcastic and witty, like a completely insane but knowledgeable league member
+        - Keep responses informative but hilariously sarcastic
         """
         
         data = {
