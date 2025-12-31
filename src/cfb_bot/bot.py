@@ -2383,31 +2383,32 @@ FORMAT YOUR RESPONSE LIKE THIS:
 **📊 FULL RANKINGS (Best to Worst):**
 
 **#1. [Name]** ✅ RECOMMENDED
-📊 A:X | 🤝 H:X | 👑 L:X | 🚨 AH:X | 🎭 D:X | 😂 V:X | **Total: X/10**
-→ [Short 1 sentence roast]
+- 📊 Activity: X/10 | 🤝 Helpful: X/10 | 👑 Leadership: X/10
+- 🚨 Asshole: X/10 | 🎭 Drama: X/10 | 😂 Vibes: X/10
+- **Overall: X/10** - [2-3 sentence sarcastic roast/commentary about them]
 
 **#2. [Name]**
-📊 A:X | 🤝 H:X | 👑 L:X | 🚨 AH:X | 🎭 D:X | 😂 V:X | **Total: X/10**
-→ [Short 1 sentence roast]
+- 📊 Activity: X/10 | 🤝 Helpful: X/10 | 👑 Leadership: X/10
+- 🚨 Asshole: X/10 | 🎭 Drama: X/10 | 😂 Vibes: X/10
+- **Overall: X/10** - [2-3 sentence sarcastic roast/commentary]
 
-[Continue for ALL participants, ranked best to worst]
+[Continue for ALL participants, ranked from best to worst]
 
-**#[Last]. [Name]** 🚨 WORST
-📊 A:X | 🤝 H:X | 👑 L:X | 🚨 AH:X | 🎭 D:X | 😂 V:X | **Total: X/10**
-→ [Brutal 1 sentence roast]
+**#[Last]. [Name]** 🚨 DO NOT PICK
+- 📊 Activity: X/10 | 🤝 Helpful: X/10 | 👑 Leadership: X/10
+- 🚨 Asshole: X/10 | 🎭 Drama: X/10 | 😂 Vibes: X/10
+- **Overall: X/10** - [Brutal but funny roast of why they're last]
 
 ---
-🏆 **WINNER:** [Name] - [5 words why]
-🚨 **BIGGEST ASSHOLE:** [Name] - [5 word roast]
+🏆 **FINAL VERDICT:** [Winner Name] should be co-commish because [brief funny reason]
+🚨 **BIGGEST ASSHOLE:** [Name] - [Savage one-liner]
 
-KEY: A=Activity, H=Helpful, L=Leadership, AH=Asshole, D=Drama, V=Vibes (all /10)
+Be extremely sarcastic, funny, and insane. Give each person a proper roast! Reference specific behaviors from the chat if you can see them. RATE EVERYONE - don't skip anyone!"""
 
-Be sarcastic and funny. Keep roasts SHORT (1 sentence max). RATE EVERYONE!"""
-
-        # Ask AI with higher token limit for full analysis
-        response = await ai_assistant.ask_openai(prompt, "Co-Commissioner Selection Analysis", max_tokens=1500)
+        # Ask AI with higher token limit for full analysis with proper roasts
+        response = await ai_assistant.ask_openai(prompt, "Co-Commissioner Selection Analysis", max_tokens=2000)
         if not response:
-            response = await ai_assistant.ask_anthropic(prompt, "Co-Commissioner Selection Analysis", max_tokens=1500)
+            response = await ai_assistant.ask_anthropic(prompt, "Co-Commissioner Selection Analysis", max_tokens=2000)
 
         if not response:
             await interaction.followup.send("❌ AI couldn't analyze the chat. Maybe you're all equally terrible?")

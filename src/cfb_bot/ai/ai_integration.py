@@ -4,12 +4,13 @@ AI Integration for CFB 26 League Bot
 This module handles AI-powered responses about the league charter
 """
 
-import os
-import json
-import aiohttp
 import asyncio
+import json
 import logging
+import os
 from typing import Dict, List, Optional
+
+import aiohttp
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -209,35 +210,35 @@ class AICharterAssistant:
         if not self.anthropic_api_key:
             logger.warning("⚠️ Anthropic API key not found")
             return None
-            
+
         headers = {
             'x-api-key': self.anthropic_api_key,
             'Content-Type': 'application/json',
             'anthropic-version': '2023-06-01'
         }
-        
+
         # Get schedule context
         schedule_context = self.get_schedule_context()
-        
+
         prompt = f"""
         You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks.
         Answer questions based on the league charter AND schedule information provided below.
-        
+
         League Charter Context:
         {context}
-        
+
         League Schedule Information:
         {schedule_context}
-        
+
         Question: {question}
-        
+
         IMPORTANT INSTRUCTIONS:
         - If you can answer the question based on the charter OR schedule content, provide a direct, helpful answer with maximum sarcasm
         - For schedule questions (matchups, byes, who plays who), use the schedule information above
         - Be extremely sarcastic and witty, like a completely insane but knowledgeable league member
         - Keep responses informative but hilariously sarcastic
         """
-        
+
         data = {
             'model': 'claude-3-haiku-20240307',
             'max_tokens': max_tokens,
