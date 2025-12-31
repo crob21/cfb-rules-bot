@@ -30,7 +30,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 # Import timekeeper, summarizer, charter editor, admin manager, version manager, and channel manager
-from .utils.timekeeper import TimekeeperManager, format_est_time, get_week_name, get_week_phase, get_week_info, get_week_actions, get_week_notes, TOTAL_WEEKS_PER_SEASON
+from .utils.timekeeper import TimekeeperManager, format_est_time, get_week_name, get_week_phase, get_week_info, get_week_actions, get_week_notes, TOTAL_WEEKS_PER_SEASON, CFB_DYNASTY_WEEKS
 from .utils.summarizer import ChannelSummarizer
 from .utils.charter_editor import CharterEditor
 from .utils.admin_check import AdminManager
@@ -1786,6 +1786,73 @@ async def check_week(interaction: discord.Interaction):
         color=0x00ff00
     )
     embed.set_footer(text="Harry's Week Tracker 🏈 | Use /set_season_week to change")
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="weeks", description="View the full CFB 26 Dynasty week schedule")
+async def view_weeks(interaction: discord.Interaction):
+    """View the full week schedule for a CFB 26 Dynasty season"""
+    # Get current week to highlight it
+    current_week = None
+    if timekeeper_manager:
+        season_info = timekeeper_manager.get_season_week()
+        if season_info['week'] is not None:
+            current_week = season_info['week']
+    
+    # Build the week lists by phase
+    regular_season = []
+    post_season = []
+    offseason = []
+    
+    for week_num in sorted(CFB_DYNASTY_WEEKS.keys()):
+        week_data = CFB_DYNASTY_WEEKS[week_num]
+        phase = week_data["phase"]
+        name = week_data["name"]
+        
+        # Add marker if this is the current week
+        if current_week is not None and week_num == current_week:
+            line = f"**► {week_num}: {name}** ◄ YOU ARE HERE"
+        else:
+            line = f"`{week_num:2d}`: {name}"
+        
+        if phase == "Regular Season":
+            regular_season.append(line)
+        elif phase == "Post-Season":
+            post_season.append(line)
+        else:
+            offseason.append(line)
+    
+    # Create embed
+    embed = discord.Embed(
+        title="📅 CFB 26 Dynasty Week Schedule",
+        description="Full breakdown of all 30 weeks in a Dynasty season:",
+        color=0x00ff00
+    )
+    
+    # Regular Season field (split if too long)
+    regular_text = "\n".join(regular_season)
+    embed.add_field(
+        name="🏈 Regular Season (Weeks 0-15)",
+        value=regular_text if len(regular_text) <= 1024 else "\n".join(regular_season[:8]) + "\n...",
+        inline=False
+    )
+    
+    # Post-Season field
+    post_text = "\n".join(post_season)
+    embed.add_field(
+        name="🏆 Post-Season (Weeks 16-21)",
+        value=post_text,
+        inline=False
+    )
+    
+    # Offseason field
+    off_text = "\n".join(offseason)
+    embed.add_field(
+        name="📝 Offseason (Weeks 22-29)",
+        value=off_text,
+        inline=False
+    )
+    
+    embed.set_footer(text="Harry's Week Tracker 🏈 | Use /week for current week details")
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="set_season_week", description="Set the current season and week (Admin only)")
