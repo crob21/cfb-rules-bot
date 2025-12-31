@@ -35,9 +35,19 @@ from dotenv import load_dotenv
 # Admin-only channel for bot notifications (Booze's Playground)
 ADMIN_CHANNEL_ID = 1417663211292852244
 
-# General channel for timer notifications (league-wide announcements)
-# This can be changed with /set_timer_channel
-GENERAL_CHANNEL_ID = 1261662233109205146  # #general
+# Default notification channel for timer announcements (can be changed with /set_timer_channel)
+# This is the fallback - the persisted value from timekeeper takes precedence
+DEFAULT_NOTIFICATION_CHANNEL_ID = 1261662233109205146  # #general
+GENERAL_CHANNEL_ID = DEFAULT_NOTIFICATION_CHANNEL_ID  # Will be updated on startup from saved settings
+
+
+def get_notification_channel():
+    """Get the notification channel, using timekeeper's saved value if available"""
+    if timekeeper_manager:
+        channel_id = timekeeper_manager.get_notification_channel_id()
+    else:
+        channel_id = GENERAL_CHANNEL_ID
+    return bot.get_channel(channel_id)
 
 from .utils.admin_check import AdminManager
 from .utils.channel_manager import ChannelManager
@@ -417,7 +427,7 @@ async def on_message(message):
                     )
                     embed.set_footer(text="Harry's Advance Timer 🏈 | Use /time_status to check progress")
                     # Send to notification channel (#general)
-                    notification_channel = bot.get_channel(GENERAL_CHANNEL_ID)
+                    notification_channel = get_notification_channel()
                     if notification_channel:
                         await notification_channel.send(content="@everyone", embed=embed)
                         logger.info(f"⏰ Timer restarted by {message.author} via @everyone + 'advanced' - announced in #{notification_channel.name}")
@@ -2335,7 +2345,7 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
         await interaction.followup.send("✅ Timer started! Announcement sent to #general.", ephemeral=True)
 
         # Send public announcement to #general
-        notification_channel = bot.get_channel(GENERAL_CHANNEL_ID)
+        notification_channel = get_notification_channel()
         if notification_channel:
             await notification_channel.send(content="@everyone", embed=embed)
             logger.info(f"⏰ Advance countdown started by {interaction.user} - {hours} hours - announced in #{notification_channel.name}")
@@ -2920,18 +2930,25 @@ async def set_timer_channel(interaction: discord.Interaction, channel: discord.T
         await interaction.response.send_message("❌ You need to be a bot admin to set the timer channel, ya muppet!", ephemeral=True)
         return
 
-    # Update the channel ID
-    GENERAL_CHANNEL_ID = channel.id
-    timekeeper_module.NOTIFICATION_CHANNEL_ID = channel.id
+    if not timekeeper_manager:
+        await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
+        return
 
-    embed = discord.Embed(
-        title="📢 Timer Notification Channel Set!",
-        description=f"Right then! All timer notifications will now go to:\n\n**#{channel.name}** (<#{channel.id}>)\n\nThis includes:\n• Advance countdown start\n• 24h/12h/6h/1h warnings\n• TIME'S UP announcements\n• Schedule updates",
-        color=0x00ff00
-    )
-    embed.set_footer(text="Harry's Advance Timer 🏈")
-    await interaction.response.send_message(embed=embed, ephemeral=True)  # Admin-only confirmation
-    logger.info(f"📢 Timer notification channel set to #{channel.name} by {interaction.user}")
+    # Update the channel ID and persist it
+    success = await timekeeper_manager.set_notification_channel(channel.id)
+    if success:
+        GENERAL_CHANNEL_ID = channel.id  # Also update the module-level constant
+
+        embed = discord.Embed(
+            title="📢 Timer Notification Channel Set!",
+            description=f"Right then! All timer notifications will now go to:\n\n**#{channel.name}** (<#{channel.id}>)\n\nThis includes:\n• Advance countdown start\n• 24h/12h/6h/1h warnings\n• TIME'S UP announcements\n• Schedule updates\n\n✅ **Saved!** This will persist across bot restarts.",
+            color=0x00ff00
+        )
+        embed.set_footer(text="Harry's Advance Timer 🏈")
+        await interaction.response.send_message(embed=embed, ephemeral=True)  # Admin-only confirmation
+        logger.info(f"📢 Timer notification channel set to #{channel.name} by {interaction.user}")
+    else:
+        await interaction.response.send_message("❌ Failed to save the timer channel setting!", ephemeral=True)
 
 # ==================== League Staff Commands ====================
 

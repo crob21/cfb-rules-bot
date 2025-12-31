@@ -612,6 +612,8 @@ class TimekeeperManager:
         self.nag_active: bool = False
         self.nag_interval_minutes: int = 5
         self.nag_message_index: int = 0
+        # Notification channel (for timer announcements)
+        self.notification_channel_id: Optional[int] = NOTIFICATION_CHANNEL_ID
 
     async def _save_state_to_discord(self, state: Dict):
         """Save timer state to a Discord DM channel (persists across deployments, invisible to users)"""
@@ -657,10 +659,10 @@ class TimekeeperManager:
                                 if message.id != self.state_message_id:
                                     try:
                                         await message.delete()
-                                    except:
-                                        pass
-                    except:
-                        pass
+                                    except Exception:
+                                        pass  # Ignore delete failures
+                    except Exception:
+                        pass  # Ignore iteration failures
 
                     # Create new state message in DM (invisible to users!)
                     message = await dm_channel.send(content=f"```json\n{state_json}\n```")
@@ -714,7 +716,7 @@ class TimekeeperManager:
                         try:
                             await message.delete()
                             logger.debug(f"🗑️ Deleted old timer state message")
-                        except:
+                        except Exception:
                             pass  # Ignore if we can't delete
             except Exception as e:
                 logger.debug(f"Could not clean up old messages: {e}")
@@ -837,8 +839,8 @@ class TimekeeperManager:
                                         try:
                                             await message.delete()
                                             logger.info(f"🗑️ Deleted visible timer state message from #{channel.name}")
-                                        except:
-                                            pass
+                                        except Exception:
+                                            pass  # Ignore delete failures
 
                                         return state
                                 except json.JSONDecodeError:
@@ -899,6 +901,9 @@ class TimekeeperManager:
 
         # Load league staff state
         await self._load_league_staff_state()
+
+        # Load bot settings (notification channel, etc.)
+        await self._load_settings_state()
 
         if not state:
             return
@@ -1082,8 +1087,8 @@ class TimekeeperManager:
             try:
                 app_info = await self.bot.application_info()
                 bot_owner_id = app_info.owner.id if app_info.owner else None
-            except:
-                pass
+            except Exception:
+                pass  # Ignore if we can't get app info
 
             if bot_owner_id:
                 try:
@@ -1120,8 +1125,8 @@ class TimekeeperManager:
             try:
                 app_info = await self.bot.application_info()
                 bot_owner_id = app_info.owner.id if app_info.owner else None
-            except:
-                pass
+            except Exception:
+                pass  # Ignore if we can't get app info
 
             if bot_owner_id:
                 try:
@@ -1207,6 +1212,109 @@ class TimekeeperManager:
             logger.error(f"❌ Failed to set co-commish: {e}")
             return False
 
+    async def set_notification_channel(self, channel_id: int) -> bool:
+        """Set the notification channel for timer announcements"""
+        global NOTIFICATION_CHANNEL_ID
+        try:
+            self.notification_channel_id = channel_id
+            NOTIFICATION_CHANNEL_ID = channel_id  # Update module-level constant
+            await self._save_settings_state()
+            logger.info(f"📢 Notification channel set to {channel_id}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to set notification channel: {e}")
+            return False
+
+    def get_notification_channel_id(self) -> int:
+        """Get the notification channel ID"""
+        return self.notification_channel_id or NOTIFICATION_CHANNEL_ID
+
+    async def _save_settings_state(self):
+        """Save bot settings (notification channel, etc.) to Discord"""
+        state = {
+            'notification_channel_id': self.notification_channel_id,
+            'type': 'bot_settings'
+        }
+        try:
+            bot_owner_id = None
+            try:
+                app_info = await self.bot.application_info()
+                bot_owner_id = app_info.owner.id if app_info.owner else None
+            except Exception:
+                pass  # Ignore if we can't get app info
+
+            if bot_owner_id:
+                try:
+                    bot_owner = await self.bot.fetch_user(bot_owner_id)
+                    dm_channel = bot_owner.dm_channel
+                    if not dm_channel:
+                        dm_channel = await bot_owner.create_dm()
+
+                    state_json = json.dumps(state)
+
+                    # Try to find existing settings message
+                    async for message in dm_channel.history(limit=15):
+                        if (message.author == self.bot.user and
+                            message.content.startswith("```json") and
+                            '"type": "bot_settings"' in message.content):
+                            await message.edit(content=f"```json\n{state_json}\n```")
+                            logger.info("💾 Updated bot settings state in DM")
+                            return
+
+                    # Create new message
+                    await dm_channel.send(content=f"```json\n{state_json}\n```")
+                    logger.info("💾 Created bot settings state in DM")
+                    return
+                except Exception as e:
+                    logger.warning(f"⚠️ Could not save bot settings to DM: {e}")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to save bot settings state: {e}")
+
+    async def _load_settings_state(self):
+        """Load bot settings from Discord"""
+        global NOTIFICATION_CHANNEL_ID
+        try:
+            bot_owner_id = None
+            try:
+                app_info = await self.bot.application_info()
+                bot_owner_id = app_info.owner.id if app_info.owner else None
+            except Exception:
+                pass  # Ignore if we can't get app info
+
+            if bot_owner_id:
+                try:
+                    bot_owner = await self.bot.fetch_user(bot_owner_id)
+                    dm_channel = bot_owner.dm_channel
+                    if not dm_channel:
+                        dm_channel = await bot_owner.create_dm()
+
+                    async for message in dm_channel.history(limit=15):
+                        if (message.author == self.bot.user and
+                            message.content.startswith("```json") and
+                            '"type": "bot_settings"' in message.content):
+                            content = message.content.strip()
+                            if content.startswith("```json"):
+                                content = content[7:]
+                            if content.endswith("```"):
+                                content = content[:-3]
+                            content = content.strip()
+
+                            try:
+                                state = json.loads(content)
+                                if state.get('type') == 'bot_settings':
+                                    saved_channel = state.get('notification_channel_id')
+                                    if saved_channel:
+                                        self.notification_channel_id = saved_channel
+                                        NOTIFICATION_CHANNEL_ID = saved_channel
+                                        logger.info(f"✅ Loaded notification channel: {saved_channel}")
+                                    return
+                            except json.JSONDecodeError:
+                                pass
+                except Exception as e:
+                    logger.warning(f"⚠️ Could not load bot settings from DM: {e}")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to load bot settings state: {e}")
+
     async def _save_league_staff_state(self):
         """Save league staff state to Discord"""
         state = {
@@ -1221,8 +1329,8 @@ class TimekeeperManager:
             try:
                 app_info = await self.bot.application_info()
                 bot_owner_id = app_info.owner.id if app_info.owner else None
-            except:
-                pass
+            except Exception:
+                pass  # Ignore if we can't get app info
 
             if bot_owner_id:
                 try:
@@ -1258,8 +1366,8 @@ class TimekeeperManager:
             try:
                 app_info = await self.bot.application_info()
                 bot_owner_id = app_info.owner.id if app_info.owner else None
-            except:
-                pass
+            except Exception:
+                pass  # Ignore if we can't get app info
 
             if bot_owner_id:
                 try:
@@ -1335,8 +1443,8 @@ class TimekeeperManager:
             if not dm_channel:
                 dm_channel = await owner.create_dm()
             await dm_channel.send("✅ Alright, alright! I'll stop nagging ya... FOR NOW. 😈")
-        except:
-            pass
+        except Exception:
+            pass  # Ignore if we can't DM the owner
 
         logger.info("😇 Stopped nagging the league owner")
         return True

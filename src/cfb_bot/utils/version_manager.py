@@ -11,10 +11,35 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.4.0"
+CURRENT_VERSION = "1.4.1"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.4.1": {
+        "date": "2025-12-31",
+        "title": "Code Quality & Settings Persistence",
+        "emoji": "🔧",
+        "features": [
+            {
+                "category": "Bug Fixes",
+                "emoji": "🐛",
+                "changes": [
+                    "Fixed all bare 'except:' blocks with specific exception types",
+                    "Notification channel now persists across bot restarts",
+                    "/set_timer_channel setting is saved to Discord"
+                ]
+            },
+            {
+                "category": "Code Quality",
+                "emoji": "🔧",
+                "changes": [
+                    "Added get_notification_channel() helper for consistent channel lookup",
+                    "Refactored exception handling for better error tracking",
+                    "Updated README with v1.4.0 features"
+                ]
+            }
+        ]
+    },
     "1.4.0": {
         "date": "2025-12-31",
         "title": "Server-Wide Timer & Ephemeral Messages",

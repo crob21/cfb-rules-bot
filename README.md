@@ -7,8 +7,9 @@ A Discord bot for College Football 26 Online Dynasty League that provides league
 ### Core Features
 - 🤖 **AI-Powered Responses** - Get intelligent answers about league rules and policies
 - 📋 **League Charter Access** - Quick access to league rules and regulations
-- ⏰ **Advance Timer** - Custom countdown timers with automatic reminders (persists across deployments!)
+- ⏰ **Advance Timer** - Server-wide countdown timers with automatic reminders (persists across deployments!)
 - 📅 **Dynasty Week Tracking** - Full 30-week CFB 26 season structure with actions and notes
+- 📢 **Centralized Notifications** - All timer announcements go to a configurable channel (#general by default)
 
 ### Charter Management
 - 📝 **Interactive Charter Updates** - Update the charter by talking to Harry naturally
@@ -119,7 +120,14 @@ GOOGLE_DOCS_DOCUMENT_ID=your_document_id_here
 | `/advance [hours]` | Start countdown (default 48h) - Admin only |
 | `/time_status` | Check countdown progress |
 | `/stop_countdown` | Stop the timer - Admin only |
+| `/set_timer_channel #channel` | Set notification channel - Admin only |
 | `@everyone Advanced` | Quick restart (Admin) |
+
+**Timer Notifications:**
+- All timer announcements go to a designated channel (#general by default)
+- Includes: Advance start, 24h/12h/6h/1h warnings, TIME'S UP
+- Server-wide timer (one for the whole Discord)
+- Channel setting persists across bot restarts
 
 ### Schedule
 | Command | Description |
