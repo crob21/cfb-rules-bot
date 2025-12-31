@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
 Charter Editor Module for CFB 26 League Bot
-Handles editing and updating the league charter
+Handles editing and updating the league charter with interactive AI updates
 """
 
+import json
 import logging
 import os
+import re
 from datetime import datetime
-from typing import Optional, Dict, List
-import json
+from typing import Dict, List, Optional
 
 logger = logging.getLogger('CFB26Bot.CharterEditor')
 
@@ -393,4 +394,293 @@ Just provide the formatted rule text, nothing else."""
 
         except Exception as e:
             logger.error(f"❌ Error restoring backup: {e}")
+            return False
+
+    # ==================== Interactive Update Methods ====================
+
+    def _load_changelog(self) -> List[Dict]:
+        """Load the changelog from file"""
+        changelog_file = "data/charter_changelog.json"
+        try:
+            if os.path.exists(changelog_file):
+                with open(changelog_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            return []
+        except Exception as e:
+            logger.error(f"❌ Error loading changelog: {e}")
+            return []
+
+    def _save_changelog(self, changelog: List[Dict]) -> bool:
+        """Save the changelog to file"""
+        changelog_file = "data/charter_changelog.json"
+        try:
+            with open(changelog_file, 'w', encoding='utf-8') as f:
+                json.dump(changelog, f, indent=2, default=str)
+            return True
+        except Exception as e:
+            logger.error(f"❌ Error saving changelog: {e}")
+            return False
+
+    def add_changelog_entry(
+        self,
+        user_id: int,
+        user_name: str,
+        action: str,
+        description: str,
+        before_text: Optional[str] = None,
+        after_text: Optional[str] = None
+    ) -> bool:
+        """Add an entry to the changelog"""
+        try:
+            changelog = self._load_changelog()
+            
+            entry = {
+                "timestamp": datetime.now().isoformat(),
+                "user_id": user_id,
+                "user_name": user_name,
+                "action": action,
+                "description": description,
+                "before": before_text[:500] if before_text else None,  # Limit size
+                "after": after_text[:500] if after_text else None
+            }
+            
+            changelog.append(entry)
+            
+            # Keep only last 100 entries
+            if len(changelog) > 100:
+                changelog = changelog[-100:]
+            
+            return self._save_changelog(changelog)
+        except Exception as e:
+            logger.error(f"❌ Error adding changelog entry: {e}")
+            return False
+
+    def get_recent_changes(self, limit: int = 10) -> List[Dict]:
+        """Get recent changelog entries"""
+        changelog = self._load_changelog()
+        return changelog[-limit:][::-1]  # Most recent first
+
+    async def parse_update_request(self, request: str) -> Optional[Dict]:
+        """
+        Use AI to parse a natural language update request
+        
+        Returns dict with:
+        - action: 'update', 'add', 'remove', 'unknown'
+        - section: which section to modify
+        - old_text: text to find/replace (if updating)
+        - new_text: new text to add
+        - summary: human-readable summary of the change
+        """
+        if not self.ai_assistant:
+            logger.warning("⚠️ AI assistant not available for parsing")
+            return None
+
+        current_charter = self.read_charter()
+        if not current_charter:
+            return None
+
+        prompt = f"""You are helping to parse a charter update request for a CFB 26 league.
+
+CURRENT CHARTER:
+{current_charter}
+
+UPDATE REQUEST: "{request}"
+
+Analyze this request and determine:
+1. What ACTION is being requested? (update/add/remove)
+2. What SECTION is affected? (provide the section header or identifier)
+3. What is the CURRENT TEXT that will be changed? (exact quote from charter, if updating)
+4. What is the NEW TEXT? (the replacement or addition)
+5. A brief SUMMARY of the change
+
+Respond in this EXACT JSON format (no markdown, just raw JSON):
+{{
+    "action": "update|add|remove",
+    "section": "section name or number",
+    "old_text": "exact current text to replace (null if adding new)",
+    "new_text": "the new or replacement text",
+    "summary": "brief description of what's changing"
+}}
+
+If you cannot understand the request, respond with:
+{{
+    "action": "unknown",
+    "error": "explanation of what's unclear"
+}}"""
+
+        try:
+            response = await self.ai_assistant.ask_openai(prompt, "Charter Update Parser", max_tokens=1000)
+            if not response:
+                response = await self.ai_assistant.ask_anthropic(prompt, "Charter Update Parser", max_tokens=1000)
+            
+            if not response:
+                return None
+
+            # Clean up response - remove markdown code blocks if present
+            response = response.strip()
+            if response.startswith("```"):
+                response = re.sub(r'^```\w*\n?', '', response)
+                response = re.sub(r'\n?```$', '', response)
+            
+            # Parse JSON
+            parsed = json.loads(response)
+            logger.info(f"📝 Parsed update request: {parsed.get('action')} - {parsed.get('summary')}")
+            return parsed
+
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ Failed to parse AI response as JSON: {e}")
+            logger.error(f"Response was: {response}")
+            return None
+        except Exception as e:
+            logger.error(f"❌ Error parsing update request: {e}")
+            return None
+
+    async def generate_update_preview(self, parsed_request: Dict) -> Optional[Dict]:
+        """
+        Generate a before/after preview of the proposed change
+        
+        Returns dict with:
+        - before: the text before the change
+        - after: the text after the change  
+        - full_new_charter: the complete updated charter
+        """
+        current_charter = self.read_charter()
+        if not current_charter:
+            return None
+
+        action = parsed_request.get("action")
+        old_text = parsed_request.get("old_text")
+        new_text = parsed_request.get("new_text")
+        section = parsed_request.get("section")
+
+        if action == "unknown":
+            return None
+
+        try:
+            if action == "update" and old_text:
+                # Find and replace
+                if old_text in current_charter:
+                    new_charter = current_charter.replace(old_text, new_text, 1)
+                    return {
+                        "before": old_text,
+                        "after": new_text,
+                        "full_new_charter": new_charter
+                    }
+                else:
+                    # Try fuzzy matching - ask AI to find the right section
+                    logger.warning(f"⚠️ Exact text not found, attempting fuzzy match")
+                    return await self._fuzzy_update(current_charter, parsed_request)
+
+            elif action == "add":
+                # Add new content
+                # Try to find the section to add to
+                if section:
+                    # Look for the section header
+                    section_pattern = re.compile(
+                        rf'(###?\s*{re.escape(section)}.*?)(\n##|\n###|\Z)', 
+                        re.IGNORECASE | re.DOTALL
+                    )
+                    match = section_pattern.search(current_charter)
+                    
+                    if match:
+                        section_content = match.group(1)
+                        insert_pos = match.start() + len(section_content)
+                        new_charter = (
+                            current_charter[:insert_pos] + 
+                            f"\n\n{new_text}" + 
+                            current_charter[insert_pos:]
+                        )
+                        return {
+                            "before": "(Adding new content)",
+                            "after": new_text,
+                            "full_new_charter": new_charter
+                        }
+                
+                # Default: add at end
+                new_charter = current_charter + f"\n\n{new_text}"
+                return {
+                    "before": "(Adding new content at end)",
+                    "after": new_text,
+                    "full_new_charter": new_charter
+                }
+
+            elif action == "remove" and old_text:
+                # Remove content
+                if old_text in current_charter:
+                    new_charter = current_charter.replace(old_text, "", 1)
+                    # Clean up extra newlines
+                    new_charter = re.sub(r'\n{3,}', '\n\n', new_charter)
+                    return {
+                        "before": old_text,
+                        "after": "(REMOVED)",
+                        "full_new_charter": new_charter
+                    }
+
+            return None
+
+        except Exception as e:
+            logger.error(f"❌ Error generating preview: {e}")
+            return None
+
+    async def _fuzzy_update(self, current_charter: str, parsed_request: Dict) -> Optional[Dict]:
+        """Use AI to find and update when exact match fails"""
+        if not self.ai_assistant:
+            return None
+
+        prompt = f"""You are updating a charter document. The user wants to make this change:
+{json.dumps(parsed_request, indent=2)}
+
+Here is the current charter:
+{current_charter}
+
+Find the relevant section and apply the change. Return the COMPLETE updated charter with the change applied.
+Return ONLY the updated charter text, nothing else."""
+
+        try:
+            new_charter = await self.ai_assistant.ask_openai(prompt, "Charter Fuzzy Update", max_tokens=4000)
+            if not new_charter:
+                new_charter = await self.ai_assistant.ask_anthropic(prompt, "Charter Fuzzy Update", max_tokens=4000)
+            
+            if new_charter:
+                return {
+                    "before": parsed_request.get("old_text", "(Section being modified)"),
+                    "after": parsed_request.get("new_text"),
+                    "full_new_charter": new_charter
+                }
+            return None
+
+        except Exception as e:
+            logger.error(f"❌ Error in fuzzy update: {e}")
+            return None
+
+    def apply_update(
+        self,
+        new_charter: str,
+        user_id: int,
+        user_name: str,
+        description: str,
+        before_text: Optional[str] = None,
+        after_text: Optional[str] = None
+    ) -> bool:
+        """Apply an update to the charter and log it"""
+        try:
+            # Write the new charter (this also creates a backup)
+            success = self.write_charter(new_charter)
+            
+            if success:
+                # Log the change
+                self.add_changelog_entry(
+                    user_id=user_id,
+                    user_name=user_name,
+                    action="update",
+                    description=description,
+                    before_text=before_text,
+                    after_text=after_text
+                )
+                logger.info(f"✅ Charter updated by {user_name}: {description}")
+            
+            return success
+
+        except Exception as e:
+            logger.error(f"❌ Error applying update: {e}")
             return False

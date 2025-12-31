@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# =============================================================================
+# CRITICAL: audioop fix MUST be imported before discord!
+# Python 3.13 removed audioop module which discord.py needs.
+# DO NOT MOVE THIS IMPORT - IT MUST BE BEFORE DISCORD!
+# =============================================================================
+from cfb_bot.utils import audioop_fix  # noqa: E402, I001, I002 isort:skip
 """
 CFB 26 League Bot - A Discord bot for the CFB 26 online dynasty league
 
@@ -25,13 +31,6 @@ import aiohttp
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-
-# =============================================================================
-# CRITICAL: audioop fix MUST be imported before discord!
-# Python 3.13 removed audioop module which discord.py needs.
-# DO NOT let linters/formatters move this import!
-# =============================================================================
-from .utils import audioop_fix  # noqa: E402, I001, I002 - MUST BE FIRST!
 from .utils.admin_check import AdminManager
 from .utils.channel_manager import ChannelManager
 from .utils.charter_editor import CharterEditor
@@ -643,6 +642,135 @@ async def on_message(message):
                 await message.channel.send(embed=embed)
                 return
 
+            # Check if this is an interactive charter update request
+            charter_update_keywords = [
+                'update the', 'change the', 'modify the', 'edit the',
+                'add a rule', 'add rule', 'new rule', 'remove the', 'delete the',
+                'update rule', 'change rule', 'set the'
+            ]
+            
+            # Check for charter-related update patterns
+            message_lower = message.content.lower()
+            is_charter_update = (
+                bot_mentioned and 
+                any(keyword in message_lower for keyword in charter_update_keywords) and
+                any(term in message_lower for term in ['rule', 'charter', 'policy', 'schedule', 'advance', 'recruiting', 'transfer', 'quarter', 'difficulty', 'setting'])
+            )
+
+            if is_charter_update and admin_manager and admin_manager.is_admin(message.author, message):
+                if not charter_editor:
+                    embed = discord.Embed(
+                        title="❌ Error",
+                        description="Charter editor not available",
+                        color=0xff0000
+                    )
+                    await message.channel.send(embed=embed)
+                    return
+
+                if not AI_AVAILABLE or not ai_assistant:
+                    embed = discord.Embed(
+                        title="❌ Error", 
+                        description="AI not available for charter updates",
+                        color=0xff0000
+                    )
+                    await message.channel.send(embed=embed)
+                    return
+
+                logger.info(f"📝 Charter update request from {message.author}: {message.content}")
+
+                # Show thinking message
+                thinking_msg = await message.channel.send("🔧 Analyzing your charter update request...")
+
+                try:
+                    # Parse the update request
+                    parsed = await charter_editor.parse_update_request(message.content)
+                    
+                    if not parsed or parsed.get("action") == "unknown":
+                        error_msg = parsed.get("error", "I couldn't understand that update request") if parsed else "Failed to parse request"
+                        await thinking_msg.edit(content=f"❌ {error_msg}\n\nTry being more specific, like:\n• `update the advance time to 10am`\n• `add a rule: no trading during playoffs`\n• `change quarter length to 5 minutes`")
+                        return
+
+                    # Generate preview
+                    preview = await charter_editor.generate_update_preview(parsed)
+                    
+                    if not preview:
+                        await thinking_msg.edit(content="❌ Couldn't generate a preview for this change. The section might not exist or the request was unclear.")
+                        return
+
+                    # Delete thinking message
+                    await thinking_msg.delete()
+
+                    # Show before/after preview
+                    embed = discord.Embed(
+                        title="📝 Charter Update Preview",
+                        description=f"**{parsed.get('summary', 'Proposed change')}**",
+                        color=0xffa500
+                    )
+                    
+                    # Truncate long text for display
+                    before_text = preview.get("before", "N/A")
+                    after_text = preview.get("after", "N/A")
+                    
+                    if len(before_text) > 500:
+                        before_text = before_text[:500] + "..."
+                    if len(after_text) > 500:
+                        after_text = after_text[:500] + "..."
+                    
+                    embed.add_field(
+                        name="📄 BEFORE",
+                        value=f"```\n{before_text}\n```",
+                        inline=False
+                    )
+                    embed.add_field(
+                        name="📝 AFTER", 
+                        value=f"```\n{after_text}\n```",
+                        inline=False
+                    )
+                    embed.add_field(
+                        name="⚠️ Confirm Change",
+                        value="React with ✅ to apply this change, or ❌ to cancel.\n*This will create an automatic backup.*",
+                        inline=False
+                    )
+                    embed.set_footer(text=f"Requested by {message.author.display_name} | Expires in 60 seconds")
+
+                    preview_msg = await message.channel.send(embed=embed)
+                    
+                    # Add reaction options
+                    await preview_msg.add_reaction("✅")
+                    await preview_msg.add_reaction("❌")
+
+                    # Store pending update for reaction handler
+                    if not hasattr(bot, 'pending_charter_updates'):
+                        bot.pending_charter_updates = {}
+                    
+                    bot.pending_charter_updates[preview_msg.id] = {
+                        "user_id": message.author.id,
+                        "user_name": message.author.display_name,
+                        "new_charter": preview.get("full_new_charter"),
+                        "description": parsed.get("summary"),
+                        "before": preview.get("before"),
+                        "after": preview.get("after"),
+                        "expires": datetime.now().timestamp() + 60  # 60 second timeout
+                    }
+
+                    logger.info(f"📝 Charter update preview sent, awaiting confirmation from {message.author}")
+                    return
+
+                except Exception as e:
+                    logger.error(f"❌ Error processing charter update: {e}", exc_info=True)
+                    await thinking_msg.edit(content=f"❌ Error processing update: {str(e)}")
+                    return
+
+            elif is_charter_update and bot_mentioned:
+                # User requested update but isn't admin
+                embed = discord.Embed(
+                    title="❌ Permission Denied",
+                    description="You need to be a bot admin to update the charter, ya muppet!",
+                    color=0xff0000
+                )
+                await message.channel.send(embed=embed)
+                return
+
         # Step 1: Check if this is a channel summary request
         question_lower = message.content.lower()
 
@@ -895,6 +1023,71 @@ async def on_reaction_add(reaction, user):
     if reaction.message.author != bot.user:
         return
 
+    # Handle charter update confirmations
+    if hasattr(bot, 'pending_charter_updates') and reaction.message.id in bot.pending_charter_updates:
+        pending = bot.pending_charter_updates[reaction.message.id]
+        
+        # Only the original requester can confirm/cancel
+        if user.id != pending["user_id"]:
+            return
+        
+        # Check if expired
+        if datetime.now().timestamp() > pending["expires"]:
+            del bot.pending_charter_updates[reaction.message.id]
+            await reaction.message.edit(embed=discord.Embed(
+                title="⏰ Update Expired",
+                description="This charter update request has expired. Please try again.",
+                color=0xff6600
+            ))
+            return
+
+        if str(reaction.emoji) == "✅":
+            # Apply the update
+            if charter_editor and pending.get("new_charter"):
+                success = charter_editor.apply_update(
+                    new_charter=pending["new_charter"],
+                    user_id=pending["user_id"],
+                    user_name=pending["user_name"],
+                    description=pending["description"],
+                    before_text=pending.get("before"),
+                    after_text=pending.get("after")
+                )
+                
+                if success:
+                    embed = discord.Embed(
+                        title="✅ Charter Updated!",
+                        description=f"**{pending['description']}**\n\nThe charter has been updated and backed up automatically.",
+                        color=0x00ff00
+                    )
+                    embed.set_footer(text=f"Updated by {pending['user_name']} 🏈")
+                    await reaction.message.edit(embed=embed)
+                    await reaction.message.clear_reactions()
+                    logger.info(f"✅ Charter updated by {pending['user_name']}: {pending['description']}")
+                else:
+                    embed = discord.Embed(
+                        title="❌ Update Failed",
+                        description="Failed to apply the charter update. Check the logs for details.",
+                        color=0xff0000
+                    )
+                    await reaction.message.edit(embed=embed)
+                    await reaction.message.clear_reactions()
+            
+            del bot.pending_charter_updates[reaction.message.id]
+            return
+
+        elif str(reaction.emoji) == "❌":
+            # Cancel the update
+            embed = discord.Embed(
+                title="❌ Update Cancelled",
+                description="Charter update has been cancelled. No changes were made.",
+                color=0xff6600
+            )
+            await reaction.message.edit(embed=embed)
+            await reaction.message.clear_reactions()
+            del bot.pending_charter_updates[reaction.message.id]
+            logger.info(f"❌ Charter update cancelled by {pending['user_name']}")
+            return
+
     # Handle different emoji reactions
     if reaction.emoji == '❓':
         # Question mark - offer help
@@ -1136,6 +1329,52 @@ async def charter(interaction: discord.Interaction):
 
     embed.set_footer(text="CFB 26 League Bot - Always check the charter for complete rules")
 
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="charter_history", description="View recent charter changes")
+async def charter_history(interaction: discord.Interaction):
+    """View recent charter update history"""
+    if not charter_editor:
+        await interaction.response.send_message("❌ Charter editor not available", ephemeral=True)
+        return
+
+    changes = charter_editor.get_recent_changes(limit=10)
+    
+    if not changes:
+        embed = discord.Embed(
+            title="📜 Charter History",
+            description="No charter changes have been recorded yet.",
+            color=0x1e90ff
+        )
+        await interaction.response.send_message(embed=embed)
+        return
+
+    embed = discord.Embed(
+        title="📜 Charter Update History",
+        description="Recent changes to the league charter",
+        color=0x1e90ff
+    )
+
+    for i, change in enumerate(changes[:5], 1):  # Show top 5
+        timestamp = change.get("timestamp", "Unknown")
+        if isinstance(timestamp, str) and "T" in timestamp:
+            # Format ISO timestamp nicely
+            try:
+                dt = datetime.fromisoformat(timestamp)
+                timestamp = dt.strftime("%b %d, %Y %I:%M %p")
+            except:
+                pass
+        
+        user_name = change.get("user_name", "Unknown")
+        description = change.get("description", "No description")
+        
+        embed.add_field(
+            name=f"{i}. {timestamp}",
+            value=f"**By:** {user_name}\n**Change:** {description[:100]}{'...' if len(description) > 100 else ''}",
+            inline=False
+        )
+
+    embed.set_footer(text="Use @Harry to update charter rules interactively 🏈")
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="help_cfb", description="Show all available commands")
@@ -2354,7 +2593,7 @@ async def pick_commish(interaction: discord.Interaction, hours: int = 168):
         # Create the AI prompt
         num_participants = len(participant_counts)
         participant_names = ", ".join(participant_counts.keys())
-        
+
         prompt = f"""You are Harry, a completely insane and hilariously sarcastic CFB 26 league assistant. You've been asked to analyze chat activity and recommend who should be the new co-commissioner.
 
 ⚠️ THERE ARE EXACTLY {num_participants} PARTICIPANTS TO RANK: {participant_names}
