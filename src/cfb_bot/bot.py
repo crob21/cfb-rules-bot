@@ -12,13 +12,6 @@ Author: CFB 26 League
 License: MIT
 Version: 1.0.0
 """
-# =============================================================================
-# CRITICAL: audioop fix MUST be imported before discord!
-# Python 3.13 removed audioop module which discord.py needs.
-# DO NOT let linters/formatters move this import!
-# =============================================================================
-from .utils import audioop_fix  # noqa: E402, I001, I002 - MUST BE FIRST!
-
 import asyncio
 import json
 import logging
@@ -32,6 +25,13 @@ import aiohttp
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+
+# =============================================================================
+# CRITICAL: audioop fix MUST be imported before discord!
+# Python 3.13 removed audioop module which discord.py needs.
+# DO NOT let linters/formatters move this import!
+# =============================================================================
+from .utils import audioop_fix  # noqa: E402, I001, I002 - MUST BE FIRST!
 from .utils.admin_check import AdminManager
 from .utils.channel_manager import ChannelManager
 from .utils.charter_editor import CharterEditor
@@ -2352,7 +2352,14 @@ async def pick_commish(interaction: discord.Interaction, hours: int = 168):
             participation_summary += f"- {name}: {data['count']} messages\n"
 
         # Create the AI prompt
+        num_participants = len(participant_counts)
+        participant_names = ", ".join(participant_counts.keys())
+        
         prompt = f"""You are Harry, a completely insane and hilariously sarcastic CFB 26 league assistant. You've been asked to analyze chat activity and recommend who should be the new co-commissioner.
+
+⚠️ THERE ARE EXACTLY {num_participants} PARTICIPANTS TO RANK: {participant_names}
+⚠️ YOUR OUTPUT MUST HAVE EXACTLY {num_participants} RANKINGS (#{1} through #{num_participants})
+⚠️ EACH PERSON APPEARS ONLY ONCE - NO DUPLICATES!
 
 PARTICIPATION DATA:
 {participation_summary}
@@ -2406,13 +2413,15 @@ FORMAT YOUR RESPONSE LIKE THIS:
 🏆 **FINAL VERDICT:** [Winner Name] should be co-commish because [brief funny reason]
 🚨 **BIGGEST ASSHOLE:** [Name] - [Savage one-liner]
 
-CRITICAL RULES:
-1. Each person appears ONLY ONCE in the rankings - NO DUPLICATES!
-2. Rank everyone from BEST (#1) to WORST (#last)
-3. The LAST person in the list gets the 🚨 DO NOT PICK tag
-4. Your WINNER and BIGGEST ASSHOLE must be DIFFERENT people!
+⚠️⚠️⚠️ CRITICAL RULES - READ CAREFULLY ⚠️⚠️⚠️
+1. There are EXACTLY {num_participants} people. You MUST have EXACTLY {num_participants} rankings.
+2. Each person appears ONLY ONCE! If you list someone twice, you FAILED.
+3. The names are: {participant_names} - rank ALL of them, each ONE time only.
+4. #1 is the BEST candidate, #{num_participants} is the WORST (gets 🚨 DO NOT PICK tag)
+5. FINAL VERDICT winner must be #1 ranked person.
+6. BIGGEST ASSHOLE must be #{num_participants} ranked person (the worst).
 
-Be extremely sarcastic, funny, and insane. Give each person a proper roast! Reference specific behaviors from the chat if you can see them."""
+Be extremely sarcastic, funny, and insane. Give each person a proper roast!"""
 
         # Ask AI with higher token limit for full analysis with proper roasts
         response = await ai_assistant.ask_openai(prompt, "Co-Commissioner Selection Analysis", max_tokens=2000)
@@ -2430,9 +2439,9 @@ Be extremely sarcastic, funny, and insane. Give each person a proper roast! Refe
                       f"👥 **{len(participant_counts)}** participants evaluated\n"
                       f"🚨 Asshole detector: **ACTIVE**\n"
                       f"*Use /set_co_commish to make it official!*")
-        
+
         full_response = f"# 👑 Co-Commissioner Selection Analysis\n\n{response}{stats_text}"
-        
+
         # Discord message limit is 2000 chars - split if needed
         if len(full_response) <= 2000:
             await interaction.followup.send(full_response)
@@ -2440,17 +2449,17 @@ Be extremely sarcastic, funny, and insane. Give each person a proper roast! Refe
             # Split into chunks
             chunks = []
             current_chunk = ""
-            
+
             for line in full_response.split('\n'):
                 if len(current_chunk) + len(line) + 1 > 1900:  # Leave some buffer
                     chunks.append(current_chunk)
                     current_chunk = line
                 else:
                     current_chunk += '\n' + line if current_chunk else line
-            
+
             if current_chunk:
                 chunks.append(current_chunk)
-            
+
             # Send each chunk
             for i, chunk in enumerate(chunks):
                 if i == 0:
