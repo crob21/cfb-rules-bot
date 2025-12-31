@@ -2286,32 +2286,32 @@ async def set_co_commish(
 )
 async def pick_commish(interaction: discord.Interaction, hours: int = 168):
     """Have Harry analyze chat activity and recommend a co-commissioner"""
+    # Defer IMMEDIATELY - this takes a while and Discord times out after 3 seconds
+    await interaction.response.defer()
+    
     # Check if user is admin
     if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ Only admins can ask me to pick a commish, ya muppet!",
             ephemeral=True
         )
         return
 
     if not channel_summarizer:
-        await interaction.response.send_message("❌ Channel summarizer not available", ephemeral=True)
+        await interaction.followup.send("❌ Channel summarizer not available", ephemeral=True)
         return
 
     if not AI_AVAILABLE or not ai_assistant:
-        await interaction.response.send_message("❌ AI not available for this analysis", ephemeral=True)
+        await interaction.followup.send("❌ AI not available for this analysis", ephemeral=True)
         return
 
     # Validate hours
     if hours < 24:
-        await interaction.response.send_message("❌ Need at least 24 hours of history to judge these muppets!", ephemeral=True)
+        await interaction.followup.send("❌ Need at least 24 hours of history to judge these muppets!", ephemeral=True)
         return
     if hours > 720:  # 30 days max
-        await interaction.response.send_message("❌ Max 720 hours (30 days). I ain't reading a novel!", ephemeral=True)
+        await interaction.followup.send("❌ Max 720 hours (30 days). I ain't reading a novel!", ephemeral=True)
         return
-
-    # Defer - this will take a while
-    await interaction.response.defer()
 
     try:
         # Fetch messages
