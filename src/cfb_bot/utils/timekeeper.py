@@ -183,11 +183,14 @@ def format_est_time(dt: datetime, format_str: str = '%I:%M %p on %B %d') -> str:
 # Timer state file location
 TIMER_STATE_FILE = Path(__file__).parent.parent.parent.parent / "data" / "timer_state.json"
 
+# Channel ID for timer notifications (defaults to #general, can be changed)
+NOTIFICATION_CHANNEL_ID = 1261662233109205146  # #general
+
 class AdvanceTimer:
     """Manages advance countdown timers with custom durations"""
 
     def __init__(self, channel: discord.TextChannel, bot: discord.Client, manager=None):
-        self.channel = channel
+        self.channel = channel  # Original channel where timer was started
         self.bot = bot
         self.manager = manager  # Reference to TimekeeperManager for Discord persistence
         self.start_time: Optional[datetime] = None
@@ -201,6 +204,15 @@ class AdvanceTimer:
             6: False,
             1: False
         }
+
+    def get_notification_channel(self) -> Optional[discord.TextChannel]:
+        """Get the channel where timer notifications should be sent (always #general)"""
+        notification_channel = self.bot.get_channel(NOTIFICATION_CHANNEL_ID)
+        if notification_channel:
+            return notification_channel
+        # Fallback to original channel if notification channel not found
+        logger.warning(f"⚠️ Notification channel {NOTIFICATION_CHANNEL_ID} not found, using original channel")
+        return self.channel
 
     async def save_state(self):
         """Save timer state to disk, environment variable, and Discord for persistence"""
@@ -387,7 +399,7 @@ class AdvanceTimer:
             logger.error(f"❌ Error in countdown monitoring: {e}")
 
     async def _send_notification(self, hours: int):
-        """Send a countdown notification"""
+        """Send a countdown notification to the notification channel (#general)"""
         # More urgent messages and colors for lower time remaining
         if hours <= 1:
             color = 0xff0000  # Red - URGENT
@@ -408,13 +420,14 @@ class AdvanceTimer:
         embed.set_footer(text=f"Harry's Advance Timer 🏈 | Ends at {format_est_time(self.end_time, '%I:%M %p')}")
 
         try:
+            notification_channel = self.get_notification_channel()
             # Add @everyone ping for 6 hour and 1 hour warnings to cut through muted channels
             if hours <= 6:
-                await self.channel.send(content="@everyone", embed=embed)
-                logger.info(f"📢 Sent {hours}h notification with @everyone ping")
+                await notification_channel.send(content="@everyone", embed=embed)
+                logger.info(f"📢 Sent {hours}h notification with @everyone ping to #{notification_channel.name}")
             else:
-                await self.channel.send(embed=embed)
-                logger.info(f"📢 Sent {hours}h notification")
+                await notification_channel.send(embed=embed)
+                logger.info(f"📢 Sent {hours}h notification to #{notification_channel.name}")
         except Exception as e:
             logger.error(f"❌ Failed to send notification: {e}")
 
@@ -481,9 +494,10 @@ class AdvanceTimer:
         embed.set_footer(text="Harry's Advance Timer 🏈")
 
         try:
+            notification_channel = self.get_notification_channel()
             # @everyone for TIME'S UP - this is the most important one!
-            await self.channel.send(content="@everyone", embed=embed)
-            logger.info("📢 Sent TIMES UP message with @everyone ping")
+            await notification_channel.send(content="@everyone", embed=embed)
+            logger.info(f"📢 Sent TIMES UP message with @everyone ping to #{notification_channel.name}")
 
             # Send the upcoming week's schedule if we're in regular season
             await self._send_upcoming_schedule()
@@ -548,8 +562,9 @@ class AdvanceTimer:
 
             schedule_embed.set_footer(text="Harry's Schedule Tracker 🏈 | Get your games done!")
 
-            await self.channel.send(embed=schedule_embed)
-            logger.info(f"📅 Sent Week {new_week} schedule announcement")
+            notification_channel = self.get_notification_channel()
+            await notification_channel.send(embed=schedule_embed)
+            logger.info(f"📅 Sent Week {new_week} schedule announcement to #{notification_channel.name}")
 
         except Exception as e:
             logger.error(f"❌ Failed to send schedule announcement: {e}")
@@ -947,16 +962,27 @@ class TimekeeperManager:
             logger.info(f"⏰ Time remaining: {hours_remaining:.1f} hours")
             logger.info(f"⏰ End time: {end_time}")
 
-            # Send a notification that timer was restored
+            # Send restoration notification to admin channel instead of public
             embed = discord.Embed(
                 title="⏰ Timer Restored!",
-                description=f"Right then! I've restored the advance countdown after a restart.\n\n**Time Remaining:** {int(hours_remaining)}h {int((time_remaining.total_seconds() % 3600) / 60)}m\n**Ends At:** {end_time.strftime('%I:%M %p')}",
+                description=f"Restored advance countdown after a restart.\n\n"
+                           f"**Channel:** #{channel.name}\n"
+                           f"**Time Remaining:** {int(hours_remaining)}h {int((time_remaining.total_seconds() % 3600) / 60)}m\n"
+                           f"**Ends At:** {end_time.strftime('%I:%M %p')}",
                 color=0x00ff00
             )
-            embed.set_footer(text="Harry's Advance Timer 🏈 | Back online!")
+            embed.set_footer(text="Harry's Advance Timer 🏈 | Admin notification")
 
             try:
-                await channel.send(embed=embed)
+                # Try to send to admin channel (Booze's Playground)
+                admin_channel_id = 1417663211292852244
+                admin_channel = self.bot.get_channel(admin_channel_id)
+                if admin_channel:
+                    await admin_channel.send(embed=embed)
+                    logger.info(f"📢 Sent timer restoration notification to admin channel")
+                else:
+                    # Fallback to logging only if admin channel not found
+                    logger.info(f"📢 Timer restored (admin channel not found, logged only)")
             except Exception as e:
                 logger.error(f"❌ Failed to send restoration message: {e}")
 

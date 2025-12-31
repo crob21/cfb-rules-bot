@@ -32,6 +32,13 @@ import discord
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
+# Admin-only channel for bot notifications (Booze's Playground)
+ADMIN_CHANNEL_ID = 1417663211292852244
+
+# General channel for timer notifications (league-wide announcements)
+# This can be changed with /set_timer_channel
+GENERAL_CHANNEL_ID = 1261662233109205146  # #general
+
 from .utils.admin_check import AdminManager
 from .utils.channel_manager import ChannelManager
 from .utils.charter_editor import CharterEditor
@@ -42,6 +49,7 @@ from .utils.timekeeper import (CFB_DYNASTY_WEEKS, TOTAL_WEEKS_PER_SEASON,
                                TimekeeperManager, format_est_time,
                                get_week_actions, get_week_info, get_week_name,
                                get_week_notes, get_week_phase)
+from .utils import timekeeper as timekeeper_module  # For updating NOTIFICATION_CHANNEL_ID
 from .utils.version_manager import VersionManager
 
 # Optional Google Docs integration
@@ -408,8 +416,14 @@ async def on_message(message):
                         inline=False
                     )
                     embed.set_footer(text="Harry's Advance Timer 🏈 | Use /time_status to check progress")
-                    await message.channel.send(content="@everyone", embed=embed)
-                    logger.info(f"⏰ Timer restarted by {message.author} via @everyone + 'advanced' in {message.channel}")
+                    # Send to notification channel (#general)
+                    notification_channel = bot.get_channel(GENERAL_CHANNEL_ID)
+                    if notification_channel:
+                        await notification_channel.send(content="@everyone", embed=embed)
+                        logger.info(f"⏰ Timer restarted by {message.author} via @everyone + 'advanced' - announced in #{notification_channel.name}")
+                    else:
+                        await message.channel.send(content="@everyone", embed=embed)
+                        logger.warning(f"⚠️ #general not found, announced in {message.channel}")
                 else:
                     embed = discord.Embed(
                         title="❌ Failed to Restart Timer",
@@ -1872,7 +1886,8 @@ async def help_cfb(interaction: discord.Interaction):
         value=(
             "• `/advance [hours]` - Start countdown **(Admin)**\n"
             "• `/time_status` - Check progress\n"
-            "• `/stop_countdown` - Stop timer **(Admin)**"
+            "• `/stop_countdown` - Stop timer **(Admin)**\n"
+            "• `/set_timer_channel` - Set notification channel **(Admin)**"
         ),
         inline=True
     )
@@ -2315,8 +2330,19 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
             inline=False
         )
         embed.set_footer(text="Harry's Advance Timer 🏈 | Use /time_status to check progress")
-        await interaction.followup.send(content="@everyone", embed=embed)
-        logger.info(f"⏰ Advance countdown started by {interaction.user} in {interaction.channel} - {hours} hours")
+
+        # Send ephemeral confirmation to admin
+        await interaction.followup.send("✅ Timer started! Announcement sent to #general.", ephemeral=True)
+
+        # Send public announcement to #general
+        notification_channel = bot.get_channel(GENERAL_CHANNEL_ID)
+        if notification_channel:
+            await notification_channel.send(content="@everyone", embed=embed)
+            logger.info(f"⏰ Advance countdown started by {interaction.user} - {hours} hours - announced in #{notification_channel.name}")
+        else:
+            # Fallback to current channel if #general not found
+            await interaction.channel.send(content="@everyone", embed=embed)
+            logger.warning(f"⚠️ #general not found, announced in {interaction.channel}")
     else:
         embed = discord.Embed(
             title="❌ Failed to Start Countdown!",
@@ -2464,7 +2490,7 @@ async def stop_countdown(interaction: discord.Interaction):
             description="Right, countdown's been cancelled then!\n\nAll timers have been stopped.",
             color=0xff0000
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)  # Admin-only confirmation
         logger.info(f"⏹️ Countdown stopped by {interaction.user} in {interaction.channel}")
     else:
         embed = discord.Embed(
@@ -2874,7 +2900,7 @@ async def set_season_week(interaction: discord.Interaction, season: int, week: i
             color=0x00ff00
         )
         embed.set_footer(text="Harry's Advance Timer 🏈 | Week will increment on advance")
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)  # Admin-only confirmation
         logger.info(f"📅 Season/Week set to Season {season}, {week_name} by {interaction.user}")
     else:
         embed = discord.Embed(
@@ -2883,6 +2909,29 @@ async def set_season_week(interaction: discord.Interaction, season: int, week: i
             color=0xff0000
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="set_timer_channel", description="Set the channel for timer notifications (Admin only)")
+async def set_timer_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    """Set the channel where timer notifications (advance announcements, countdowns) will be sent"""
+    global GENERAL_CHANNEL_ID
+
+    # Check if user is admin
+    if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
+        await interaction.response.send_message("❌ You need to be a bot admin to set the timer channel, ya muppet!", ephemeral=True)
+        return
+
+    # Update the channel ID
+    GENERAL_CHANNEL_ID = channel.id
+    timekeeper_module.NOTIFICATION_CHANNEL_ID = channel.id
+
+    embed = discord.Embed(
+        title="📢 Timer Notification Channel Set!",
+        description=f"Right then! All timer notifications will now go to:\n\n**#{channel.name}** (<#{channel.id}>)\n\nThis includes:\n• Advance countdown start\n• 24h/12h/6h/1h warnings\n• TIME'S UP announcements\n• Schedule updates",
+        color=0x00ff00
+    )
+    embed.set_footer(text="Harry's Advance Timer 🏈")
+    await interaction.response.send_message(embed=embed, ephemeral=True)  # Admin-only confirmation
+    logger.info(f"📢 Timer notification channel set to #{channel.name} by {interaction.user}")
 
 # ==================== League Staff Commands ====================
 
@@ -2945,7 +2994,7 @@ async def set_league_owner(interaction: discord.Interaction, user: discord.User)
             color=0xffd700
         )
         embed.set_footer(text="Harry's League Tracker 🏈")
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)  # Admin-only confirmation
         logger.info(f"👑 League owner set to {user.display_name} by {interaction.user}")
     else:
         await interaction.response.send_message("❌ Failed to set league owner, mate!", ephemeral=True)
@@ -3001,7 +3050,7 @@ async def set_co_commish(
                 color=0x00ff00
             )
         embed.set_footer(text="Harry's League Tracker 🏈")
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)  # Admin-only confirmation
         if none:
             logger.info(f"👤 Co-commish set to 'none' by {interaction.user}")
         else:

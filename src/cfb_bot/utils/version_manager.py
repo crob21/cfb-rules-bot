@@ -11,10 +11,41 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.3.0"
+CURRENT_VERSION = "1.4.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.4.0": {
+        "date": "2025-12-31",
+        "title": "Server-Wide Timer & Ephemeral Messages",
+        "emoji": "📢",
+        "features": [
+            {
+                "category": "Server-Wide Timer Notifications",
+                "emoji": "📢",
+                "changes": [
+                    "Timer notifications now always go to #general",
+                    "One timer for the whole server (not per-channel)",
+                    "Includes: Advance start, 24h/12h/6h/1h warnings, TIME'S UP",
+                    "/set_timer_channel to change notification channel",
+                    "Schedule announcements also go to timer channel"
+                ]
+            },
+            {
+                "category": "Ephemeral Admin Messages",
+                "emoji": "👁️",
+                "changes": [
+                    "Admin confirmations now only visible to the admin",
+                    "/stop_countdown success → ephemeral",
+                    "/set_season_week success → ephemeral",
+                    "/set_league_owner success → ephemeral",
+                    "/set_co_commish success → ephemeral",
+                    "/advance confirmation → ephemeral (announcement goes to #general)",
+                    "Timer Restored → goes to admin channel only"
+                ]
+            }
+        ]
+    },
     "1.3.0": {
         "date": "2025-12-31",
         "title": "Interactive Charter & Co-Commish Picker",

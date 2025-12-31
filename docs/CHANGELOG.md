@@ -77,7 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Week 22-29: Offseason (Portal, signing day, preseason)
   - `/week` - Show current week and actions
   - `/weeks` - Full 30-week schedule display
-  
+
 - **Week Actions & Notes**
   - Each week shows available actions (staff moves, job offers, etc.)
   - Important notes and deadline reminders
