@@ -1,0 +1,147 @@
+{
+  "season": 1,
+  "schedule": {
+    "0": {
+      "bye_teams": ["Michigan St", "Nebraska", "Notre Dame"],
+      "games": [
+        {"away": "UTEP", "home": "Texas"},
+        {"away": "Arizona St", "home": "LSU"},
+        {"away": "Arizona", "home": "Hawaii"}
+      ]
+    },
+    "1": {
+      "bye_teams": ["Nebraska"],
+      "games": [
+        {"away": "FCS Southeast", "home": "LSU"},
+        {"away": "UL Monroe", "home": "Texas"},
+        {"away": "FCS East", "home": "Michigan St"},
+        {"away": "Alabama", "home": "Notre Dame"},
+        {"away": "FCS Northwest", "home": "Hawaii"}
+      ]
+    },
+    "2": {
+      "bye_teams": ["Hawaii"],
+      "games": [
+        {"away": "Texas", "home": "Alabama"},
+        {"away": "South Carolina", "home": "LSU"},
+        {"away": "Nebraska", "home": "UCLA"},
+        {"away": "East Carolina", "home": "Michigan St"},
+        {"away": "Syracuse", "home": "Notre Dame"}
+      ]
+    },
+    "3": {
+      "bye_teams": ["Hawaii", "Michigan St", "Notre Dame"],
+      "games": [
+        {"away": "LSU", "home": "Kentucky"},
+        {"away": "Nebraska", "home": "Boise St"},
+        {"away": "Texas", "home": "Mississippi St"}
+      ]
+    },
+    "4": {
+      "bye_teams": [],
+      "games": [
+        {"away": "Texas A&M", "home": "LSU"},
+        {"away": "Washington St", "home": "Hawaii"},
+        {"away": "Penn St", "home": "Michigan St"},
+        {"away": "Notre Dame", "home": "Texas"},
+        {"away": "FCS West", "home": "Nebraska"}
+      ]
+    },
+    "5": {
+      "bye_teams": [],
+      "games": [
+        {"away": "Rice", "home": "LSU"},
+        {"away": "Florida", "home": "Texas"},
+        {"away": "Notre Dame", "home": "Miami"},
+        {"away": "Nebraska", "home": "Minnesota"},
+        {"away": "Michigan St", "home": "USC"},
+        {"away": "Auburn", "home": "Hawaii"}
+      ]
+    },
+    "6": {
+      "bye_teams": ["LSU"],
+      "games": [
+        {"away": "North Carolina", "home": "Notre Dame"},
+        {"away": "Michigan St", "home": "Nebraska"},
+        {"away": "Hawaii", "home": "Colorado St"},
+        {"away": "South Carolina", "home": "Texas"}
+      ]
+    },
+    "7": {
+      "bye_teams": [],
+      "games": [
+        {"away": "Oklahoma", "home": "Texas"},
+        {"away": "Northwestern", "home": "Nebraska"},
+        {"away": "Notre Dame", "home": "Duke"},
+        {"away": "Hawaii", "home": "San Diego St"},
+        {"away": "LSU", "home": "Auburn"},
+        {"away": "Maryland", "home": "Michigan St"}
+      ]
+    },
+    "8": {
+      "bye_teams": [],
+      "games": [
+        {"away": "Michigan St", "home": "Indiana"},
+        {"away": "Texas", "home": "Kentucky"},
+        {"away": "San Jose St", "home": "Hawaii"},
+        {"away": "USC", "home": "Notre Dame"},
+        {"away": "Nebraska", "home": "Oklahoma"},
+        {"away": "LSU", "home": "Oklahoma St"}
+      ]
+    },
+    "9": {
+      "bye_teams": [],
+      "games": [
+        {"away": "Ole Miss", "home": "Texas"},
+        {"away": "Nebraska", "home": "Maryland"},
+        {"away": "UCLA", "home": "Michigan St"},
+        {"away": "Navy", "home": "Notre Dame"},
+        {"away": "Hawaii", "home": "Oregon St"},
+        {"away": "Georgia", "home": "LSU"}
+      ]
+    },
+    "10": {
+      "bye_teams": [],
+      "games": [
+        {"away": "Michigan St", "home": "Minnesota"},
+        {"away": "Texas", "home": "Arkansas"},
+        {"away": "Hawaii", "home": "Utah St"},
+        {"away": "LSU", "home": "Vanderbilt"},
+        {"away": "Michigan", "home": "Nebraska"},
+        {"away": "Notre Dame", "home": "Georgia Tech"}
+      ]
+    },
+    "11": {
+      "bye_teams": [],
+      "games": [
+        {"away": "Tennessee", "home": "LSU"},
+        {"away": "Nebraska", "home": "Penn St"},
+        {"away": "Michigan", "home": "Michigan St"},
+        {"away": "Louisville", "home": "Notre Dame"},
+        {"away": "Ohio", "home": "Texas"},
+        {"away": "Boise St", "home": "Hawaii"}
+      ]
+    },
+    "12": {
+      "bye_teams": ["Texas"],
+      "games": [
+        {"away": "Michigan St", "home": "Iowa"},
+        {"away": "LSU", "home": "Arkansas"},
+        {"away": "Oklahoma", "home": "Hawaii"},
+        {"away": "Virginia Tech", "home": "Notre Dame"},
+        {"away": "USC", "home": "Nebraska"}
+      ]
+    },
+    "13": {
+      "bye_teams": ["LSU", "Texas"],
+      "games": [
+        {"away": "Iowa", "home": "Nebraska"},
+        {"away": "New Mexico", "home": "Hawaii"},
+        {"away": "UConn", "home": "Michigan St"},
+        {"away": "Notre Dame", "home": "Stanford"}
+      ]
+    }
+  },
+  "teams": ["Hawaii", "LSU", "Michigan St", "Nebraska", "Notre Dame", "Texas"]
+}
+

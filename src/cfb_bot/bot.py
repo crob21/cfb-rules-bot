@@ -36,6 +36,7 @@ from .utils.charter_editor import CharterEditor
 from .utils.admin_check import AdminManager
 from .utils.version_manager import VersionManager
 from .utils.channel_manager import ChannelManager
+from .utils.schedule_manager import get_schedule_manager, ScheduleManager
 
 # Optional Google Docs integration
 try:
@@ -128,6 +129,7 @@ charter_editor = None
 admin_manager = None
 version_manager = None
 channel_manager = None
+schedule_manager = None
 
 # Simple rate limiting to prevent duplicate responses
 last_message_time = {}
@@ -146,7 +148,7 @@ async def on_ready():
     - Syncing slash commands
     - Logging connection status
     """
-    global timekeeper_manager, channel_summarizer, charter_editor, admin_manager, version_manager, channel_manager
+    global timekeeper_manager, channel_summarizer, charter_editor, admin_manager, version_manager, channel_manager, schedule_manager
 
     try:
         # Initialize version manager first to get version
@@ -187,6 +189,10 @@ async def on_ready():
         # Initialize charter editor (with AI if available)
         charter_editor = CharterEditor(ai_assistant if AI_AVAILABLE else None)
         logger.info('📝 Charter editor initialized')
+
+        # Initialize schedule manager
+        schedule_manager = get_schedule_manager()
+        logger.info(f'📅 Schedule manager initialized ({len(schedule_manager.teams)} teams)')
 
         # Load league data
         await load_league_data()
@@ -1799,16 +1805,16 @@ async def view_weeks(interaction: discord.Interaction):
         if season_info['week'] is not None:
             current_week = season_info['week']
             current_season = season_info['season']
-    
+
     # Build description with current/next week at the top
     description = ""
-    
+
     if current_week is not None and current_season is not None:
         # Current week info
         current_info = get_week_info(current_week)
         current_actions = current_info.get("actions", "")
         current_notes = current_info.get("notes", "")
-        
+
         description += f"**Season {current_season}**\n\n"
         description += f"📍 **Current Week:** {current_info['name']}\n"
         description += f"🏈 Phase: {current_info['phase']}\n"
@@ -1816,7 +1822,7 @@ async def view_weeks(interaction: discord.Interaction):
             description += f"📋 Actions: {current_actions}\n"
         if current_notes:
             description += f"⚠️ {current_notes}\n"
-        
+
         # Next week info
         if current_week >= TOTAL_WEEKS_PER_SEASON - 1:
             description += f"\n➡️ **Next Week:** Season {current_season + 1}, Week 0 - Season Kickoff\n"
@@ -1827,72 +1833,269 @@ async def view_weeks(interaction: discord.Interaction):
             next_info = get_week_info(next_week)
             next_actions = next_info.get("actions", "")
             next_notes = next_info.get("notes", "")
-            
+
             description += f"\n➡️ **Next Week:** {next_info['name']}\n"
             description += f"🏈 Phase: {next_info['phase']}\n"
             if next_actions:
                 description += f"📋 Actions: {next_actions}\n"
             if next_notes:
                 description += f"⚠️ {next_notes}\n"
-        
+
         description += "\n───────────────────────\n"
     else:
         description += "*Season/week not set. Use `/set_season_week` to set it.*\n\n"
-    
+
     description += "**Full Week Schedule:**\n"
-    
+
     # Create embed
     embed = discord.Embed(
         title="📅 CFB 26 Dynasty Week Schedule",
         description=description,
         color=0x00ff00
     )
-    
+
     # Build the week lists by phase
     regular_season = []
     post_season = []
     offseason = []
-    
+
     for week_num in sorted(CFB_DYNASTY_WEEKS.keys()):
         week_data = CFB_DYNASTY_WEEKS[week_num]
         phase = week_data["phase"]
         name = week_data["short"]  # Use short name for the list
-        
+
         # Add marker if this is the current week
         if current_week is not None and week_num == current_week:
             line = f"**► `{week_num:2d}` {name}** ◄"
         else:
             line = f"`{week_num:2d}` {name}"
-        
+
         if phase == "Regular Season":
             regular_season.append(line)
         elif phase == "Post-Season":
             post_season.append(line)
         else:
             offseason.append(line)
-    
+
     # Regular Season field
     embed.add_field(
         name="🏈 Regular Season",
         value="\n".join(regular_season),
         inline=True
     )
-    
+
     # Post-Season field
     embed.add_field(
         name="🏆 Post-Season",
         value="\n".join(post_season),
         inline=True
     )
-    
+
     # Offseason field
     embed.add_field(
         name="📝 Offseason",
         value="\n".join(offseason),
         inline=True
     )
-    
+
     embed.set_footer(text="Harry's Week Tracker 🏈 | Use /week for more details")
+    await interaction.response.send_message(embed=embed)
+
+# ==================== Schedule Commands ====================
+
+@bot.tree.command(name="schedule", description="View the schedule for a specific week")
+@discord.app_commands.describe(
+    week="Week number (0-13 for regular season, leave empty for current week)"
+)
+async def view_schedule(interaction: discord.Interaction, week: Optional[int] = None):
+    """View the schedule for a specific week"""
+    if not schedule_manager:
+        await interaction.response.send_message("❌ Schedule manager not available", ephemeral=True)
+        return
+
+    # If no week specified, use current week
+    if week is None:
+        if timekeeper_manager:
+            season_info = timekeeper_manager.get_season_week()
+            if season_info['week'] is not None and season_info['week'] <= 13:
+                week = season_info['week']
+            else:
+                await interaction.response.send_message(
+                    "❌ No week specified and current week is not in regular season. Use `/schedule week:X`",
+                    ephemeral=True
+                )
+                return
+        else:
+            await interaction.response.send_message(
+                "❌ No week specified. Use `/schedule week:X`",
+                ephemeral=True
+            )
+            return
+
+    # Validate week
+    if week < 0 or week > 13:
+        await interaction.response.send_message(
+            "❌ Week must be between 0 and 13 (regular season), ya numpty!",
+            ephemeral=True
+        )
+        return
+
+    week_data = schedule_manager.get_week_schedule(week)
+    if not week_data:
+        await interaction.response.send_message(
+            f"❌ No schedule data for Week {week}",
+            ephemeral=True
+        )
+        return
+
+    # Build embed
+    embed = discord.Embed(
+        title=f"📅 Week {week} Schedule",
+        description=f"Season {schedule_manager.season} matchups:",
+        color=0x00ff00
+    )
+
+    # Bye teams
+    bye_teams = week_data.get('bye_teams', [])
+    if bye_teams:
+        embed.add_field(
+            name="🛋️ Bye Week",
+            value=", ".join(bye_teams),
+            inline=False
+        )
+
+    # Games
+    games = week_data.get('games', [])
+    if games:
+        games_text = "\n".join([f"• {g['away']} at **{g['home']}**" for g in games])
+        embed.add_field(
+            name="🏈 Games",
+            value=games_text,
+            inline=False
+        )
+
+    embed.set_footer(text="Harry's Schedule Tracker 🏈 | Use /matchup for specific team info")
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="matchup", description="Find a team's game for a specific week")
+@discord.app_commands.describe(
+    team="Team name (e.g., Hawaii, LSU, Notre Dame)",
+    week="Week number (0-13, leave empty for current week)"
+)
+async def find_matchup(interaction: discord.Interaction, team: str, week: Optional[int] = None):
+    """Find a specific team's matchup"""
+    if not schedule_manager:
+        await interaction.response.send_message("❌ Schedule manager not available", ephemeral=True)
+        return
+
+    # If no week specified, use current week
+    if week is None:
+        if timekeeper_manager:
+            season_info = timekeeper_manager.get_season_week()
+            if season_info['week'] is not None and season_info['week'] <= 13:
+                week = season_info['week']
+            else:
+                await interaction.response.send_message(
+                    "❌ No week specified and current week is not in regular season. Use `/matchup team:X week:Y`",
+                    ephemeral=True
+                )
+                return
+        else:
+            await interaction.response.send_message(
+                "❌ No week specified. Use `/matchup team:X week:Y`",
+                ephemeral=True
+            )
+            return
+
+    # Find the team
+    found_team = schedule_manager.find_team(team)
+    if not found_team:
+        await interaction.response.send_message(
+            f"❌ Couldn't find team '{team}'. Available teams: {', '.join(schedule_manager.teams)}",
+            ephemeral=True
+        )
+        return
+
+    # Get the game
+    game = schedule_manager.get_team_game(found_team, week)
+    if not game:
+        await interaction.response.send_message(
+            f"❌ No game data for {found_team} in Week {week}",
+            ephemeral=True
+        )
+        return
+
+    if game.get('bye'):
+        embed = discord.Embed(
+            title=f"🛋️ {found_team} - Week {week}",
+            description=f"**{found_team}** has a bye week!\n\nTime to rest up and prepare for the next game.",
+            color=0x808080
+        )
+    else:
+        location_emoji = "🏠" if game['location'] == 'home' else "✈️"
+        location_text = "HOME" if game['location'] == 'home' else "AWAY"
+        
+        embed = discord.Embed(
+            title=f"🏈 {found_team} - Week {week}",
+            description=f"**{game['matchup']}**",
+            color=0x00ff00
+        )
+        embed.add_field(
+            name="Opponent",
+            value=game['opponent'],
+            inline=True
+        )
+        embed.add_field(
+            name=f"{location_emoji} Location",
+            value=location_text,
+            inline=True
+        )
+
+    embed.set_footer(text="Harry's Schedule Tracker 🏈")
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="byes", description="Show which teams have a bye this week")
+@discord.app_commands.describe(
+    week="Week number (0-13, leave empty for current week)"
+)
+async def view_byes(interaction: discord.Interaction, week: Optional[int] = None):
+    """Show teams on bye for a specific week"""
+    if not schedule_manager:
+        await interaction.response.send_message("❌ Schedule manager not available", ephemeral=True)
+        return
+
+    # If no week specified, use current week
+    if week is None:
+        if timekeeper_manager:
+            season_info = timekeeper_manager.get_season_week()
+            if season_info['week'] is not None and season_info['week'] <= 13:
+                week = season_info['week']
+            else:
+                await interaction.response.send_message(
+                    "❌ No week specified and current week is not in regular season.",
+                    ephemeral=True
+                )
+                return
+        else:
+            await interaction.response.send_message("❌ No week specified.", ephemeral=True)
+            return
+
+    bye_teams = schedule_manager.get_bye_teams(week)
+    
+    if bye_teams:
+        embed = discord.Embed(
+            title=f"🛋️ Week {week} Bye Teams",
+            description=f"These lucky sods get a week off:\n\n**{', '.join(bye_teams)}**",
+            color=0x808080
+        )
+    else:
+        embed = discord.Embed(
+            title=f"🏈 Week {week} - No Byes!",
+            description="Everyone's playing this week! No rest for the wicked!",
+            color=0x00ff00
+        )
+
+    embed.set_footer(text="Harry's Schedule Tracker 🏈")
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="set_season_week", description="Set the current season and week (Admin only)")
