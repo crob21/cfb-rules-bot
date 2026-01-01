@@ -1212,13 +1212,19 @@ Please provide a helpful, accurate answer with maximum sarcasm and wit. This is 
 @bot.event
 async def on_reaction_add(reaction, user):
     """Handle emoji reactions"""
+    logger.debug(f"🔔 Reaction event: {reaction.emoji} by {user.display_name} on msg {reaction.message.id}")
+
     # Ignore reactions from the bot itself
     if user == bot.user:
+        logger.debug("  Ignoring bot's own reaction")
         return
 
     # Only respond to reactions on Harry's messages
     if reaction.message.author != bot.user:
+        logger.debug("  Ignoring reaction on non-Harry message")
         return
+
+    logger.info(f"📝 Processing reaction: {reaction.emoji} from {user.display_name}")
 
     # Handle charter update confirmations
     if hasattr(bot, 'pending_charter_updates') and reaction.message.id in bot.pending_charter_updates:
@@ -1286,6 +1292,11 @@ async def on_reaction_add(reaction, user):
             return
 
     # Handle rule scan -> charter update requests
+    # Log what's in pending_rule_scans for debugging
+    if hasattr(bot, 'pending_rule_scans'):
+        logger.debug(f"  pending_rule_scans keys: {list(bot.pending_rule_scans.keys())}")
+        logger.debug(f"  Looking for msg_id: {reaction.message.id}")
+
     if hasattr(bot, 'pending_rule_scans') and reaction.message.id in bot.pending_rule_scans:
         pending = bot.pending_rule_scans[reaction.message.id]
         logger.info(f"📝 Rule scan reaction: {reaction.emoji} from {user.display_name} on msg {reaction.message.id}")
@@ -1300,7 +1311,7 @@ async def on_reaction_add(reaction, user):
             logger.info(f"⚠️ Rule scan expired for msg {reaction.message.id}")
             del bot.pending_rule_scans[reaction.message.id]
             return
-        
+
         logger.info(f"✅ Processing rule scan reaction: {reaction.emoji}")
 
         if str(reaction.emoji) == "📝":
@@ -1882,6 +1893,7 @@ async def scan_rules(
                 "channel_name": channel.name,
                 "expires": datetime.now().timestamp() + 600  # 10 minute timeout
             }
+            logger.info(f"📝 Stored pending rule scan: msg_id={msg.id}, user={interaction.user.id}, rules={len(passed_rules)}")
 
         logger.info(f"📜 Rule scan completed for #{channel.name} by {interaction.user}")
 
