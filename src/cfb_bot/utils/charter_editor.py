@@ -2,6 +2,7 @@
 """
 Charter Editor Module for CFB 26 League Bot
 Handles editing and updating the league charter with interactive AI updates
+Supports Discord-based persistence for charter content across deployments
 """
 
 import json
@@ -11,26 +12,146 @@ import re
 from datetime import datetime
 from typing import Dict, List, Optional
 
+import discord
+
 logger = logging.getLogger('CFB26Bot.CharterEditor')
+
+# Discord message limit is 2000 chars, so we chunk the charter
+DISCORD_CHUNK_SIZE = 1900  # Leave room for markers
+
 
 class CharterEditor:
     """Handles editing and updating the league charter"""
 
-    def __init__(self, ai_assistant=None):
+    def __init__(self, ai_assistant=None, bot=None):
         self.ai_assistant = ai_assistant
+        self.bot = bot  # Discord bot for persistence
         self.charter_file = "data/charter_content.txt"
         self.backup_dir = "data/charter_backups"
+        self._discord_charter_loaded = False  # Track if we've loaded from Discord
 
         # Create backup directory if it doesn't exist
         os.makedirs(self.backup_dir, exist_ok=True)
 
+    async def _get_bot_owner_dm(self):
+        """Get the bot owner's DM channel for storage"""
+        if not self.bot:
+            return None
+        try:
+            app_info = await self.bot.application_info()
+            if app_info.owner:
+                dm_channel = app_info.owner.dm_channel
+                if not dm_channel:
+                    dm_channel = await app_info.owner.create_dm()
+                return dm_channel
+        except Exception as e:
+            logger.error(f"❌ Could not get bot owner DM: {e}")
+        return None
+
+    async def save_to_discord(self, content: str) -> bool:
+        """Save charter content to Discord DM for persistence across deployments"""
+        if not self.bot:
+            logger.warning("⚠️ No bot reference, cannot save charter to Discord")
+            return False
+
+        try:
+            dm_channel = await self._get_bot_owner_dm()
+            if not dm_channel:
+                logger.warning("⚠️ Could not get DM channel for charter storage")
+                return False
+
+            # Delete old charter messages first
+            try:
+                async for message in dm_channel.history(limit=50):
+                    if (message.author == self.bot.user and
+                        message.content.startswith("📜CHARTER_CHUNK_")):
+                        await message.delete()
+            except Exception:
+                pass  # Ignore delete failures
+
+            # Split content into chunks (Discord 2000 char limit)
+            chunks = []
+            remaining = content
+            chunk_num = 0
+            while remaining:
+                chunk = remaining[:DISCORD_CHUNK_SIZE]
+                remaining = remaining[DISCORD_CHUNK_SIZE:]
+                chunks.append(chunk)
+                chunk_num += 1
+
+            # Send chunks with markers
+            total_chunks = len(chunks)
+            for i, chunk in enumerate(chunks):
+                marker = f"📜CHARTER_CHUNK_{i+1}of{total_chunks}📜\n"
+                await dm_channel.send(marker + chunk)
+
+            logger.info(f"💾 Charter saved to Discord ({total_chunks} chunks, {len(content)} chars)")
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ Failed to save charter to Discord: {e}")
+            return False
+
+    async def load_from_discord(self) -> Optional[str]:
+        """Load charter content from Discord DM"""
+        if not self.bot:
+            return None
+
+        try:
+            dm_channel = await self._get_bot_owner_dm()
+            if not dm_channel:
+                return None
+
+            # Find all charter chunks
+            chunks = {}
+            total_chunks = 0
+
+            async for message in dm_channel.history(limit=50):
+                if (message.author == self.bot.user and
+                    message.content.startswith("📜CHARTER_CHUNK_")):
+                    # Parse chunk marker: 📜CHARTER_CHUNK_1of5📜
+                    first_line = message.content.split('\n')[0]
+                    try:
+                        # Extract "1of5" from marker
+                        marker_content = first_line.replace("📜CHARTER_CHUNK_", "").replace("📜", "")
+                        chunk_num, total = marker_content.split("of")
+                        chunk_num = int(chunk_num)
+                        total_chunks = int(total)
+
+                        # Get content after the marker line
+                        content = '\n'.join(message.content.split('\n')[1:])
+                        chunks[chunk_num] = content
+                    except Exception:
+                        continue
+
+            if not chunks:
+                logger.info("📄 No charter found in Discord, using file")
+                return None
+
+            # Reassemble in order
+            if len(chunks) != total_chunks:
+                logger.warning(f"⚠️ Charter incomplete: {len(chunks)}/{total_chunks} chunks")
+                return None
+
+            full_content = ""
+            for i in range(1, total_chunks + 1):
+                full_content += chunks.get(i, "")
+
+            logger.info(f"✅ Charter loaded from Discord ({total_chunks} chunks, {len(full_content)} chars)")
+            self._discord_charter_loaded = True
+            return full_content
+
+        except Exception as e:
+            logger.error(f"❌ Failed to load charter from Discord: {e}")
+            return None
+
     def read_charter(self) -> Optional[str]:
-        """Read the current charter content"""
+        """Read the current charter content from file (sync version)"""
         try:
             if os.path.exists(self.charter_file):
                 with open(self.charter_file, 'r', encoding='utf-8') as f:
                     content = f.read()
-                logger.info(f"📄 Read charter: {len(content)} characters")
+                logger.info(f"📄 Read charter from file: {len(content)} characters")
                 return content
             else:
                 logger.warning("⚠️ Charter file not found")
@@ -38,6 +159,23 @@ class CharterEditor:
         except Exception as e:
             logger.error(f"❌ Error reading charter: {e}")
             return None
+
+    async def read_charter_async(self) -> Optional[str]:
+        """Read charter - prefers Discord version, falls back to file"""
+        # Try Discord first (persists across deployments)
+        discord_content = await self.load_from_discord()
+        if discord_content:
+            # Also update local file to keep in sync
+            try:
+                with open(self.charter_file, 'w', encoding='utf-8') as f:
+                    f.write(discord_content)
+                logger.info("📄 Updated local file from Discord charter")
+            except Exception:
+                pass
+            return discord_content
+
+        # Fall back to file
+        return self.read_charter()
 
     def backup_charter(self) -> bool:
         """Create a backup of the current charter"""
@@ -59,7 +197,7 @@ class CharterEditor:
             return False
 
     def write_charter(self, content: str) -> bool:
-        """Write new content to the charter"""
+        """Write new content to the charter (file only - sync version)"""
         try:
             # First, create a backup
             self.backup_charter()
@@ -68,7 +206,30 @@ class CharterEditor:
             with open(self.charter_file, 'w', encoding='utf-8') as f:
                 f.write(content)
 
-            logger.info(f"✅ Charter updated: {len(content)} characters")
+            logger.info(f"✅ Charter updated in file: {len(content)} characters")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Error writing charter: {e}")
+            return False
+
+    async def write_charter_async(self, content: str) -> bool:
+        """Write new content to charter - saves to both file AND Discord for persistence"""
+        try:
+            # First, create a backup
+            self.backup_charter()
+
+            # Write to local file
+            with open(self.charter_file, 'w', encoding='utf-8') as f:
+                f.write(content)
+            logger.info(f"✅ Charter updated in file: {len(content)} characters")
+
+            # Also save to Discord for persistence across deployments
+            discord_saved = await self.save_to_discord(content)
+            if discord_saved:
+                logger.info("✅ Charter also saved to Discord for persistence")
+            else:
+                logger.warning("⚠️ Charter saved to file but NOT to Discord")
+
             return True
         except Exception as e:
             logger.error(f"❌ Error writing charter: {e}")
@@ -653,7 +814,7 @@ Return ONLY the updated charter text, nothing else."""
             logger.error(f"❌ Error in fuzzy update: {e}")
             return None
 
-    def apply_update(
+    async def apply_update(
         self,
         new_charter: str,
         user_id: int,
@@ -662,10 +823,10 @@ Return ONLY the updated charter text, nothing else."""
         before_text: Optional[str] = None,
         after_text: Optional[str] = None
     ) -> bool:
-        """Apply an update to the charter and log it"""
+        """Apply an update to the charter and log it (saves to file AND Discord)"""
         try:
-            # Write the new charter (this also creates a backup)
-            success = self.write_charter(new_charter)
+            # Write the new charter (this also creates a backup and saves to Discord)
+            success = await self.write_charter_async(new_charter)
 
             if success:
                 # Log the change

@@ -11,10 +11,47 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.4.1"
+CURRENT_VERSION = "1.5.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.5.0": {
+        "date": "2025-12-31",
+        "title": "Discord Charter Persistence & Poll Support",
+        "emoji": "📜",
+        "features": [
+            {
+                "category": "Charter Persistence",
+                "emoji": "💾",
+                "changes": [
+                    "Charter now saves to Discord - survives deployments!",
+                    "Automatic sync on any charter update",
+                    "/sync_charter command to manually push to Discord",
+                    "Falls back to file if no Discord version exists",
+                    "Charter stored in bot owner's DM (invisible to users)"
+                ]
+            },
+            {
+                "category": "Discord Poll Support",
+                "emoji": "🗳️",
+                "changes": [
+                    "/scan_rules now detects Discord polls!",
+                    "Extracts poll questions and vote counts",
+                    "Shows winning answer for closed polls",
+                    "Analyzes both text messages and polls"
+                ]
+            },
+            {
+                "category": "Pick Commish Improvements",
+                "emoji": "👑",
+                "changes": [
+                    "Added channel selection: /pick_commish #channel",
+                    "DO NOT PICK and BIGGEST ASSHOLE are now separate",
+                    "Asshole score based on actual toxic behavior, not ranking"
+                ]
+            }
+        ]
+    },
     "1.4.1": {
         "date": "2025-12-31",
         "title": "Code Quality & Settings Persistence",

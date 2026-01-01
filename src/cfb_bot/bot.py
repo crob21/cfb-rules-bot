@@ -251,9 +251,16 @@ async def on_ready():
         channel_summarizer = ChannelSummarizer(ai_assistant if AI_AVAILABLE else None)
         logger.info('📊 Channel summarizer initialized')
 
-        # Initialize charter editor (with AI if available)
-        charter_editor = CharterEditor(ai_assistant if AI_AVAILABLE else None)
+        # Initialize charter editor (with AI if available and bot for Discord persistence)
+        charter_editor = CharterEditor(ai_assistant if AI_AVAILABLE else None, bot=bot)
         logger.info('📝 Charter editor initialized')
+
+        # Load charter from Discord (persisted across deployments)
+        discord_charter = await charter_editor.load_from_discord()
+        if discord_charter:
+            logger.info('📜 Charter loaded from Discord persistence')
+        else:
+            logger.info('📜 Using charter from file (no Discord version found)')
 
         # Initialize schedule manager
         schedule_manager = get_schedule_manager()
@@ -1223,7 +1230,7 @@ async def on_reaction_add(reaction, user):
         if str(reaction.emoji) == "✅":
             # Apply the update
             if charter_editor and pending.get("new_charter"):
-                success = charter_editor.apply_update(
+                success = await charter_editor.apply_update(
                     new_charter=pending["new_charter"],
                     user_id=pending["user_id"],
                     user_name=pending["user_name"],
@@ -1390,7 +1397,7 @@ async def on_reaction_add(reaction, user):
                     applied += 1
 
             if applied > 0:
-                success = charter_editor.apply_update(
+                success = await charter_editor.apply_update(
                     new_charter=new_charter,
                     user_id=pending["user_id"],
                     user_name=pending["user_name"],
@@ -1841,6 +1848,40 @@ async def scan_rules(
     except Exception as e:
         logger.error(f"❌ Error scanning rules: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Error scanning for rules: {str(e)}")
+
+@bot.tree.command(name="sync_charter", description="Sync charter to Discord for persistence (Admin only)")
+async def sync_charter(interaction: discord.Interaction):
+    """Manually sync the charter file to Discord for persistence across deployments"""
+    # Check if user is admin
+    if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
+        await interaction.response.send_message("❌ Only admins can sync the charter!", ephemeral=True)
+        return
+
+    if not charter_editor:
+        await interaction.response.send_message("❌ Charter editor not available", ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=True)
+
+    # Read current file and save to Discord
+    content = charter_editor.read_charter()
+    if not content:
+        await interaction.followup.send("❌ No charter file found to sync!", ephemeral=True)
+        return
+
+    success = await charter_editor.save_to_discord(content)
+
+    if success:
+        await interaction.followup.send(
+            f"✅ Charter synced to Discord!\n\n"
+            f"📄 **{len(content)}** characters saved\n"
+            f"💾 Will persist across bot restarts/deployments",
+            ephemeral=True
+        )
+        logger.info(f"📜 Charter manually synced to Discord by {interaction.user}")
+    else:
+        await interaction.followup.send("❌ Failed to sync charter to Discord", ephemeral=True)
+
 
 @bot.tree.command(name="charter_history", description="View recent charter changes")
 async def charter_history(interaction: discord.Interaction):
