@@ -49,6 +49,8 @@ def get_notification_channel():
         channel_id = GENERAL_CHANNEL_ID
     return bot.get_channel(channel_id)
 
+from .utils import \
+    timekeeper as timekeeper_module  # For updating NOTIFICATION_CHANNEL_ID
 from .utils.admin_check import AdminManager
 from .utils.channel_manager import ChannelManager
 from .utils.charter_editor import CharterEditor
@@ -59,7 +61,6 @@ from .utils.timekeeper import (CFB_DYNASTY_WEEKS, TOTAL_WEEKS_PER_SEASON,
                                TimekeeperManager, format_est_time,
                                get_week_actions, get_week_info, get_week_name,
                                get_week_notes, get_week_phase)
-from .utils import timekeeper as timekeeper_module  # For updating NOTIFICATION_CHANNEL_ID
 from .utils.version_manager import VersionManager
 
 # Optional Google Docs integration
@@ -949,7 +950,7 @@ async def on_message(message):
                             "user_name": message.author.display_name,
                             "rule_changes": passed_rules,
                             "channel_name": channel_to_scan.name,
-                            "expires": datetime.now().timestamp() + 120
+                            "expires": datetime.now().timestamp() + 600  # 10 minute timeout
                         }
 
                 except Exception as e:
@@ -1287,15 +1288,20 @@ async def on_reaction_add(reaction, user):
     # Handle rule scan -> charter update requests
     if hasattr(bot, 'pending_rule_scans') and reaction.message.id in bot.pending_rule_scans:
         pending = bot.pending_rule_scans[reaction.message.id]
+        logger.info(f"📝 Rule scan reaction: {reaction.emoji} from {user.display_name} on msg {reaction.message.id}")
 
         # Only the original requester can trigger
         if user.id != pending["user_id"]:
+            logger.info(f"⚠️ Wrong user reacted: {user.id} != {pending['user_id']}")
             return
 
         # Check if expired
         if datetime.now().timestamp() > pending["expires"]:
+            logger.info(f"⚠️ Rule scan expired for msg {reaction.message.id}")
             del bot.pending_rule_scans[reaction.message.id]
             return
+        
+        logger.info(f"✅ Processing rule scan reaction: {reaction.emoji}")
 
         if str(reaction.emoji) == "📝":
             # Generate charter updates from the found rules
@@ -1839,7 +1845,7 @@ async def scan_rules(
             # Truncate if too long (Discord field limit is 1024)
             if len(field_value) > 500:
                 field_value = field_value[:497] + "..."
-            
+
             logger.debug(f"Rule scan field: rule='{rule_text[:30]}...', context='{context[:30] if context else 'NONE'}...'")
 
             embed.add_field(
@@ -1874,7 +1880,7 @@ async def scan_rules(
                 "user_name": interaction.user.display_name,
                 "rule_changes": passed_rules,
                 "channel_name": channel.name,
-                "expires": datetime.now().timestamp() + 120  # 2 minute timeout
+                "expires": datetime.now().timestamp() + 600  # 10 minute timeout
             }
 
         logger.info(f"📜 Rule scan completed for #{channel.name} by {interaction.user}")
