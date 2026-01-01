@@ -871,39 +871,48 @@ Return ONLY the updated charter text, nothing else."""
         # Join messages for analysis
         messages_text = "\n".join(messages[:100])  # Limit to recent 100
 
+        # Log what we're sending to AI for debugging
+        logger.info(f"📝 Sending {len(messages)} messages to AI for rule analysis")
+        if messages:
+            logger.debug(f"📝 First 3 messages:\n" + "\n".join(messages[:3]))
+
         prompt = f"""You are analyzing a Discord channel called "{channel_name}" for rule changes and votes in a CFB 26 dynasty league.
 
-MESSAGES FROM THE CHANNEL (including POLLS):
+MESSAGES FROM THE CHANNEL:
 {messages_text}
 
-IMPORTANT: Messages starting with "POLL:" are Discord polls. Extract the poll question and determine if it passed based on votes.
+EXAMPLE OF A POLL MESSAGE:
+[BoozeRob] POLL: Should we change difficulty to Heisman?
+  - Yes (5 votes)
+  - No (2 votes)
+  STATUS: CLOSED (Total: 7 votes) - WINNER: Yes
 
-Find any:
-1. Rule proposals
-2. Votes on rules (passed or failed)
-3. Rule changes that were decided
-4. Policy updates
-5. POLLS - look for lines like "[User] POLL: <question>" with vote counts
+This would be extracted as:
+{{"rule": "Change game difficulty from All-American to Heisman", "status": "passed", "votes_for": 5, "votes_against": 2, "context": "Poll passed with Yes winning 5-2"}}
 
-For each rule change/poll found, extract:
-- The FULL rule/change description (what exactly is being proposed or changed?)
-- Whether it passed, failed, or is just proposed
-- Vote counts if mentioned (look for "(X votes)" patterns)
-- What the winning option was (for polls with options like Yes/No)
-- Any relevant context explaining what this means for the league
+YOUR TASK:
+Look through the messages above and find ANY of these:
+1. Polls with votes (look for "POLL:" and vote counts)
+2. Rule proposals or discussions
+3. Decisions that were made
+4. Policy changes
 
-Respond in this EXACT JSON format (no markdown, just raw JSON array):
+For EACH item found, extract it as JSON.
+
+RESPOND WITH ONLY A JSON ARRAY (no markdown, no explanation):
 [
     {{
-        "rule": "The FULL description of the rule or change - be specific! e.g. 'Change Heisman difficulty from All-American to Heisman'",
-        "status": "passed|failed|proposed|decided",
-        "votes_for": null or number,
-        "votes_against": null or number,
-        "context": "What this means: e.g. 'The winning option was Yes with 5 votes. This changes the game difficulty setting.'"
+        "rule": "Description of what was voted on or proposed",
+        "status": "passed" or "failed" or "proposed" or "decided",
+        "votes_for": number or null,
+        "votes_against": number or null,
+        "context": "Brief explanation of outcome"
     }}
 ]
 
-If no rule changes are found, respond with: []"""
+If truly nothing is found, respond with exactly: []
+
+IMPORTANT: Even if you're not 100% sure, include anything that looks like a rule vote or proposal!"""
 
         try:
             response = await self.ai_assistant.ask_openai(prompt, "Rule Change Finder", max_tokens=2000)
