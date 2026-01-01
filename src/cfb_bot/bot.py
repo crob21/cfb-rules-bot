@@ -919,9 +919,9 @@ async def on_message(message):
                         rule_text = rule.get("rule", "Unknown rule")
                         context = rule.get("context", "")
 
-                        field_value = f"**{rule_text}**"
-                        if context and context != rule_text:
-                            field_value += f"\n_{context}_"
+                        field_value = f"📝 {rule_text}"
+                        if context and context.strip() and context.lower() != rule_text.lower():
+                            field_value += f"\n> _{context}_"
 
                         if len(field_value) > 500:
                             field_value = field_value[:497] + "..."
@@ -1784,6 +1784,11 @@ async def scan_rules(
                 logger.debug(f"Could not process poll: {e}")
 
         logger.info(f"📊 Rule scan: Found {len(messages)} messages, {poll_count} polls in #{channel.name}")
+        # Log sample of formatted messages for debugging
+        if formatted_messages:
+            logger.debug(f"📝 First 3 formatted messages for AI:")
+            for fm in formatted_messages[:3]:
+                logger.debug(f"  - {fm[:100]}...")
 
         # Find rule changes
         rule_changes = await charter_editor.find_rule_changes_in_messages(
@@ -1827,13 +1832,15 @@ async def scan_rules(
             context = rule.get("context", "")
 
             # Format the field value with rule and context
-            field_value = f"**{rule_text}**"
-            if context and context != rule_text:
-                field_value += f"\n_{context}_"
+            field_value = f"📝 {rule_text}"
+            if context and context.strip() and context.lower() != rule_text.lower():
+                field_value += f"\n> _{context}_"
 
             # Truncate if too long (Discord field limit is 1024)
             if len(field_value) > 500:
                 field_value = field_value[:497] + "..."
+            
+            logger.debug(f"Rule scan field: rule='{rule_text[:30]}...', context='{context[:30] if context else 'NONE'}...'")
 
             embed.add_field(
                 name=f"{i}. {status_emoji} {status.upper()}{votes}",
@@ -1844,7 +1851,7 @@ async def scan_rules(
             if status in ["passed", "decided"]:
                 passed_rules.append(rule)
 
-        embed.set_footer(text=f"Scanned {len(messages)} messages over {hours} hours")
+        embed.set_footer(text=f"Scanned {len(messages)} messages ({poll_count} polls) over {hours} hours")
 
         if passed_rules:
             embed.add_field(

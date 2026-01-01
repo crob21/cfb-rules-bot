@@ -922,6 +922,10 @@ If no rule changes are found, respond with: []"""
             # Parse JSON
             changes = json.loads(response)
             logger.info(f"📜 Found {len(changes)} rule changes in {channel_name}")
+            # Log details for debugging
+            for i, change in enumerate(changes):
+                logger.debug(f"  Rule {i+1}: {change.get('rule', 'N/A')[:50]}...")
+                logger.debug(f"    Status: {change.get('status')}, Context: {change.get('context', 'NONE')[:50] if change.get('context') else 'NONE'}...")
             return changes
 
         except json.JSONDecodeError as e:
