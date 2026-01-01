@@ -1209,6 +1209,16 @@ Please provide a helpful, accurate answer with maximum sarcasm and wit. This is 
     # Process other bot commands
     await bot.process_commands(message)
 
+async def safe_clear_reactions(message):
+    """Safely clear reactions - doesn't fail if bot lacks Manage Messages permission"""
+    try:
+        await message.clear_reactions()
+    except discord.errors.Forbidden:
+        logger.debug("Could not clear reactions - missing Manage Messages permission")
+    except Exception as e:
+        logger.debug(f"Could not clear reactions: {e}")
+
+
 @bot.event
 async def on_reaction_add(reaction, user):
     """Handle emoji reactions"""
@@ -1264,7 +1274,7 @@ async def on_reaction_add(reaction, user):
                     )
                     embed.set_footer(text=f"Updated by {pending['user_name']} 🏈")
                     await reaction.message.edit(embed=embed)
-                    await reaction.message.clear_reactions()
+                    await safe_clear_reactions(reaction.message)
                     logger.info(f"✅ Charter updated by {pending['user_name']}: {pending['description']}")
                 else:
                     embed = discord.Embed(
@@ -1273,7 +1283,7 @@ async def on_reaction_add(reaction, user):
                         color=0xff0000
                     )
                     await reaction.message.edit(embed=embed)
-                    await reaction.message.clear_reactions()
+                    await safe_clear_reactions(reaction.message)
 
             del bot.pending_charter_updates[reaction.message.id]
             return
@@ -1286,7 +1296,7 @@ async def on_reaction_add(reaction, user):
                 color=0xff6600
             )
             await reaction.message.edit(embed=embed)
-            await reaction.message.clear_reactions()
+            await safe_clear_reactions(reaction.message)
             del bot.pending_charter_updates[reaction.message.id]
             logger.info(f"❌ Charter update cancelled by {pending['user_name']}")
             return
@@ -1316,7 +1326,7 @@ async def on_reaction_add(reaction, user):
 
         if str(reaction.emoji) == "📝":
             # Generate charter updates from the found rules
-            await reaction.message.clear_reactions()
+            await safe_clear_reactions(reaction.message)
 
             thinking_embed = discord.Embed(
                 title="🔧 Generating Charter Updates...",
@@ -1390,7 +1400,7 @@ async def on_reaction_add(reaction, user):
 
         elif str(reaction.emoji) == "✅" and pending.get("generated_updates"):
             # Apply the generated updates
-            await reaction.message.clear_reactions()
+            await safe_clear_reactions(reaction.message)
 
             updates = pending["generated_updates"]
             current_charter = charter_editor.read_charter()
@@ -1464,7 +1474,7 @@ async def on_reaction_add(reaction, user):
                 color=0xff6600
             )
             await reaction.message.edit(embed=embed)
-            await reaction.message.clear_reactions()
+            await safe_clear_reactions(reaction.message)
             del bot.pending_rule_scans[reaction.message.id]
             return
 
