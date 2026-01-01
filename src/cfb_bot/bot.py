@@ -49,6 +49,61 @@ def get_notification_channel():
         channel_id = GENERAL_CHANNEL_ID
     return bot.get_channel(channel_id)
 
+
+async def send_week_schedule(channel, week_num):
+    """Send the schedule for a given week to a channel"""
+    if week_num is None:
+        return
+
+    # Only show schedule for regular season weeks (0-13)
+    if week_num > 13:
+        logger.info(f"📅 Week {week_num} is not regular season, skipping schedule")
+        return
+
+    try:
+        schedule_mgr = get_schedule_manager()
+        if not schedule_mgr:
+            return
+
+        week_data = schedule_mgr.get_week_schedule(week_num)
+        if not week_data:
+            logger.warning(f"⚠️ No schedule data for Week {week_num}")
+            return
+
+        # Build the schedule embed
+        schedule_embed = discord.Embed(
+            title=f"📅 Week {week_num} Matchups",
+            description="Here's what's on the slate this week, ya muppets!",
+            color=0x00ff00
+        )
+
+        # Bye teams
+        bye_teams = week_data.get('bye_teams', [])
+        if bye_teams:
+            schedule_embed.add_field(
+                name="🛋️ Bye Week",
+                value=", ".join(bye_teams),
+                inline=False
+            )
+
+        # Games
+        games = week_data.get('games', [])
+        if games:
+            games_text = "\n".join([f"🏈 {g['away']} at **{g['home']}**" for g in games])
+            schedule_embed.add_field(
+                name="🎮 This Week's Games",
+                value=games_text,
+                inline=False
+            )
+
+        schedule_embed.set_footer(text="Harry's Schedule Tracker 🏈 | Get your games done!")
+        await channel.send(embed=schedule_embed)
+        logger.info(f"📅 Sent Week {week_num} schedule")
+
+    except Exception as e:
+        logger.error(f"❌ Failed to send schedule: {e}")
+
+
 from .utils import \
     timekeeper as timekeeper_module  # For updating NOTIFICATION_CHANNEL_ID
 from .utils.admin_check import AdminManager
@@ -439,6 +494,9 @@ async def on_message(message):
                     if notification_channel:
                         await notification_channel.send(content="@everyone", embed=embed)
                         logger.info(f"⏰ Timer restarted by {message.author} via @everyone + 'advanced' - announced in #{notification_channel.name}")
+
+                        # Send schedule for the new week
+                        await send_week_schedule(notification_channel, season_info.get('week') if season_info else None)
                     else:
                         await message.channel.send(content="@everyone", embed=embed)
                         logger.warning(f"⚠️ #general not found, announced in {message.channel}")
@@ -2481,6 +2539,10 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
         if notification_channel:
             await notification_channel.send(content="@everyone", embed=embed)
             logger.info(f"⏰ Advance countdown started by {interaction.user} - {hours} hours - announced in #{notification_channel.name}")
+
+            # Send schedule for the current week
+            if season_info and season_info.get('week') is not None:
+                await send_week_schedule(notification_channel, season_info['week'])
         else:
             # Fallback to current channel if #general not found
             await interaction.channel.send(content="@everyone", embed=embed)
