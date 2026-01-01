@@ -1726,10 +1726,39 @@ async def scan_rules(
             await interaction.followup.send(f"❌ No messages found in {channel.mention} in the last {hours} hours")
             return
 
-        # Format messages for analysis
+        # Format messages for analysis - include both text and polls
         formatted_messages = []
+        poll_count = 0
         for msg in messages:
-            formatted_messages.append(f"[{msg.author.display_name}]: {msg.content}")
+            # Add regular message content
+            if msg.content:
+                formatted_messages.append(f"[{msg.author.display_name}]: {msg.content}")
+
+            # Check for polls
+            if msg.poll:
+                poll_count += 1
+                poll = msg.poll
+                poll_text = f"[{msg.author.display_name}] POLL: {poll.question}"
+
+                # Add poll answers/options
+                if poll.answers:
+                    options = []
+                    for answer in poll.answers:
+                        vote_count = answer.vote_count if hasattr(answer, 'vote_count') else 0
+                        options.append(f"  - {answer.text} ({vote_count} votes)")
+                    poll_text += "\n" + "\n".join(options)
+
+                # Add poll status
+                if poll.is_finalized:
+                    poll_text += f"\n  STATUS: CLOSED (Total: {poll.total_votes} votes)"
+                    if poll.victor_answer:
+                        poll_text += f" - WINNER: {poll.victor_answer.text}"
+                else:
+                    poll_text += f"\n  STATUS: OPEN (Total: {poll.total_votes} votes so far)"
+
+                formatted_messages.append(poll_text)
+
+        logger.info(f"📊 Rule scan: Found {len(messages)} messages, {poll_count} polls in #{channel.name}")
 
         # Find rule changes
         rule_changes = await charter_editor.find_rule_changes_in_messages(
@@ -1743,7 +1772,7 @@ async def scan_rules(
                 description=f"No rule changes or votes found in the last {hours} hours.",
                 color=0xffaa00
             )
-            embed.set_footer(text=f"Scanned {len(messages)} messages")
+            embed.set_footer(text=f"Scanned {len(messages)} messages ({poll_count} polls)")
             await interaction.followup.send(embed=embed)
             return
 
