@@ -1741,29 +1741,37 @@ async def scan_rules(
             if msg.content:
                 formatted_messages.append(f"[{msg.author.display_name}]: {msg.content}")
 
-            # Check for polls
-            if msg.poll:
-                poll_count += 1
-                poll = msg.poll
-                poll_text = f"[{msg.author.display_name}] POLL: {poll.question}"
+            # Check for polls (requires discord.py 2.4+)
+            try:
+                if hasattr(msg, 'poll') and msg.poll:
+                    poll_count += 1
+                    poll = msg.poll
+                    poll_text = f"[{msg.author.display_name}] POLL: {poll.question}"
 
-                # Add poll answers/options
-                if poll.answers:
-                    options = []
-                    for answer in poll.answers:
-                        vote_count = answer.vote_count if hasattr(answer, 'vote_count') else 0
-                        options.append(f"  - {answer.text} ({vote_count} votes)")
-                    poll_text += "\n" + "\n".join(options)
+                    # Add poll answers/options
+                    if hasattr(poll, 'answers') and poll.answers:
+                        options = []
+                        for answer in poll.answers:
+                            vote_count = getattr(answer, 'vote_count', 0)
+                            answer_text = getattr(answer, 'text', str(answer))
+                            options.append(f"  - {answer_text} ({vote_count} votes)")
+                        poll_text += "\n" + "\n".join(options)
 
-                # Add poll status
-                if poll.is_finalized:
-                    poll_text += f"\n  STATUS: CLOSED (Total: {poll.total_votes} votes)"
-                    if poll.victor_answer:
-                        poll_text += f" - WINNER: {poll.victor_answer.text}"
-                else:
-                    poll_text += f"\n  STATUS: OPEN (Total: {poll.total_votes} votes so far)"
+                    # Add poll status
+                    if getattr(poll, 'is_finalized', False):
+                        total = getattr(poll, 'total_votes', 0)
+                        poll_text += f"\n  STATUS: CLOSED (Total: {total} votes)"
+                        victor = getattr(poll, 'victor_answer', None)
+                        if victor:
+                            victor_text = getattr(victor, 'text', str(victor))
+                            poll_text += f" - WINNER: {victor_text}"
+                    else:
+                        total = getattr(poll, 'total_votes', 0)
+                        poll_text += f"\n  STATUS: OPEN (Total: {total} votes so far)"
 
-                formatted_messages.append(poll_text)
+                    formatted_messages.append(poll_text)
+            except Exception as e:
+                logger.debug(f"Could not process poll: {e}")
 
         logger.info(f"📊 Rule scan: Found {len(messages)} messages, {poll_count} polls in #{channel.name}")
 
