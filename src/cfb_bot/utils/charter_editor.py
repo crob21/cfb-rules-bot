@@ -873,29 +873,33 @@ Return ONLY the updated charter text, nothing else."""
 
         prompt = f"""You are analyzing a Discord channel called "{channel_name}" for rule changes and votes in a CFB 26 dynasty league.
 
-MESSAGES FROM THE CHANNEL:
+MESSAGES FROM THE CHANNEL (including POLLS):
 {messages_text}
+
+IMPORTANT: Messages starting with "POLL:" are Discord polls. Extract the poll question and determine if it passed based on votes.
 
 Find any:
 1. Rule proposals
 2. Votes on rules (passed or failed)
 3. Rule changes that were decided
 4. Policy updates
+5. POLLS - look for lines like "[User] POLL: <question>" with vote counts
 
-For each rule change found, extract:
-- The rule/change description
+For each rule change/poll found, extract:
+- The FULL rule/change description (what exactly is being proposed or changed?)
 - Whether it passed, failed, or is just proposed
-- Vote counts if mentioned
-- Any relevant context
+- Vote counts if mentioned (look for "(X votes)" patterns)
+- What the winning option was (for polls with options like Yes/No)
+- Any relevant context explaining what this means for the league
 
 Respond in this EXACT JSON format (no markdown, just raw JSON array):
 [
     {{
-        "rule": "Description of the rule or change",
+        "rule": "The FULL description of the rule or change - be specific! e.g. 'Change Heisman difficulty from All-American to Heisman'",
         "status": "passed|failed|proposed|decided",
         "votes_for": null or number,
         "votes_against": null or number,
-        "context": "Any additional context or notes"
+        "context": "What this means: e.g. 'The winning option was Yes with 5 votes. This changes the game difficulty setting.'"
     }}
 ]
 

@@ -912,11 +912,21 @@ async def on_message(message):
                         status = rule.get("status", "unknown")
                         emoji = {"passed": "✅", "failed": "❌", "proposed": "📋", "decided": "✅"}.get(status, "❓")
 
-                        rule_text = rule.get("rule", "")[:80]
-                        if len(rule.get("rule", "")) > 80:
-                            rule_text += "..."
+                        votes = ""
+                        if rule.get("votes_for") is not None:
+                            votes = f" ({rule.get('votes_for', 0)}-{rule.get('votes_against', 0)})"
 
-                        embed.add_field(name=f"{emoji} {status.upper()}", value=rule_text, inline=False)
+                        rule_text = rule.get("rule", "Unknown rule")
+                        context = rule.get("context", "")
+
+                        field_value = f"**{rule_text}**"
+                        if context and context != rule_text:
+                            field_value += f"\n_{context}_"
+
+                        if len(field_value) > 500:
+                            field_value = field_value[:497] + "..."
+
+                        embed.add_field(name=f"{emoji} {status.upper()}{votes}", value=field_value, inline=False)
 
                         if status in ["passed", "decided"]:
                             passed_rules.append(rule)
@@ -1812,13 +1822,22 @@ async def scan_rules(
             if rule.get("votes_for") is not None:
                 votes = f" ({rule.get('votes_for', 0)}-{rule.get('votes_against', 0)})"
 
-            rule_text = rule.get("rule", "Unknown rule")[:100]
-            if len(rule.get("rule", "")) > 100:
-                rule_text += "..."
+            # Build detailed rule text
+            rule_text = rule.get("rule", "Unknown rule")
+            context = rule.get("context", "")
+
+            # Format the field value with rule and context
+            field_value = f"**{rule_text}**"
+            if context and context != rule_text:
+                field_value += f"\n_{context}_"
+
+            # Truncate if too long (Discord field limit is 1024)
+            if len(field_value) > 500:
+                field_value = field_value[:497] + "..."
 
             embed.add_field(
                 name=f"{i}. {status_emoji} {status.upper()}{votes}",
-                value=rule_text,
+                value=field_value,
                 inline=False
             )
 
