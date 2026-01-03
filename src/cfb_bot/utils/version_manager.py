@@ -11,10 +11,36 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.5.0"
+CURRENT_VERSION = "1.5.1"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.5.1": {
+        "date": "2026-01-02",
+        "title": "Schedule Display & Admin Notifications",
+        "emoji": "📅",
+        "features": [
+            {
+                "category": "Schedule Display",
+                "emoji": "🏈",
+                "changes": [
+                    "Matchups now show on /advance and @everyone advanced",
+                    "User teams are **bolded** in all schedule outputs",
+                    "AI responses format schedules as clean lists",
+                    "Bye teams included in advance announcements"
+                ]
+            },
+            {
+                "category": "Admin Notifications",
+                "emoji": "🔔",
+                "changes": [
+                    "Timer restore message shows version info",
+                    "Quick preview of latest changes on restart",
+                    "Helps admins see what changed after deploy"
+                ]
+            }
+        ]
+    },
     "1.5.0": {
         "date": "2025-12-31",
         "title": "Discord Charter Persistence & Poll Support",

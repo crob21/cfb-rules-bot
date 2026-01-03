@@ -967,6 +967,21 @@ class TimekeeperManager:
             logger.info(f"⏰ Time remaining: {hours_remaining:.1f} hours")
             logger.info(f"⏰ End time: {end_time}")
 
+            # Get version info for the restore message
+            from .version_manager import VersionManager
+            version_mgr = VersionManager()
+            version = version_mgr.get_current_version()
+            version_info = version_mgr.get_latest_version_info()
+            version_title = version_info.get('title', 'Update')
+            version_emoji = version_info.get('emoji', '📌')
+
+            # Get first 3 changes from latest version
+            changes_preview = []
+            for feature_group in version_info.get('features', [])[:2]:
+                for change in feature_group.get('changes', [])[:2]:
+                    changes_preview.append(f"• {change}")
+            changes_text = "\n".join(changes_preview[:4]) if changes_preview else "No changes listed"
+
             # Send restoration notification to admin channel instead of public
             embed = discord.Embed(
                 title="⏰ Timer Restored!",
@@ -975,6 +990,11 @@ class TimekeeperManager:
                            f"**Time Remaining:** {int(hours_remaining)}h {int((time_remaining.total_seconds() % 3600) / 60)}m\n"
                            f"**Ends At:** {end_time.strftime('%I:%M %p')}",
                 color=0x00ff00
+            )
+            embed.add_field(
+                name=f"{version_emoji} Version {version} - {version_title}",
+                value=changes_text,
+                inline=False
             )
             embed.set_footer(text="Harry's Advance Timer 🏈 | Admin notification")
 
