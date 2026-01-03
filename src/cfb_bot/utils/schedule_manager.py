@@ -215,7 +215,8 @@ class ScheduleManager:
         """
         context_lines = [
             f"League Schedule Information (Season {self.season}):",
-            f"Teams in the league: {', '.join(self.teams)}",
+            f"USER-CONTROLLED TEAMS (bold these in responses): {', '.join(self.teams)}",
+            "NOTE: When listing matchups, **bold** any team from the user-controlled list above.",
             "",
             "Schedule by week:"
         ]
