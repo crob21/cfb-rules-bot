@@ -541,19 +541,19 @@ class AdvanceTimer:
                 color=0x00ff00
             )
 
-            # Bye teams
+            # Bye teams (bold user teams)
             bye_teams = week_data.get('bye_teams', [])
             if bye_teams:
                 schedule_embed.add_field(
                     name="🛋️ Bye Week",
-                    value=", ".join(bye_teams),
+                    value=schedule_mgr.format_bye_teams(bye_teams),
                     inline=False
                 )
 
-            # Games
+            # Games (bold user teams)
             games = week_data.get('games', [])
             if games:
-                games_text = "\n".join([f"🏈 {g['away']} at **{g['home']}**" for g in games])
+                games_text = "\n".join([schedule_mgr.format_game(g) for g in games])
                 schedule_embed.add_field(
                     name="🎮 This Week's Games",
                     value=games_text,

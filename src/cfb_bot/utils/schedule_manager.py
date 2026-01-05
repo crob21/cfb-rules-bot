@@ -45,6 +45,22 @@ class ScheduleManager:
         """Reload schedule data from file"""
         return self._load_schedule()
 
+    def format_team(self, team_name: str) -> str:
+        """Format a team name, bolding user-controlled teams"""
+        if team_name in self.teams:
+            return f"**{team_name}**"
+        return team_name
+
+    def format_game(self, game: Dict, emoji: str = "🏈") -> str:
+        """Format a game matchup with user teams bolded"""
+        away = self.format_team(game['away'])
+        home = self.format_team(game['home'])
+        return f"{emoji} {away} @ {home}"
+
+    def format_bye_teams(self, bye_teams: List[str]) -> str:
+        """Format bye teams list with user teams bolded"""
+        return ", ".join([self.format_team(t) for t in bye_teams])
+
     def get_week_schedule(self, week: int) -> Optional[Dict]:
         """
         Get the schedule for a specific week.
@@ -88,7 +104,7 @@ class ScheduleManager:
                     'team': team,
                     'opponent': game['away'],
                     'location': 'home',
-                    'matchup': f"{game['away']} at {game['home']}"
+                    'matchup': f"{self.format_team(game['away'])} @ {self.format_team(game['home'])}"
                 }
             elif game['away'].lower() == team_lower:
                 return {
@@ -96,7 +112,7 @@ class ScheduleManager:
                     'team': team,
                     'opponent': game['home'],
                     'location': 'away',
-                    'matchup': f"{game['away']} at {game['home']}"
+                    'matchup': f"{self.format_team(game['away'])} @ {self.format_team(game['home'])}"
                 }
 
         return None
@@ -192,17 +208,17 @@ class ScheduleManager:
 
         lines = [f"**Week {week} Schedule:**\n"]
 
-        # Bye teams
+        # Bye teams (bold user teams)
         bye_teams = week_data.get('bye_teams', [])
         if bye_teams:
-            lines.append(f"🛋️ **Bye Week:** {', '.join(bye_teams)}\n")
+            lines.append(f"🛋️ **Bye Week:** {self.format_bye_teams(bye_teams)}\n")
 
-        # Games
+        # Games (bold user teams)
         games = week_data.get('games', [])
         if games:
             lines.append("**Games:**")
             for game in games:
-                lines.append(f"• {game['away']} at {game['home']}")
+                lines.append(self.format_game(game, "•"))
 
         return "\n".join(lines)
 

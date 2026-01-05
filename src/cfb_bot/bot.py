@@ -70,15 +70,6 @@ async def send_week_schedule(channel, week_num):
             logger.warning(f"⚠️ No schedule data for Week {week_num}")
             return
 
-        # Get user-controlled teams for bolding
-        user_teams = set(schedule_mgr.teams)
-
-        def format_team(team_name):
-            """Bold user-controlled teams"""
-            if team_name in user_teams:
-                return f"**{team_name}**"
-            return team_name
-
         # Build the schedule embed
         schedule_embed = discord.Embed(
             title=f"📅 Week {week_num} Matchups",
@@ -89,17 +80,16 @@ async def send_week_schedule(channel, week_num):
         # Bye teams (bold user teams)
         bye_teams = week_data.get('bye_teams', [])
         if bye_teams:
-            bye_text = ", ".join([format_team(t) for t in bye_teams])
             schedule_embed.add_field(
                 name="🛋️ Bye Week",
-                value=bye_text,
+                value=schedule_mgr.format_bye_teams(bye_teams),
                 inline=False
             )
 
         # Games (bold user teams)
         games = week_data.get('games', [])
         if games:
-            games_text = "\n".join([f"🏈 {format_team(g['away'])} @ {format_team(g['home'])}" for g in games])
+            games_text = "\n".join([schedule_mgr.format_game(g) for g in games])
             schedule_embed.add_field(
                 name="🎮 This Week's Games",
                 value=games_text,
@@ -2928,19 +2918,19 @@ async def view_schedule(interaction: discord.Interaction, week: Optional[int] = 
         color=0x00ff00
     )
 
-    # Bye teams
+    # Bye teams (bold user teams)
     bye_teams = week_data.get('bye_teams', [])
     if bye_teams:
         embed.add_field(
             name="🛋️ Bye Week",
-            value=", ".join(bye_teams),
+            value=schedule_manager.format_bye_teams(bye_teams),
             inline=False
         )
 
-    # Games
+    # Games (bold user teams)
     games = week_data.get('games', [])
     if games:
-        games_text = "\n".join([f"• {g['away']} at **{g['home']}**" for g in games])
+        games_text = "\n".join([schedule_manager.format_game(g, "•") for g in games])
         embed.add_field(
             name="🏈 Games",
             value=games_text,
