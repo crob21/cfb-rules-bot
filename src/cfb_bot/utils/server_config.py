@@ -103,8 +103,11 @@ class ServerConfigManager:
         self._loaded = False
 
     def set_bot(self, bot):
-        """Set the bot instance for Discord persistence"""
+        """Set the bot instance for storage persistence"""
         self._bot = bot
+        # Also set on storage backend
+        from .storage import set_storage_bot
+        set_storage_bot(bot)
 
     def get_config(self, guild_id: int) -> Dict[str, Any]:
         """Get configuration for a guild, creating default if needed"""
@@ -175,66 +178,51 @@ class ServerConfigManager:
         """Get list of commands belonging to a module"""
         return [cmd for cmd, mod in COMMAND_MODULES.items() if mod == module]
 
-    # Discord Persistence
+    # ==================== STORAGE ====================
+    
     async def save_to_discord(self):
-        """Save all configs to Discord"""
-        if not self._bot:
-            logger.warning("No bot set, cannot save to Discord")
-            return False
-
-        try:
-            app_info = await self._bot.application_info()
-            owner = app_info.owner
-            dm = await owner.create_dm()
-
-            # Find existing config message or create new
-            config_data = json.dumps(self._configs)
-
-            async for message in dm.history(limit=100):
-                if message.author == self._bot.user and message.content.startswith("SERVER_CONFIG:"):
-                    await message.edit(content=f"SERVER_CONFIG:{config_data}")
-                    logger.info("✅ Updated server configs in Discord")
-                    return True
-
-            # No existing message, create new
-            await dm.send(f"SERVER_CONFIG:{config_data}")
-            logger.info("✅ Saved server configs to Discord")
-            return True
-
-        except Exception as e:
-            logger.error(f"❌ Failed to save configs to Discord: {e}")
-            return False
+        """Save all configs to storage backend (name kept for backwards compatibility)"""
+        from .storage import get_storage
+        
+        storage = get_storage()
+        
+        # Save all configs as one blob (for Discord DM efficiency)
+        # Convert int keys to strings for JSON
+        serializable = {str(k): v for k, v in self._configs.items()}
+        
+        success = await storage.save("server_config", "all", serializable)
+        if success:
+            logger.info(f"✅ Saved configs for {len(self._configs)} servers")
+        return success
 
     async def load_from_discord(self):
-        """Load configs from Discord"""
-        if not self._bot:
-            logger.warning("No bot set, cannot load from Discord")
-            return False
-
+        """Load configs from storage backend (name kept for backwards compatibility)"""
         if self._loaded:
             return True
-
+        
+        from .storage import get_storage, set_storage_bot
+        
+        # Set bot for Discord storage
+        if self._bot:
+            set_storage_bot(self._bot)
+        
+        storage = get_storage()
+        
         try:
-            app_info = await self._bot.application_info()
-            owner = app_info.owner
-            dm = await owner.create_dm()
-
-            async for message in dm.history(limit=100):
-                if message.author == self._bot.user and message.content.startswith("SERVER_CONFIG:"):
-                    config_json = message.content[14:]  # Remove prefix
-                    loaded = json.loads(config_json)
-                    # Convert string keys back to ints
-                    self._configs = {int(k): v for k, v in loaded.items()}
-                    self._loaded = True
-                    logger.info(f"✅ Loaded configs for {len(self._configs)} servers from Discord")
-                    return True
-
-            logger.info("No existing server configs found in Discord")
+            data = await storage.load("server_config", "all")
+            if data:
+                # Convert string keys back to ints
+                self._configs = {int(k): v for k, v in data.items()}
+                logger.info(f"✅ Loaded configs for {len(self._configs)} servers")
+            else:
+                self._configs = {}
+                logger.info("📝 No existing server configs found")
+            
             self._loaded = True
             return True
-
+            
         except Exception as e:
-            logger.error(f"❌ Failed to load configs from Discord: {e}")
+            logger.error(f"❌ Failed to load configs: {e}")
             return False
 
     def get_module_description(self, module: FeatureModule) -> str:
@@ -265,11 +253,11 @@ class ServerConfigManager:
         """Check if Harry is allowed to respond in this channel"""
         config = self.get_config(guild_id)
         enabled_channels = config.get("enabled_channels", [])
-        
+
         # Empty list = Harry is DISABLED everywhere (must explicitly enable channels)
         if not enabled_channels:
             return False
-        
+
         return channel_id in enabled_channels
 
     def enable_channel(self, guild_id: int, channel_id: int) -> bool:
@@ -277,7 +265,7 @@ class ServerConfigManager:
         config = self.get_config(guild_id)
         if "enabled_channels" not in config:
             config["enabled_channels"] = []
-        
+
         if channel_id not in config["enabled_channels"]:
             config["enabled_channels"].append(channel_id)
             logger.info(f"✅ Enabled channel {channel_id} for guild {guild_id}")
@@ -288,7 +276,7 @@ class ServerConfigManager:
         config = self.get_config(guild_id)
         if "enabled_channels" not in config:
             config["enabled_channels"] = []
-        
+
         if channel_id in config["enabled_channels"]:
             config["enabled_channels"].remove(channel_id)
             logger.info(f"❌ Disabled channel {channel_id} for guild {guild_id}")
@@ -304,11 +292,11 @@ class ServerConfigManager:
         config = self.get_config(guild_id)
         if "channel_overrides" not in config:
             config["channel_overrides"] = {}
-        
+
         channel_key = str(channel_id)  # JSON keys are strings
         if channel_key not in config["channel_overrides"]:
             config["channel_overrides"][channel_key] = {}
-        
+
         config["channel_overrides"][channel_key][key] = value
         logger.info(f"⚙️ Set channel {channel_id} override: {key}={value}")
 
@@ -317,7 +305,7 @@ class ServerConfigManager:
         config = self.get_config(guild_id)
         overrides = config.get("channel_overrides", {})
         channel_key = str(channel_id)
-        
+
         if channel_key in overrides:
             return overrides[channel_key].get(key)
         return None
@@ -327,16 +315,16 @@ class ServerConfigManager:
         # First check if channel is enabled at all
         if not self.is_channel_enabled(guild_id, channel_id):
             return False
-        
+
         # Core is always enabled
         if module == FeatureModule.CORE:
             return True
-        
+
         # Check channel-specific override
         override = self.get_channel_override(guild_id, channel_id, f"module_{module.value}")
         if override is not None:
             return override
-        
+
         # Fall back to server-level setting
         return self.is_module_enabled(guild_id, module)
 

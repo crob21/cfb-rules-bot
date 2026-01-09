@@ -11,10 +11,37 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.12.0"
+CURRENT_VERSION = "1.13.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.13.0": {
+        "date": "2026-01-09",
+        "title": "Storage Abstraction Layer",
+        "emoji": "📦",
+        "features": [
+            {
+                "category": "Scalable Storage",
+                "emoji": "📦",
+                "changes": [
+                    "NEW: Storage abstraction layer for future-proofing",
+                    "Easy swap between Discord DM and database storage",
+                    "STORAGE_BACKEND env var to switch backends",
+                    "Placeholder for Supabase (PostgreSQL) integration"
+                ]
+            },
+            {
+                "category": "How to Scale Later",
+                "emoji": "🚀",
+                "changes": [
+                    "1. Create Supabase project (free tier works!)",
+                    "2. Set SUPABASE_URL and SUPABASE_KEY env vars",
+                    "3. Set STORAGE_BACKEND=supabase",
+                    "4. Deploy - configs auto-migrate!"
+                ]
+            }
+        ]
+    },
     "1.12.0": {
         "date": "2026-01-09",
         "title": "Per-Channel Controls",

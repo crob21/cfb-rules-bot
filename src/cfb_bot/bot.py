@@ -5079,7 +5079,7 @@ async def channel_command(
 ):
     """
     Manage which channels Harry can respond in.
-    
+
     By default, Harry is DISABLED everywhere. You must explicitly enable
     channels for him to respond in using /channel enable.
     """
@@ -5117,7 +5117,7 @@ async def channel_command(
         # Current channel status
         current_status = "✅ Enabled" if channel_enabled else "❌ Disabled"
         auto_status = "✅ On" if auto_responses else "❌ Off"
-        
+
         embed.add_field(
             name=f"#{target_channel.name}",
             value=f"**Status:** {current_status}\n**Auto-Responses:** {auto_status}",
@@ -5171,13 +5171,13 @@ async def channel_command(
             description=f"Harry can now respond in **#{target_channel.name}**!",
             color=0x00ff00
         )
-        
+
         embed.add_field(
             name="📋 Enabled Channels",
             value=f"Harry is now active in **{len(enabled_channels)}** channel(s).",
             inline=False
         )
-        
+
         embed.set_footer(text="Harry's Channel Config 🏈")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -5186,13 +5186,13 @@ async def channel_command(
         await server_config.save_to_discord()
 
         enabled_channels = server_config.get_enabled_channels(guild_id)
-        
+
         embed = discord.Embed(
             title="❌ Channel Disabled",
             description=f"Harry will no longer respond in **#{target_channel.name}**.",
             color=0xff6600
         )
-        
+
         if enabled_channels:
             embed.add_field(
                 name="📋 Remaining Channels",
@@ -5205,7 +5205,7 @@ async def channel_command(
                 value="No channels enabled - Harry is now disabled everywhere.",
                 inline=False
             )
-        
+
         embed.set_footer(text="Harry's Channel Config 🏈")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -5240,7 +5240,7 @@ async def channel_command(
             description=f"Auto-responses in **#{target_channel.name}**: {status}",
             color=0x00ff00 if new_value else 0xff6600
         )
-        
+
         if new_value:
             embed.add_field(
                 name="What This Means",
@@ -5253,7 +5253,7 @@ async def channel_command(
                 value="Harry won't auto-respond to keywords. He'll only respond when @mentioned or asked directly.",
                 inline=False
             )
-        
+
         embed.set_footer(text="Harry's Channel Config 🏈")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
