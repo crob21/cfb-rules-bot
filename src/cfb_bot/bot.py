@@ -605,12 +605,12 @@ async def on_message(message):
     greetings = ['hi', 'hello', 'hey']
     is_greeting = bot_mentioned and any(greeting in message.content.lower() for greeting in greetings)
 
-    # Check for rivalry/fun responses (gated by rivalry_mode setting)
+    # Check for auto jump-in responses (gated by auto_responses setting)
     guild_id = message.guild.id if message.guild else 0
-    rivalry_enabled = server_config.is_rivalry_mode(guild_id)
+    auto_responses = server_config.auto_responses_enabled(guild_id)
 
-    # Rivalry responses - only if rivalry_mode is enabled
-    rivalry_keywords = {
+    # Team banter responses - only if auto_responses is enabled
+    team_keywords = {
         'oregon': 'Fuck Oregon! 🦆💩',
         'ducks': 'Ducks are assholes! 🦆💩',
         'oregon ducks': 'Fuck Oregon! 🦆💩',
@@ -633,7 +633,7 @@ async def on_message(message):
         'buckeyes': 'Ohio sucks! 🌰',
         'michigan': 'Go Blue! 💙',
         'wolverines': 'Go Blue! 💙',
-    } if rivalry_enabled else {}
+    } if auto_responses else {}
 
     # Info responses - always available (not gated)
     info_keywords = {
@@ -644,24 +644,24 @@ async def on_message(message):
     }
 
     # Combine both keyword dicts
-    all_keywords = {**rivalry_keywords, **info_keywords}
+    all_keywords = {**team_keywords, **info_keywords}
 
-    rivalry_response = None
+    auto_response = None
     for keyword, response in all_keywords.items():
         if keyword in message.content.lower():
-            rivalry_response = response
+            auto_response = response
             break
 
-    # Don't trigger rivalry response if it's a clear question (especially with "harry" mentioned)
-    if rivalry_response and (is_question or (bot_mentioned and len(message.content.split()) > 2)):
-        rivalry_response = None
-        logger.info(f"🔍 Rivalry response overridden: question detected or harry mentioned with context")
+    # Don't trigger auto response if it's a clear question (especially with "harry" mentioned)
+    if auto_response and (is_question or (bot_mentioned and len(message.content.split()) > 2)):
+        auto_response = None
+        logger.info(f"🔍 Auto response overridden: question detected or harry mentioned with context")
 
-    logger.info(f"🔍 Response triggers: is_greeting={is_greeting}, rivalry_response={rivalry_response is not None}")
+    logger.info(f"🔍 Response triggers: is_greeting={is_greeting}, auto_response={auto_response is not None}")
 
-    # PRIORITY 1: Handle rivalry responses immediately (no AI processing needed)
-    if rivalry_response:
-        logger.info(f"🏆 Rivalry response triggered: {rivalry_response[:50]}...")
+    # PRIORITY 1: Handle auto responses immediately (no AI processing needed)
+    if auto_response:
+        logger.info(f"🏆 Auto response triggered: {auto_response[:50]}...")
         logger.info(f"✅ Bot will respond to message: '{message.content}' (Server: {guild_name})")
 
         # Don't respond to slash commands
@@ -676,7 +676,7 @@ async def on_message(message):
             title="🏈 Harry's Response",
             color=0x1e90ff
         )
-        embed.description = rivalry_response
+        embed.description = auto_response
         embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
 
         # Send the response immediately
@@ -1123,9 +1123,9 @@ async def on_message(message):
                                     color=0x1e90ff
                                 )
 
-                                # Check if it's an Oregon player and add snark (if rivalry mode is on)
+                                # Check if it's an Oregon player and add snark (Harry always hates Oregon)
                                 player_team = player_info.get('player', {}).get('team', '').lower()
-                                if server_config.is_rivalry_mode(guild_id) and 'oregon' in player_team and 'oregon state' not in player_team:
+                                if 'oregon' in player_team and 'oregon state' not in player_team:
                                     embed.set_footer(text="Harry's Player Lookup 🏈 | Though why you'd care about a Duck is beyond me...")
                                 else:
                                     embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")
@@ -1830,9 +1830,9 @@ async def on_reaction_add(reaction, user):
         await reaction.message.channel.send(embed=embed)
 
     elif reaction.emoji == '🦆':
-        # Duck emoji - Oregon rivalry (only if rivalry mode is on)
+        # Duck emoji - Oregon rivalry (only if auto_responses is on)
         reaction_guild_id = reaction.message.guild.id if reaction.message.guild else 0
-        if server_config.is_rivalry_mode(reaction_guild_id):
+        if server_config.auto_responses_enabled(reaction_guild_id):
             embed = discord.Embed(
                 title="🦆 Oregon Sucks!",
                 description="Oregon sucks! 🦆💩\n\nBut CFB 26 rules are awesome! Ask me about them!",
@@ -2579,10 +2579,9 @@ async def lookup_player(
                 color=0x1e90ff
             )
 
-            # Check if it's an Oregon player and add snark (if rivalry mode is on)
+            # Check if it's an Oregon player and add snark (Harry always hates Oregon)
             player_team = player_info.get('player', {}).get('team', '').lower()
-            cmd_guild_id = interaction.guild.id if interaction.guild else 0
-            if server_config.is_rivalry_mode(cmd_guild_id) and 'oregon' in player_team and 'oregon state' not in player_team:
+            if 'oregon' in player_team and 'oregon state' not in player_team:
                 embed.set_footer(text="Harry's Player Lookup 🏈 | Though why you'd care about a Duck is beyond me...")
             else:
                 embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")

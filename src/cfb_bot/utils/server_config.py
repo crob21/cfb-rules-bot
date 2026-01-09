@@ -33,20 +33,13 @@ DEFAULT_CONFIG = {
     "settings": {
         "timer_channel_id": None,
         "admin_channel_id": None,
-        "rivalry_mode": True,   # Enable sassy rivalry responses (Oregon hate, etc.)
-        "cockney_mode": True,   # Enable cockney personality
+        "auto_responses": True,   # Enable automatic jump-in responses (team banter, "Fuck Oregon!", etc.)
     }
 }
 
 
-# Personality prompts based on settings
-PERSONALITY_FULL = """You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You speak with cockney slang (mate, ya muppet, bloody hell, etc.). You have a deep, unhinged hatred of the Oregon Ducks."""
-
-PERSONALITY_COCKNEY_ONLY = """You are Harry, a friendly CFB 26 league assistant. You are witty and helpful. You speak with cockney slang (mate, ya muppet, bloody hell, etc.). Be helpful and informative."""
-
-PERSONALITY_RIVALRY_ONLY = """You are Harry, a friendly but sarcastic CFB 26 league assistant. You have strong opinions about college football rivalries and a deep hatred of the Oregon Ducks. Be helpful but snarky."""
-
-PERSONALITY_NEUTRAL = """You are Harry, a friendly and helpful CFB 26 league assistant. Be informative, accurate, and conversational."""
+# Harry's core personality - ALWAYS cockney asshole Duck-hater
+HARRY_PERSONALITY = """You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You speak with cockney slang (mate, ya muppet, bloody hell, etc.). You have a deep, unhinged hatred of the Oregon Ducks."""
 
 # Commands and their required modules
 COMMAND_MODULES = {
@@ -247,27 +240,13 @@ class ServerConfigManager:
         }
         return descriptions.get(module, str(module))
 
-    def is_rivalry_mode(self, guild_id: int) -> bool:
-        """Check if rivalry mode is enabled for a guild"""
-        return self.get_setting(guild_id, "rivalry_mode", True)
-
-    def is_cockney_mode(self, guild_id: int) -> bool:
-        """Check if cockney mode is enabled for a guild"""
-        return self.get_setting(guild_id, "cockney_mode", True)
+    def auto_responses_enabled(self, guild_id: int) -> bool:
+        """Check if automatic jump-in responses are enabled (team banter, etc.)"""
+        return self.get_setting(guild_id, "auto_responses", True)
 
     def get_personality_prompt(self, guild_id: int) -> str:
-        """Get the appropriate personality prompt based on guild settings"""
-        rivalry = self.is_rivalry_mode(guild_id)
-        cockney = self.is_cockney_mode(guild_id)
-
-        if rivalry and cockney:
-            return PERSONALITY_FULL
-        elif cockney and not rivalry:
-            return PERSONALITY_COCKNEY_ONLY
-        elif rivalry and not cockney:
-            return PERSONALITY_RIVALRY_ONLY
-        else:
-            return PERSONALITY_NEUTRAL
+        """Get Harry's personality prompt - ALWAYS the full cockney asshole Duck-hater"""
+        return HARRY_PERSONALITY
 
 
 # Singleton instance

@@ -17,26 +17,26 @@ CURRENT_VERSION = "1.11.0"
 CHANGELOG: Dict[str, Dict] = {
     "1.11.0": {
         "date": "2026-01-09",
-        "title": "Personality Settings",
-        "emoji": "🎭",
+        "title": "Auto Response Toggle",
+        "emoji": "💬",
         "features": [
             {
-                "category": "Dashboard Personality Controls",
-                "emoji": "🎭",
+                "category": "Auto Responses Toggle",
+                "emoji": "💬",
                 "changes": [
-                    "NEW: Toggle Rivalry Mode - Turn off Oregon hate and team banter",
-                    "NEW: Toggle Cockney Mode - Switch between cockney and neutral personality",
-                    "Per-server personality customization",
-                    "Oregon player snark now respects rivalry setting"
+                    "NEW: Toggle automatic jump-in responses (team banter)",
+                    "Harry's cockney personality and Oregon hate are ALWAYS ON",
+                    "Only controls 'Fuck Oregon!' style auto-responses",
+                    "Oregon player lookup snark always shows (part of personality)"
                 ]
             },
             {
-                "category": "Configurable AI Responses",
-                "emoji": "🤖",
+                "category": "Simplified Settings",
+                "emoji": "⚙️",
                 "changes": [
-                    "AI prompts now use server-specific personality settings",
-                    "Four personality modes: Full, Cockney-only, Rivalry-only, Neutral",
-                    "Team responses gated behind rivalry_mode setting"
+                    "Removed separate cockney/rivalry toggles",
+                    "Single 'Auto Responses' toggle in dashboard",
+                    "Harry is always a cockney asshole Duck-hater 🦆"
                 ]
             }
         ]

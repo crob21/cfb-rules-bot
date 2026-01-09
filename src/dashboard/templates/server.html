@@ -66,38 +66,29 @@
     </div>
 </div>
 
-<!-- Personality Settings -->
+<!-- Auto Responses -->
 <div class="card">
-    <h3 class="card-title">🎭 Personality Settings</h3>
+    <h3 class="card-title">💬 Auto Responses</h3>
     <p style="color: var(--text-secondary); margin-bottom: 1rem;">
-        Customize Harry's personality for this server
+        Control Harry's automatic jump-in responses
     </p>
     
     <div class="toggle-row">
         <div class="toggle-info">
-            <h4>🦆 Rivalry Mode</h4>
-            <p>Enable sassy rivalry responses (Oregon hate, team banter, etc.)</p>
+            <h4>🏈 Team Banter</h4>
+            <p>Harry jumps in with responses like "Fuck Oregon!" when team names are mentioned</p>
         </div>
         <label class="toggle">
-            <input type="checkbox" id="setting-rivalry_mode" 
-                   {% if config.settings.rivalry_mode is not defined or config.settings.rivalry_mode %}checked{% endif %}
-                   onchange="updateSetting('rivalry_mode', this.checked)">
+            <input type="checkbox" id="setting-auto_responses" 
+                   {% if config.settings.auto_responses is not defined or config.settings.auto_responses %}checked{% endif %}
+                   onchange="updateSetting('auto_responses', this.checked)">
             <span class="toggle-slider"></span>
         </label>
     </div>
     
-    <div class="toggle-row">
-        <div class="toggle-info">
-            <h4>🇬🇧 Cockney Mode</h4>
-            <p>Harry speaks with cockney slang and attitude (mate, ya muppet, etc.)</p>
-        </div>
-        <label class="toggle">
-            <input type="checkbox" id="setting-cockney_mode" 
-                   {% if config.settings.cockney_mode is not defined or config.settings.cockney_mode %}checked{% endif %}
-                   onchange="updateSetting('cockney_mode', this.checked)">
-            <span class="toggle-slider"></span>
-        </label>
-    </div>
+    <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 1rem;">
+        💡 Harry's cockney personality and Oregon hatred are always on - this just controls automatic responses.
+    </p>
 </div>
 
 <!-- Bot Admins -->
