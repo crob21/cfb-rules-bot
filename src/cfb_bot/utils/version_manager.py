@@ -11,10 +11,89 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.6.1"
+CURRENT_VERSION = "1.7.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.7.0": {
+        "date": "2026-01-08",
+        "title": "Full CFB Data Suite",
+        "emoji": "🏈",
+        "features": [
+            {
+                "category": "Team Rankings",
+                "emoji": "📊",
+                "changes": [
+                    "NEW: /rankings - Get AP, Coaches, CFP rankings",
+                    "Check specific team: '@Harry where is Ohio State ranked?'",
+                    "Top 25 poll display for all major polls"
+                ]
+            },
+            {
+                "category": "Matchup History",
+                "emoji": "🏈",
+                "changes": [
+                    "NEW: /matchup - All-time records between rivals",
+                    "'@Harry Alabama vs Auburn history'",
+                    "Shows win/loss record and last 5 games"
+                ]
+            },
+            {
+                "category": "Team Schedules",
+                "emoji": "📅",
+                "changes": [
+                    "NEW: /cfb_schedule - Full season schedule & results",
+                    "'@Harry when does Nebraska play next?'",
+                    "Shows W/L, scores, home/away for completed games"
+                ]
+            },
+            {
+                "category": "NFL Draft",
+                "emoji": "🏈",
+                "changes": [
+                    "NEW: /draft_picks - NFL draft picks by college",
+                    "'@Harry who got drafted from Georgia?'",
+                    "Shows round, pick, position, and NFL team"
+                ]
+            },
+            {
+                "category": "Transfer Portal",
+                "emoji": "🔄",
+                "changes": [
+                    "NEW: /transfers - Portal activity by team",
+                    "'@Harry USC transfers'",
+                    "Shows incoming AND outgoing transfers with ratings"
+                ]
+            },
+            {
+                "category": "Betting Lines",
+                "emoji": "💰",
+                "changes": [
+                    "NEW: /betting - Game spreads and O/U",
+                    "'@Harry who's favored in Bama vs Georgia?'",
+                    "Shows spread and over/under for games"
+                ]
+            },
+            {
+                "category": "Advanced Ratings",
+                "emoji": "📈",
+                "changes": [
+                    "NEW: /team_ratings - SP+, SRS, Elo ratings",
+                    "'@Harry how good is Texas?'",
+                    "Shows offensive/defensive rankings, SRS, Elo"
+                ]
+            },
+            {
+                "category": "Natural Language",
+                "emoji": "💬",
+                "changes": [
+                    "All features work with natural @Harry questions!",
+                    "Auto-detects query type (player, rankings, matchup, etc.)",
+                    "Same cockney personality throughout"
+                ]
+            }
+        ]
+    },
     "1.6.1": {
         "date": "2026-01-08",
         "title": "Enhanced Player Lookup with Official API",

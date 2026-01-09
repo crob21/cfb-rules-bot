@@ -903,74 +903,158 @@ async def on_message(message):
                 await message.channel.send(embed=embed)
                 return
 
-            # Check if this is a player lookup request
-            player_lookup_patterns = [
-                r'(?:what do you know about|tell me about|who is|show me|find|lookup|look up|info on|stats for|stats on)\s+(.+?)(?:\s+from\s+|\s+at\s+|\s+on\s+)?(\w+)?$',
-                r'player\s+(?:info|stats|lookup)\s+(?:for\s+)?(.+?)(?:\s+from\s+|\s+at\s+)?(\w+)?$',
-            ]
-
-            is_player_query = False
+            # Check if this is a CFB data query (player, rankings, matchup, etc.)
             if bot_mentioned and player_lookup.is_available:
                 message_lower = message.content.lower()
+                
+                # First check if it's a CFB data query using our comprehensive parser
+                cfb_query = player_lookup.parse_cfb_query(message.content)
+                query_type = cfb_query.get('type')
+                
+                if query_type:
+                    logger.info(f"🏈 CFB query detected - type: {query_type}, data: {cfb_query}")
+                    thinking_msg = await message.channel.send(f"🔍 Looking that up, hang on...")
+                    
+                    try:
+                        if query_type == 'rankings':
+                            team = cfb_query.get('team')
+                            if team:
+                                result = await player_lookup.get_team_ranking(team)
+                                response = player_lookup.format_team_ranking(result)
+                                title = f"📊 {team} Rankings"
+                            else:
+                                result = await player_lookup.get_rankings()
+                                response = player_lookup.format_rankings(result)
+                                title = "📊 College Football Rankings"
+                            await thinking_msg.delete()
+                            embed = discord.Embed(title=title, description=response, color=0x1e90ff)
+                            embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                            await message.channel.send(embed=embed)
+                            return
+                        
+                        elif query_type == 'matchup':
+                            team1 = cfb_query.get('team1')
+                            team2 = cfb_query.get('team2')
+                            result = await player_lookup.get_matchup_history(team1, team2)
+                            response = player_lookup.format_matchup(result)
+                            await thinking_msg.delete()
+                            embed = discord.Embed(title=f"🏈 {team1} vs {team2}", description=response, color=0x1e90ff)
+                            embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                            await message.channel.send(embed=embed)
+                            return
+                        
+                        elif query_type == 'schedule':
+                            team = cfb_query.get('team')
+                            result = await player_lookup.get_team_schedule(team)
+                            response = player_lookup.format_schedule(result, team)
+                            await thinking_msg.delete()
+                            embed = discord.Embed(title=f"📅 {team} Schedule", description=response, color=0x1e90ff)
+                            embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                            await message.channel.send(embed=embed)
+                            return
+                        
+                        elif query_type == 'draft':
+                            team = cfb_query.get('team')
+                            result = await player_lookup.get_draft_picks(team)
+                            response = player_lookup.format_draft_picks(result, team)
+                            await thinking_msg.delete()
+                            embed = discord.Embed(title=f"🏈 NFL Draft Picks", description=response, color=0x1e90ff)
+                            embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                            await message.channel.send(embed=embed)
+                            return
+                        
+                        elif query_type == 'transfers':
+                            team = cfb_query.get('team')
+                            result = await player_lookup.get_team_transfers(team)
+                            response = player_lookup.format_transfers(result, team)
+                            await thinking_msg.delete()
+                            embed = discord.Embed(title=f"🔄 {team} Transfers", description=response, color=0x1e90ff)
+                            embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                            await message.channel.send(embed=embed)
+                            return
+                        
+                        elif query_type == 'betting':
+                            team1 = cfb_query.get('team1')
+                            team2 = cfb_query.get('team2')
+                            result = await player_lookup.get_betting_lines(team=team1)
+                            response = player_lookup.format_betting_lines(result)
+                            await thinking_msg.delete()
+                            embed = discord.Embed(title=f"💰 Betting Lines", description=response, color=0x1e90ff)
+                            embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                            await message.channel.send(embed=embed)
+                            return
+                        
+                        elif query_type == 'ratings':
+                            team = cfb_query.get('team')
+                            result = await player_lookup.get_team_ratings(team)
+                            response = player_lookup.format_ratings(result)
+                            await thinking_msg.delete()
+                            embed = discord.Embed(title=f"📈 {team} Ratings", description=response, color=0x1e90ff)
+                            embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                            await message.channel.send(embed=embed)
+                            return
+                        
+                    except Exception as e:
+                        logger.error(f"❌ Error in CFB query: {e}", exc_info=True)
+                        await thinking_msg.edit(content=f"❌ Error looking that up: {str(e)}")
+                        return
+                
+                # Fall back to player lookup if no other query type matched
                 player_keywords = ['from', 'player', 'stats', 'what do you know', 'tell me about', 'who is', 'info on', 'lookup']
                 # Check for player-related queries (but not league rule queries)
-                if any(kw in message_lower for kw in player_keywords) and not any(term in message_lower for term in ['rule', 'charter', 'policy', 'advance', 'schedule']):
+                if any(kw in message_lower for kw in player_keywords) and not any(term in message_lower for term in ['rule', 'charter', 'policy', 'advance']):
                     # Use the player_lookup parser
                     parsed = player_lookup.parse_player_query(message.content)
                     if parsed.get('name') and len(parsed['name']) > 2:
-                        is_player_query = True
+                        logger.info(f"🏈 Player lookup request from {message.author}: {message.content}")
 
-            if is_player_query and bot_mentioned:
-                logger.info(f"🏈 Player lookup request from {message.author}: {message.content}")
+                        thinking_msg = await message.channel.send("🔍 Looking up that player, hang on...")
 
-                thinking_msg = await message.channel.send("🔍 Looking up that player, hang on...")
+                        try:
+                            name = parsed.get('name')
+                            team = parsed.get('team')
 
-                try:
-                    parsed = player_lookup.parse_player_query(message.content)
-                    name = parsed.get('name')
-                    team = parsed.get('team')
+                            logger.info(f"🔍 Searching for player: {name}" + (f" from {team}" if team else ""))
 
-                    logger.info(f"🔍 Searching for player: {name}" + (f" from {team}" if team else ""))
+                            player_info = await player_lookup.get_full_player_info(name, team)
 
-                    player_info = await player_lookup.get_full_player_info(name, team)
+                            await thinking_msg.delete()
 
-                    await thinking_msg.delete()
+                            if player_info:
+                                response = player_lookup.format_player_response(player_info)
+                                embed = discord.Embed(
+                                    title="🏈 Player Info",
+                                    description=response,
+                                    color=0x1e90ff
+                                )
 
-                    if player_info:
-                        response = player_lookup.format_player_response(player_info)
-                        embed = discord.Embed(
-                            title="🏈 Player Info",
-                            description=response,
-                            color=0x1e90ff
-                        )
+                                # Check if it's an Oregon player and add snark
+                                player_team = player_info.get('player', {}).get('team', '').lower()
+                                if 'oregon' in player_team and 'oregon state' not in player_team:
+                                    embed.set_footer(text="Harry's Player Lookup 🏈 | Though why you'd care about a Duck is beyond me...")
+                                else:
+                                    embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")
 
-                        # Check if it's an Oregon player and add snark
-                        player_team = player_info.get('player', {}).get('team', '').lower()
-                        if 'oregon' in player_team and 'oregon state' not in player_team:
-                            embed.set_footer(text="Harry's Player Lookup 🏈 | Though why you'd care about a Duck is beyond me...")
-                        else:
-                            embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")
+                                await message.channel.send(embed=embed)
+                            else:
+                                embed = discord.Embed(
+                                    title="❓ Player Not Found",
+                                    description=f"Couldn't find a player matching **{name}**" + (f" from **{team}**" if team else "") + ".",
+                                    color=0xff6600
+                                )
+                                embed.add_field(
+                                    name="💡 Tips",
+                                    value="• Check the spelling\n• Use full name (First Last)\n• FCS/smaller schools may have limited data\n• Try without the team name",
+                                    inline=False
+                                )
+                                embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")
+                                await message.channel.send(embed=embed)
+                            return
 
-                        await message.channel.send(embed=embed)
-                    else:
-                        embed = discord.Embed(
-                            title="❓ Player Not Found",
-                            description=f"Couldn't find a player matching **{name}**" + (f" from **{team}**" if team else "") + ".",
-                            color=0xff6600
-                        )
-                        embed.add_field(
-                            name="💡 Tips",
-                            value="• Check the spelling\n• Use full name (First Last)\n• FCS/smaller schools may have limited data\n• Try without the team name",
-                            inline=False
-                        )
-                        embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")
-                        await message.channel.send(embed=embed)
-                    return
-
-                except Exception as e:
-                    logger.error(f"❌ Error in player lookup: {e}", exc_info=True)
-                    await thinking_msg.edit(content=f"❌ Error looking up player: {str(e)}")
-                    return
+                        except Exception as e:
+                            logger.error(f"❌ Error in player lookup: {e}", exc_info=True)
+                            await thinking_msg.edit(content=f"❌ Error looking up player: {str(e)}")
+                            return
 
             # Check if this is a rule scan request (e.g., "scan #channel for rules")
             rule_scan_patterns = [
@@ -2412,6 +2496,282 @@ async def lookup_player(
     except Exception as e:
         logger.error(f"❌ Error in /player command: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Error looking up player: {str(e)}", ephemeral=True)
+
+
+@bot.tree.command(name="rankings", description="Get college football rankings (AP, Coaches, CFP)")
+async def get_rankings(
+    interaction: discord.Interaction,
+    team: str = None,
+    year: int = 2025
+):
+    """
+    Get CFB rankings - optionally filter by team
+    
+    Args:
+        team: Optional team to check ranking for
+        year: Year to check (default: 2025)
+    """
+    if not player_lookup.is_available:
+        await interaction.response.send_message(
+            "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer()
+    
+    try:
+        if team:
+            result = await player_lookup.get_team_ranking(team, year)
+            response = player_lookup.format_team_ranking(result)
+            title = f"📊 {team} Rankings ({year})"
+        else:
+            result = await player_lookup.get_rankings(year)
+            response = player_lookup.format_rankings(result)
+            title = f"📊 College Football Rankings ({year})"
+        
+        embed = discord.Embed(title=title, description=response, color=0x1e90ff)
+        embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+        await interaction.followup.send(embed=embed)
+        
+    except Exception as e:
+        logger.error(f"❌ Error in /rankings: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
+
+
+@bot.tree.command(name="matchup", description="Get historical matchup data between two teams")
+async def get_matchup(
+    interaction: discord.Interaction,
+    team1: str,
+    team2: str
+):
+    """
+    Get all-time matchup history between two teams
+    
+    Args:
+        team1: First team (e.g., "Alabama")
+        team2: Second team (e.g., "Auburn")
+    """
+    if not player_lookup.is_available:
+        await interaction.response.send_message(
+            "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer()
+    
+    try:
+        result = await player_lookup.get_matchup_history(team1, team2)
+        response = player_lookup.format_matchup(result)
+        
+        embed = discord.Embed(
+            title=f"🏈 {team1} vs {team2}",
+            description=response,
+            color=0x1e90ff
+        )
+        embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+        await interaction.followup.send(embed=embed)
+        
+    except Exception as e:
+        logger.error(f"❌ Error in /matchup: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
+
+
+@bot.tree.command(name="cfb_schedule", description="Get a team's schedule and results")
+async def get_cfb_schedule(
+    interaction: discord.Interaction,
+    team: str,
+    year: int = 2025
+):
+    """
+    Get a team's full schedule for a season
+    
+    Args:
+        team: Team name (e.g., "Nebraska")
+        year: Season year (default: 2025)
+    """
+    if not player_lookup.is_available:
+        await interaction.response.send_message(
+            "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer()
+    
+    try:
+        result = await player_lookup.get_team_schedule(team, year)
+        response = player_lookup.format_schedule(result, team)
+        
+        embed = discord.Embed(
+            title=f"📅 {team} Schedule ({year})",
+            description=response,
+            color=0x1e90ff
+        )
+        embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+        await interaction.followup.send(embed=embed)
+        
+    except Exception as e:
+        logger.error(f"❌ Error in /cfb_schedule: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
+
+
+@bot.tree.command(name="draft_picks", description="Get NFL draft picks from a college")
+async def get_draft_picks(
+    interaction: discord.Interaction,
+    team: str = None,
+    year: int = 2025
+):
+    """
+    Get NFL draft picks, optionally filtered by college
+    
+    Args:
+        team: Optional college team to filter by
+        year: Draft year (default: 2025)
+    """
+    if not player_lookup.is_available:
+        await interaction.response.send_message(
+            "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer()
+    
+    try:
+        result = await player_lookup.get_draft_picks(team, year)
+        response = player_lookup.format_draft_picks(result, team)
+        
+        title = f"🏈 {year} NFL Draft Picks" + (f" from {team}" if team else "")
+        embed = discord.Embed(title=title, description=response, color=0x1e90ff)
+        embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+        await interaction.followup.send(embed=embed)
+        
+    except Exception as e:
+        logger.error(f"❌ Error in /draft_picks: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
+
+
+@bot.tree.command(name="transfers", description="Get transfer portal activity for a team")
+async def get_transfers(
+    interaction: discord.Interaction,
+    team: str,
+    year: int = 2025
+):
+    """
+    Get transfer portal incoming and outgoing for a team
+    
+    Args:
+        team: Team name (e.g., "USC")
+        year: Year to check (default: 2025)
+    """
+    if not player_lookup.is_available:
+        await interaction.response.send_message(
+            "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer()
+    
+    try:
+        result = await player_lookup.get_team_transfers(team, year)
+        response = player_lookup.format_transfers(result, team)
+        
+        embed = discord.Embed(
+            title=f"🔄 {team} Transfer Portal ({year})",
+            description=response,
+            color=0x1e90ff
+        )
+        embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+        await interaction.followup.send(embed=embed)
+        
+    except Exception as e:
+        logger.error(f"❌ Error in /transfers: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
+
+
+@bot.tree.command(name="betting", description="Get betting lines for games")
+async def get_betting(
+    interaction: discord.Interaction,
+    team: str = None,
+    year: int = 2025,
+    week: int = None
+):
+    """
+    Get betting lines for games
+    
+    Args:
+        team: Optional team to filter by
+        year: Season year (default: 2025)
+        week: Optional week number
+    """
+    if not player_lookup.is_available:
+        await interaction.response.send_message(
+            "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer()
+    
+    try:
+        result = await player_lookup.get_betting_lines(team, year, week)
+        response = player_lookup.format_betting_lines(result)
+        
+        title = "💰 Betting Lines"
+        if team:
+            title += f" - {team}"
+        if week:
+            title += f" (Week {week})"
+            
+        embed = discord.Embed(title=title, description=response, color=0x1e90ff)
+        embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+        await interaction.followup.send(embed=embed)
+        
+    except Exception as e:
+        logger.error(f"❌ Error in /betting: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
+
+
+@bot.tree.command(name="team_ratings", description="Get advanced ratings (SP+, SRS, Elo) for a team")
+async def get_team_ratings(
+    interaction: discord.Interaction,
+    team: str,
+    year: int = 2025
+):
+    """
+    Get advanced analytics ratings for a team
+    
+    Args:
+        team: Team name (e.g., "Ohio State")
+        year: Season year (default: 2025)
+    """
+    if not player_lookup.is_available:
+        await interaction.response.send_message(
+            "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer()
+    
+    try:
+        result = await player_lookup.get_team_ratings(team, year)
+        response = player_lookup.format_ratings(result)
+        
+        embed = discord.Embed(
+            title=f"📈 {team} Advanced Ratings ({year})",
+            description=response,
+            color=0x1e90ff
+        )
+        embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+        await interaction.followup.send(embed=embed)
+        
+    except Exception as e:
+        logger.error(f"❌ Error in /team_ratings: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
 
 
 @bot.tree.command(name="harry", description="Ask Harry (the bot) about league rules and policies")

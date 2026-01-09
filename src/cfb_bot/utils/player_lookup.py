@@ -21,23 +21,43 @@ except ImportError:
     logger.warning("⚠️ cfbd library not installed - player lookup disabled")
 
 
-class PlayerLookup:
-    """Handles player data lookups from CollegeFootballData.com API using official library"""
+class CFBDataLookup:
+    """
+    Comprehensive CFB data lookups from CollegeFootballData.com API.
+    
+    Features:
+    - Player search and stats
+    - Team rosters and info
+    - Rankings (AP, Coaches, CFP)
+    - Matchup history
+    - Game schedules and results
+    - NFL Draft picks
+    - Transfer portal
+    - Betting lines
+    - Advanced stats (SP+, SRS, Elo)
+    """
 
     def __init__(self):
         self.api_key = os.getenv('CFB_DATA_API_KEY')
         self._api_client = None
+        
+        # API instances
         self._players_api = None
         self._stats_api = None
         self._recruiting_api = None
         self._teams_api = None
+        self._games_api = None
+        self._rankings_api = None
+        self._betting_api = None
+        self._ratings_api = None
+        self._draft_api = None
 
         if not CFBD_AVAILABLE:
-            logger.warning("⚠️ cfbd library not available - player lookup disabled")
+            logger.warning("⚠️ cfbd library not available - CFB data disabled")
             return
 
         if not self.api_key:
-            logger.warning("⚠️ CFB_DATA_API_KEY not found - player lookup disabled")
+            logger.warning("⚠️ CFB_DATA_API_KEY not found - CFB data disabled")
             return
 
         # Configure the API client
@@ -46,11 +66,19 @@ class PlayerLookup:
                 access_token=self.api_key
             )
             self._api_client = cfbd.ApiClient(configuration)
+            
+            # Initialize all API instances
             self._players_api = cfbd.PlayersApi(self._api_client)
             self._stats_api = cfbd.StatsApi(self._api_client)
             self._recruiting_api = cfbd.RecruitingApi(self._api_client)
             self._teams_api = cfbd.TeamsApi(self._api_client)
-            logger.info("✅ CFBD API configured successfully")
+            self._games_api = cfbd.GamesApi(self._api_client)
+            self._rankings_api = cfbd.RankingsApi(self._api_client)
+            self._betting_api = cfbd.BettingApi(self._api_client)
+            self._ratings_api = cfbd.RatingsApi(self._api_client)
+            self._draft_api = cfbd.DraftApi(self._api_client)
+            
+            logger.info("✅ CFBD API configured successfully with all endpoints")
         except Exception as e:
             logger.error(f"❌ Failed to configure CFBD API: {e}")
             self._api_client = None
@@ -691,6 +719,619 @@ class PlayerLookup:
 
         return "\n".join(response_parts)
 
+    # ==================== TEAM FEATURES ====================
+
+    async def get_team_info(self, team: str) -> Optional[Dict[str, Any]]:
+        """Get basic team information"""
+        if not self.is_available:
+            return None
+
+        try:
+            results = await asyncio.to_thread(
+                self._teams_api.get_teams,
+                conference=None
+            )
+            
+            if results:
+                team_lower = team.lower()
+                for t in results:
+                    if (team_lower in getattr(t, 'school', '').lower() or 
+                        team_lower in getattr(t, 'mascot', '').lower()):
+                        return {
+                            'school': getattr(t, 'school', None),
+                            'mascot': getattr(t, 'mascot', None),
+                            'abbreviation': getattr(t, 'abbreviation', None),
+                            'conference': getattr(t, 'conference', None),
+                            'division': getattr(t, 'division', None),
+                            'color': getattr(t, 'color', None),
+                            'alt_color': getattr(t, 'alt_color', None),
+                            'logos': getattr(t, 'logos', []),
+                        }
+            return None
+        except Exception as e:
+            logger.error(f"Error getting team info: {e}")
+            return None
+
+    async def get_rankings(self, year: int = 2025, week: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Get team rankings (AP, Coaches, CFP)
+        
+        Returns list of polls with their rankings
+        """
+        if not self.is_available:
+            return []
+
+        try:
+            logger.info(f"🔍 Fetching rankings for {year}" + (f" week {week}" if week else ""))
+            
+            kwargs = {'year': year}
+            if week:
+                kwargs['week'] = week
+            
+            results = await asyncio.to_thread(
+                self._rankings_api.get_rankings,
+                **kwargs
+            )
+            
+            if results:
+                rankings = []
+                for poll_week in results:
+                    week_num = getattr(poll_week, 'week', None)
+                    for poll in getattr(poll_week, 'polls', []):
+                        poll_name = getattr(poll, 'poll', 'Unknown')
+                        poll_ranks = []
+                        for rank in getattr(poll, 'ranks', []):
+                            poll_ranks.append({
+                                'rank': getattr(rank, 'rank', None),
+                                'school': getattr(rank, 'school', None),
+                                'conference': getattr(rank, 'conference', None),
+                                'firstPlaceVotes': getattr(rank, 'first_place_votes', None),
+                                'points': getattr(rank, 'points', None),
+                            })
+                        rankings.append({
+                            'week': week_num,
+                            'poll': poll_name,
+                            'ranks': poll_ranks
+                        })
+                logger.info(f"✅ Found {len(rankings)} poll(s)")
+                return rankings
+            return []
+        except ApiException as e:
+            logger.error(f"❌ Rankings API error: {e.status}")
+            return []
+        except Exception as e:
+            logger.error(f"Error fetching rankings: {e}")
+            return []
+
+    async def get_team_ranking(self, team: str, year: int = 2025) -> Optional[Dict[str, Any]]:
+        """Get a specific team's ranking across all polls"""
+        rankings = await self.get_rankings(year)
+        
+        if not rankings:
+            return None
+        
+        team_lower = team.lower()
+        team_rankings = {}
+        
+        for poll in rankings:
+            poll_name = poll.get('poll', 'Unknown')
+            for rank in poll.get('ranks', []):
+                if team_lower in rank.get('school', '').lower():
+                    team_rankings[poll_name] = {
+                        'rank': rank.get('rank'),
+                        'points': rank.get('points'),
+                        'firstPlaceVotes': rank.get('firstPlaceVotes'),
+                    }
+                    break
+        
+        if team_rankings:
+            return {
+                'team': team,
+                'year': year,
+                'rankings': team_rankings
+            }
+        return None
+
+    async def get_matchup_history(self, team1: str, team2: str) -> Optional[Dict[str, Any]]:
+        """Get historical matchup data between two teams"""
+        if not self.is_available:
+            return None
+
+        try:
+            logger.info(f"🔍 Fetching matchup history: {team1} vs {team2}")
+            
+            result = await asyncio.to_thread(
+                self._teams_api.get_matchup,
+                team1=team1,
+                team2=team2
+            )
+            
+            if result:
+                games = []
+                for game in getattr(result, 'games', []):
+                    games.append({
+                        'date': getattr(game, 'date', None),
+                        'season': getattr(game, 'season', None),
+                        'week': getattr(game, 'week', None),
+                        'homeTeam': getattr(game, 'home_team', None),
+                        'homeScore': getattr(game, 'home_score', None),
+                        'awayTeam': getattr(game, 'away_team', None),
+                        'awayScore': getattr(game, 'away_score', None),
+                        'winner': getattr(game, 'winner', None),
+                    })
+                
+                return {
+                    'team1': getattr(result, 'team1', team1),
+                    'team2': getattr(result, 'team2', team2),
+                    'team1Wins': getattr(result, 'team1_wins', 0),
+                    'team2Wins': getattr(result, 'team2_wins', 0),
+                    'ties': getattr(result, 'ties', 0),
+                    'games': games[-10:],  # Last 10 games
+                }
+            return None
+        except ApiException as e:
+            logger.error(f"❌ Matchup API error: {e.status}")
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching matchup: {e}")
+            return None
+
+    async def get_team_schedule(self, team: str, year: int = 2025) -> List[Dict[str, Any]]:
+        """Get a team's schedule/results for a season"""
+        if not self.is_available:
+            return []
+
+        try:
+            logger.info(f"🔍 Fetching schedule for {team} ({year})")
+            
+            results = await asyncio.to_thread(
+                self._games_api.get_games,
+                year=year,
+                team=team
+            )
+            
+            if results:
+                games = []
+                for game in results:
+                    games.append({
+                        'week': getattr(game, 'week', None),
+                        'date': getattr(game, 'start_date', None),
+                        'homeTeam': getattr(game, 'home_team', None),
+                        'homeScore': getattr(game, 'home_points', None),
+                        'awayTeam': getattr(game, 'away_team', None),
+                        'awayScore': getattr(game, 'away_points', None),
+                        'venue': getattr(game, 'venue', None),
+                        'completed': getattr(game, 'completed', False),
+                    })
+                logger.info(f"✅ Found {len(games)} games")
+                return games
+            return []
+        except ApiException as e:
+            logger.error(f"❌ Schedule API error: {e.status}")
+            return []
+        except Exception as e:
+            logger.error(f"Error fetching schedule: {e}")
+            return []
+
+    async def get_draft_picks(self, team: Optional[str] = None, year: int = 2025) -> List[Dict[str, Any]]:
+        """Get NFL draft picks, optionally filtered by college team"""
+        if not self.is_available:
+            return []
+
+        try:
+            logger.info(f"🔍 Fetching draft picks" + (f" from {team}" if team else "") + f" ({year})")
+            
+            kwargs = {'year': year}
+            if team:
+                kwargs['college'] = team
+            
+            results = await asyncio.to_thread(
+                self._draft_api.get_draft_picks,
+                **kwargs
+            )
+            
+            if results:
+                picks = []
+                for pick in results:
+                    picks.append({
+                        'round': getattr(pick, 'round', None),
+                        'pick': getattr(pick, 'pick', None),
+                        'overall': getattr(pick, 'overall', None),
+                        'nflTeam': getattr(pick, 'nfl_team', None),
+                        'name': getattr(pick, 'name', None),
+                        'position': getattr(pick, 'position', None),
+                        'college': getattr(pick, 'college_team', None),
+                    })
+                logger.info(f"✅ Found {len(picks)} draft picks")
+                return picks
+            return []
+        except ApiException as e:
+            logger.error(f"❌ Draft API error: {e.status}")
+            return []
+        except Exception as e:
+            logger.error(f"Error fetching draft picks: {e}")
+            return []
+
+    async def get_team_transfers(self, team: str, year: int = 2025) -> Dict[str, List[Dict[str, Any]]]:
+        """Get transfer portal activity for a team (incoming and outgoing)"""
+        if not self.is_available:
+            return {'incoming': [], 'outgoing': []}
+
+        try:
+            logger.info(f"🔍 Fetching transfers for {team} ({year})")
+            
+            results = await asyncio.to_thread(
+                self._players_api.get_transfer_portal,
+                year=year
+            )
+            
+            incoming = []
+            outgoing = []
+            team_lower = team.lower()
+            
+            if results:
+                for t in results:
+                    transfer = {
+                        'name': f"{getattr(t, 'first_name', '')} {getattr(t, 'last_name', '')}".strip(),
+                        'position': getattr(t, 'position', None),
+                        'origin': getattr(t, 'origin', None),
+                        'destination': getattr(t, 'destination', None),
+                        'stars': getattr(t, 'stars', None),
+                        'rating': getattr(t, 'rating', None),
+                        'eligibility': getattr(t, 'eligibility', None),
+                    }
+                    
+                    origin = (getattr(t, 'origin', '') or '').lower()
+                    dest = (getattr(t, 'destination', '') or '').lower()
+                    
+                    if team_lower in origin:
+                        outgoing.append(transfer)
+                    if team_lower in dest:
+                        incoming.append(transfer)
+            
+            logger.info(f"✅ Found {len(incoming)} incoming, {len(outgoing)} outgoing transfers")
+            return {'incoming': incoming, 'outgoing': outgoing}
+        except ApiException as e:
+            logger.error(f"❌ Transfer API error: {e.status}")
+            return {'incoming': [], 'outgoing': []}
+        except Exception as e:
+            logger.error(f"Error fetching transfers: {e}")
+            return {'incoming': [], 'outgoing': []}
+
+    async def get_betting_lines(self, team: Optional[str] = None, year: int = 2025, week: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Get betting lines for games"""
+        if not self.is_available:
+            return []
+
+        try:
+            logger.info(f"🔍 Fetching betting lines" + (f" for {team}" if team else "") + f" ({year})")
+            
+            kwargs = {'year': year}
+            if team:
+                kwargs['team'] = team
+            if week:
+                kwargs['week'] = week
+            
+            results = await asyncio.to_thread(
+                self._betting_api.get_lines,
+                **kwargs
+            )
+            
+            if results:
+                lines = []
+                for game in results:
+                    game_lines = []
+                    for line in getattr(game, 'lines', []):
+                        game_lines.append({
+                            'provider': getattr(line, 'provider', None),
+                            'spread': getattr(line, 'spread', None),
+                            'overUnder': getattr(line, 'over_under', None),
+                            'homeML': getattr(line, 'home_moneyline', None),
+                            'awayML': getattr(line, 'away_moneyline', None),
+                        })
+                    
+                    lines.append({
+                        'homeTeam': getattr(game, 'home_team', None),
+                        'homeScore': getattr(game, 'home_score', None),
+                        'awayTeam': getattr(game, 'away_team', None),
+                        'awayScore': getattr(game, 'away_score', None),
+                        'week': getattr(game, 'week', None),
+                        'lines': game_lines,
+                    })
+                logger.info(f"✅ Found {len(lines)} games with lines")
+                return lines
+            return []
+        except ApiException as e:
+            logger.error(f"❌ Betting API error: {e.status}")
+            return []
+        except Exception as e:
+            logger.error(f"Error fetching betting lines: {e}")
+            return []
+
+    async def get_team_ratings(self, team: str, year: int = 2025) -> Optional[Dict[str, Any]]:
+        """Get advanced ratings for a team (SP+, SRS, Elo, FPI)"""
+        if not self.is_available:
+            return None
+
+        ratings = {}
+        
+        # SP+ Ratings
+        try:
+            sp_results = await asyncio.to_thread(
+                self._ratings_api.get_sp,
+                year=year,
+                team=team
+            )
+            if sp_results:
+                for r in sp_results:
+                    ratings['sp'] = {
+                        'rating': getattr(r, 'rating', None),
+                        'ranking': getattr(r, 'ranking', None),
+                        'offense': {
+                            'rating': getattr(getattr(r, 'offense', None), 'rating', None) if hasattr(r, 'offense') else None,
+                            'ranking': getattr(getattr(r, 'offense', None), 'ranking', None) if hasattr(r, 'offense') else None,
+                        },
+                        'defense': {
+                            'rating': getattr(getattr(r, 'defense', None), 'rating', None) if hasattr(r, 'defense') else None,
+                            'ranking': getattr(getattr(r, 'defense', None), 'ranking', None) if hasattr(r, 'defense') else None,
+                        },
+                    }
+                    break
+        except Exception as e:
+            logger.warning(f"Could not fetch SP+ ratings: {e}")
+        
+        # SRS Ratings
+        try:
+            srs_results = await asyncio.to_thread(
+                self._ratings_api.get_srs,
+                year=year,
+                team=team
+            )
+            if srs_results:
+                for r in srs_results:
+                    ratings['srs'] = {
+                        'rating': getattr(r, 'rating', None),
+                        'ranking': getattr(r, 'ranking', None),
+                    }
+                    break
+        except Exception as e:
+            logger.warning(f"Could not fetch SRS ratings: {e}")
+        
+        # Elo Ratings
+        try:
+            elo_results = await asyncio.to_thread(
+                self._ratings_api.get_elo,
+                year=year,
+                team=team
+            )
+            if elo_results:
+                for r in elo_results:
+                    ratings['elo'] = {
+                        'rating': getattr(r, 'elo', None),
+                    }
+                    break
+        except Exception as e:
+            logger.warning(f"Could not fetch Elo ratings: {e}")
+        
+        if ratings:
+            logger.info(f"✅ Found ratings for {team}: {list(ratings.keys())}")
+            return {
+                'team': team,
+                'year': year,
+                'ratings': ratings
+            }
+        return None
+
+    # ==================== FORMATTERS ====================
+
+    def format_rankings(self, rankings: List[Dict], poll_filter: Optional[str] = None) -> str:
+        """Format rankings for Discord"""
+        if not rankings:
+            return "No rankings available"
+        
+        response_parts = []
+        
+        for poll in rankings:
+            poll_name = poll.get('poll', 'Unknown')
+            if poll_filter and poll_filter.lower() not in poll_name.lower():
+                continue
+            
+            response_parts.append(f"**{poll_name}**")
+            for rank in poll.get('ranks', [])[:25]:  # Top 25
+                r = rank.get('rank', '?')
+                school = rank.get('school', 'Unknown')
+                response_parts.append(f"{r}. {school}")
+            response_parts.append("")
+        
+        return "\n".join(response_parts) if response_parts else "No matching polls found"
+
+    def format_team_ranking(self, team_ranking: Dict) -> str:
+        """Format a team's ranking across polls"""
+        if not team_ranking:
+            return "Team not ranked"
+        
+        team = team_ranking.get('team', 'Unknown')
+        year = team_ranking.get('year', 2025)
+        rankings = team_ranking.get('rankings', {})
+        
+        if not rankings:
+            return f"**{team}** is not ranked in any major poll ({year})"
+        
+        parts = [f"📊 **{team}** Rankings ({year})"]
+        for poll, data in rankings.items():
+            rank = data.get('rank', '?')
+            parts.append(f"• **{poll}:** #{rank}")
+        
+        return "\n".join(parts)
+
+    def format_matchup(self, matchup: Dict) -> str:
+        """Format matchup history for Discord"""
+        if not matchup:
+            return "No matchup data found"
+        
+        t1 = matchup.get('team1', 'Team 1')
+        t2 = matchup.get('team2', 'Team 2')
+        t1_wins = matchup.get('team1Wins', 0)
+        t2_wins = matchup.get('team2Wins', 0)
+        ties = matchup.get('ties', 0)
+        
+        parts = [
+            f"🏈 **{t1} vs {t2}**",
+            f"**All-Time Record:** {t1} leads {t1_wins}-{t2_wins}" + (f"-{ties}" if ties else ""),
+            "",
+            "**Recent Games:**"
+        ]
+        
+        for game in matchup.get('games', [])[-5:]:  # Last 5
+            season = game.get('season', '?')
+            home = game.get('homeTeam', '?')
+            away = game.get('awayTeam', '?')
+            home_score = game.get('homeScore', '?')
+            away_score = game.get('awayScore', '?')
+            winner = game.get('winner', '')
+            
+            parts.append(f"• {season}: {away} {away_score} @ {home} {home_score}")
+        
+        return "\n".join(parts)
+
+    def format_schedule(self, games: List[Dict], team: str) -> str:
+        """Format team schedule for Discord"""
+        if not games:
+            return f"No schedule found for {team}"
+        
+        parts = [f"📅 **{team} Schedule**", ""]
+        
+        for game in games:
+            week = game.get('week', '?')
+            home = game.get('homeTeam', '?')
+            away = game.get('awayTeam', '?')
+            home_score = game.get('homeScore')
+            away_score = game.get('awayScore')
+            completed = game.get('completed', False)
+            
+            # Determine opponent and location
+            is_home = team.lower() in home.lower()
+            opponent = away if is_home else home
+            location = "vs" if is_home else "@"
+            
+            if completed and home_score is not None:
+                team_score = home_score if is_home else away_score
+                opp_score = away_score if is_home else home_score
+                result = "W" if (is_home and home_score > away_score) or (not is_home and away_score > home_score) else "L"
+                parts.append(f"Wk {week}: {result} {location} {opponent} ({team_score}-{opp_score})")
+            else:
+                parts.append(f"Wk {week}: {location} {opponent}")
+        
+        return "\n".join(parts)
+
+    def format_draft_picks(self, picks: List[Dict], team: Optional[str] = None) -> str:
+        """Format draft picks for Discord"""
+        if not picks:
+            return f"No draft picks found" + (f" from {team}" if team else "")
+        
+        parts = [f"🏈 **NFL Draft Picks**" + (f" from {team}" if team else ""), ""]
+        
+        for pick in picks[:15]:  # Limit to 15
+            rd = pick.get('round', '?')
+            overall = pick.get('overall', '?')
+            name = pick.get('name', 'Unknown')
+            pos = pick.get('position', '?')
+            nfl_team = pick.get('nflTeam', '?')
+            college = pick.get('college', '')
+            
+            college_str = f" ({college})" if college and not team else ""
+            parts.append(f"Rd {rd} (#{overall}): **{name}** {pos} → {nfl_team}{college_str}")
+        
+        return "\n".join(parts)
+
+    def format_transfers(self, transfers: Dict, team: str) -> str:
+        """Format transfer portal activity for Discord"""
+        incoming = transfers.get('incoming', [])
+        outgoing = transfers.get('outgoing', [])
+        
+        if not incoming and not outgoing:
+            return f"No transfer portal activity found for {team}"
+        
+        parts = [f"🔄 **{team} Transfer Portal**", ""]
+        
+        if incoming:
+            parts.append(f"**Incoming ({len(incoming)}):**")
+            for t in incoming[:10]:
+                name = t.get('name', 'Unknown')
+                pos = t.get('position', '?')
+                origin = t.get('origin', '?')
+                stars = "⭐" * (t.get('stars') or 0)
+                parts.append(f"• {name} ({pos}) from {origin} {stars}")
+            parts.append("")
+        
+        if outgoing:
+            parts.append(f"**Outgoing ({len(outgoing)}):**")
+            for t in outgoing[:10]:
+                name = t.get('name', 'Unknown')
+                pos = t.get('position', '?')
+                dest = t.get('destination') or 'TBD'
+                parts.append(f"• {name} ({pos}) → {dest}")
+        
+        return "\n".join(parts)
+
+    def format_betting_lines(self, lines: List[Dict]) -> str:
+        """Format betting lines for Discord"""
+        if not lines:
+            return "No betting lines available"
+        
+        parts = ["💰 **Betting Lines**", ""]
+        
+        for game in lines[:10]:
+            home = game.get('homeTeam', '?')
+            away = game.get('awayTeam', '?')
+            week = game.get('week', '?')
+            
+            # Get first available line
+            game_lines = game.get('lines', [])
+            if game_lines:
+                line = game_lines[0]
+                spread = line.get('spread')
+                ou = line.get('overUnder')
+                
+                spread_str = f"{spread:+.1f}" if spread else "N/A"
+                ou_str = f"O/U {ou}" if ou else ""
+                
+                parts.append(f"**{away} @ {home}** (Wk {week})")
+                parts.append(f"   Spread: {home} {spread_str} | {ou_str}")
+        
+        return "\n".join(parts)
+
+    def format_ratings(self, ratings: Dict) -> str:
+        """Format advanced ratings for Discord"""
+        if not ratings:
+            return "No ratings available"
+        
+        team = ratings.get('team', 'Unknown')
+        year = ratings.get('year', 2025)
+        data = ratings.get('ratings', {})
+        
+        parts = [f"📈 **{team}** Advanced Ratings ({year})", ""]
+        
+        if 'sp' in data:
+            sp = data['sp']
+            parts.append(f"**SP+ Rating:** {sp.get('rating', 'N/A'):.1f}" if sp.get('rating') else "**SP+:** N/A")
+            if sp.get('ranking'):
+                parts.append(f"   Overall Rank: #{sp.get('ranking')}")
+            if sp.get('offense', {}).get('ranking'):
+                parts.append(f"   Offense Rank: #{sp['offense']['ranking']}")
+            if sp.get('defense', {}).get('ranking'):
+                parts.append(f"   Defense Rank: #{sp['defense']['ranking']}")
+        
+        if 'srs' in data:
+            srs = data['srs']
+            parts.append(f"**SRS:** {srs.get('rating', 'N/A'):.2f}" if srs.get('rating') else "")
+        
+        if 'elo' in data:
+            elo = data['elo']
+            parts.append(f"**Elo:** {elo.get('rating', 'N/A'):.0f}" if elo.get('rating') else "")
+        
+        return "\n".join(parts)
+
     def parse_player_query(self, query: str) -> Dict[str, Optional[str]]:
         """
         Parse a natural language query for player info
@@ -807,6 +1448,139 @@ class PlayerLookup:
             'team': team
         }
 
+    def parse_cfb_query(self, query: str) -> Dict[str, Any]:
+        """
+        Parse a natural language CFB query and determine the type.
+        
+        Returns dict with:
+        - 'type': One of 'player', 'rankings', 'matchup', 'schedule', 'draft', 
+                  'transfers', 'betting', 'ratings', or None if not recognized
+        - Additional fields depending on type
+        """
+        query = query.strip()
+        
+        # Remove Discord mentions
+        query = re.sub(r'<@!?\d+>', '', query)
+        query = query.strip()
+        
+        # Remove bot name prefix
+        query_lower = query.lower()
+        for prefix in ['harry', 'harry,', '@harry']:
+            if query_lower.startswith(prefix):
+                query = query[len(prefix):].strip()
+                query_lower = query.lower()
+        
+        # Rankings patterns
+        ranking_patterns = [
+            r'(?:where is|what.s|how is)\s+(.+?)\s+ranked',
+            r'(.+?)\s+(?:ranking|rankings?|rank)',
+            r'(?:top 25|ap poll|coaches poll|cfp rankings?)',
+            r'show me (?:the )?(?:top 25|rankings)',
+        ]
+        
+        for pattern in ranking_patterns:
+            match = re.search(pattern, query_lower)
+            if match:
+                team = match.group(1).strip() if match.lastindex else None
+                return {'type': 'rankings', 'team': team.title() if team else None}
+        
+        # Matchup patterns (team vs team)
+        matchup_patterns = [
+            r'(.+?)\s+(?:vs?\.?|versus|against)\s+(.+?)(?:\s+(?:all.?time|history|record))?$',
+            r'(?:history|record|matchup)\s+(?:between|of|for)\s+(.+?)\s+(?:vs?\.?|and|versus)\s+(.+?)$',
+        ]
+        
+        for pattern in matchup_patterns:
+            match = re.search(pattern, query_lower)
+            if match:
+                return {
+                    'type': 'matchup',
+                    'team1': match.group(1).strip().title(),
+                    'team2': match.group(2).strip().rstrip('?.!').title()
+                }
+        
+        # Schedule patterns
+        schedule_patterns = [
+            r'(?:when does|when do|when is)\s+(.+?)\s+play',
+            r'(.+?)\s+(?:schedule|games?|next game)',
+            r'(?:show me|get|what.s)\s+(.+?)\s+schedule',
+        ]
+        
+        for pattern in schedule_patterns:
+            match = re.search(pattern, query_lower)
+            if match:
+                return {'type': 'schedule', 'team': match.group(1).strip().title()}
+        
+        # Draft patterns
+        draft_patterns = [
+            r'(?:who got|who was|who.s been)\s+drafted\s+from\s+(.+)',
+            r'(?:nfl )?draft\s+picks?\s+(?:from\s+)?(.+)',
+            r'(.+?)\s+(?:nfl )?draft\s+picks?',
+        ]
+        
+        for pattern in draft_patterns:
+            match = re.search(pattern, query_lower)
+            if match:
+                return {'type': 'draft', 'team': match.group(1).strip().title()}
+        
+        # Transfer portal patterns
+        transfer_patterns = [
+            r'(?:who.s in|show me)\s+(?:the )?transfer portal\s+from\s+(.+)',
+            r'(.+?)\s+transfer(?:s|\s+portal)',
+            r'transfer portal\s+(?:for\s+)?(.+)',
+        ]
+        
+        for pattern in transfer_patterns:
+            match = re.search(pattern, query_lower)
+            if match:
+                return {'type': 'transfers', 'team': match.group(1).strip().title()}
+        
+        # Betting patterns
+        betting_patterns = [
+            r'(?:who.s favored|odds|spread|line|betting)\s+(?:for|in|on)?\s+(.+?)\s+(?:vs?\.?|versus|@|at)\s+(.+)',
+            r'(.+?)\s+(?:vs?\.?|@)\s+(.+?)\s+(?:odds|spread|line)',
+        ]
+        
+        for pattern in betting_patterns:
+            match = re.search(pattern, query_lower)
+            if match:
+                return {
+                    'type': 'betting',
+                    'team1': match.group(1).strip().title(),
+                    'team2': match.group(2).strip().rstrip('?.!').title()
+                }
+        
+        # Ratings patterns (SP+, advanced stats)
+        ratings_patterns = [
+            r'(?:sp\+|srs|elo|fpi|rating)\s+(?:for\s+)?(.+)',
+            r'(.+?)\s+(?:sp\+|srs|elo|advanced stats|ratings?)',
+            r'how good is\s+(.+)',
+        ]
+        
+        for pattern in ratings_patterns:
+            match = re.search(pattern, query_lower)
+            if match:
+                return {'type': 'ratings', 'team': match.group(1).strip().title()}
+        
+        # Roster patterns
+        roster_patterns = [
+            r'(?:show me|get|what.s)\s+(.+?)(?:.s)?\s+roster',
+            r'(.+?)\s+roster',
+        ]
+        
+        for pattern in roster_patterns:
+            match = re.search(pattern, query_lower)
+            if match:
+                return {'type': 'roster', 'team': match.group(1).strip().title()}
+        
+        # If no pattern matched but query mentions a team, might be a player query
+        # Fall through to player query handling in bot.py
+        return {'type': None}
+
+
+# Backward compatibility alias
+PlayerLookup = CFBDataLookup
 
 # Singleton instance
-player_lookup = PlayerLookup()
+player_lookup = CFBDataLookup()
+cfb_data = player_lookup  # Alias for new features
