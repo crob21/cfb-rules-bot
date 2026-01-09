@@ -1116,15 +1116,7 @@ class CFBDataLookup:
                         if not self._team_matches(search_term, college):
                             continue
 
-                # Debug: log all colleges that contain search term
-                if search_term:
-                    matching_colleges = [c for c in all_colleges if search_term.lower() in c.lower()]
-                    logger.info(f"🔍 Colleges containing '{search_term}': {matching_colleges}")
-
-                    # Also log exact matches
-                    exact_matches = [c for c in all_colleges if search_term.lower() == c.lower()]
-                    logger.info(f"🔍 Exact matches for '{search_term}': {exact_matches}")
-
+                    # Add matching pick to results
                     picks.append({
                         'round': getattr(pick, 'round', None),
                         'pick': getattr(pick, 'pick', None),
@@ -1134,6 +1126,13 @@ class CFBDataLookup:
                         'position': getattr(pick, 'position', None),
                         'college': college,
                     })
+
+                # Debug: log all colleges that contain search term
+                if search_term:
+                    matching_colleges = [c for c in all_colleges if search_term.lower() in c.lower()]
+                    logger.info(f"🔍 Colleges containing '{search_term}': {matching_colleges}")
+                    exact_matches = [c for c in all_colleges if search_term.lower() == c.lower()]
+                    logger.info(f"🔍 Exact matches for '{search_term}': {exact_matches}")
 
                 logger.info(f"✅ Found {len(picks)} draft picks" + (f" from {team}" if team else ""))
 
