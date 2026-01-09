@@ -11,10 +11,38 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.14.0"
+CURRENT_VERSION = "1.15.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.15.0": {
+        "date": "2026-01-09",
+        "title": "High School Stats Scraper",
+        "emoji": "🏫",
+        "features": [
+            {
+                "category": "MaxPreps Scraper",
+                "emoji": "🏫",
+                "changes": [
+                    "NEW: /hs_stats - Look up high school football player stats",
+                    "NEW: /hs_stats_bulk - Bulk lookup for multiple HS players",
+                    "NEW: @Harry HS stats support (e.g., 'HS stats for Arch Manning')",
+                    "Web scraping from MaxPreps with caching (24hr)",
+                    "Rate limiting to be respectful of MaxPreps servers",
+                    "Parses passing, rushing, receiving, and defensive stats"
+                ]
+            },
+            {
+                "category": "Module Configuration",
+                "emoji": "⚙️",
+                "changes": [
+                    "HS_STATS module OFF by default (opt-in feature)",
+                    "Enable with /module enable hs_stats",
+                    "Requires httpx and beautifulsoup4 packages"
+                ]
+            }
+        ]
+    },
     "1.14.0": {
         "date": "2026-01-09",
         "title": "Admin Channel & Notifications",

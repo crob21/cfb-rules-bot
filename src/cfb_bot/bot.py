@@ -271,6 +271,7 @@ from .utils.timekeeper import (CFB_DYNASTY_WEEKS, TOTAL_WEEKS_PER_SEASON,
                                get_week_notes, get_week_phase)
 from .utils.version_manager import VersionManager
 from .utils.player_lookup import player_lookup
+from .utils.hs_stats_scraper import hs_stats_scraper
 from .utils.server_config import server_config, FeatureModule
 
 
@@ -1273,6 +1274,88 @@ async def on_message(message):
                         logger.error(f"❌ Error in CFB query: {e}", exc_info=True)
                         await thinking_msg.edit(content=f"❌ Error looking that up: {str(e)}")
                         return
+
+                # Check for high school player lookup (HS_STATS module)
+                hs_keywords = ['high school', 'hs stats', 'hs player', 'recruit', 'maxpreps', 'high schooler']
+                if any(kw in message_lower for kw in hs_keywords):
+                    # Check if HS_STATS module is enabled
+                    if server_config.is_module_enabled(message.guild.id, FeatureModule.HS_STATS):
+                        if hs_stats_scraper.is_available:
+                            # Parse the HS player query
+                            import re
+                            # Look for patterns like "HS stats for John Smith (TX)" or "recruit John Smith from Texas"
+                            hs_patterns = [
+                                r'(?:hs\s+(?:stats|player)|high\s+school(?:er)?\s+(?:stats)?|recruit|maxpreps)\s+(?:for\s+)?(.+?)(?:\s+from\s+|\s*\()([\w\s]+)\)?',
+                                r'(?:hs\s+(?:stats|player)|high\s+school(?:er)?\s+(?:stats)?|recruit|maxpreps)\s+(?:for\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+                                r'(?:what do you know about|tell me about|lookup|info on)\s+(?:hs\s+|high\s+school\s+)?recruit\s+(.+?)(?:\s+from\s+|\s*\()([\w\s]+)\)?',
+                            ]
+                            
+                            player_name = None
+                            state = None
+                            
+                            for pattern in hs_patterns:
+                                match = re.search(pattern, message.content, re.IGNORECASE)
+                                if match:
+                                    player_name = match.group(1).strip()
+                                    if len(match.groups()) > 1 and match.group(2):
+                                        state = match.group(2).strip()
+                                    break
+                            
+                            # Fallback: extract any capitalized names after keywords
+                            if not player_name:
+                                for kw in hs_keywords:
+                                    if kw in message_lower:
+                                        # Look for capitalized words after the keyword
+                                        idx = message_lower.find(kw)
+                                        after_kw = message.content[idx + len(kw):].strip()
+                                        # Find capitalized name pattern
+                                        name_match = re.search(r'(?:for\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)', after_kw)
+                                        if name_match:
+                                            player_name = name_match.group(1)
+                                        break
+                            
+                            if player_name and len(player_name) > 3:
+                                logger.info(f"🏈 HS stats lookup request: {player_name}" + (f" ({state})" if state else ""))
+                                thinking_msg = await message.channel.send("🔍 Looking up high school stats, hang on...")
+                                
+                                try:
+                                    player_data = await hs_stats_scraper.lookup_player(player_name, state)
+                                    await thinking_msg.delete()
+                                    
+                                    if player_data:
+                                        formatted = hs_stats_scraper.format_player_stats(player_data)
+                                        embed = discord.Embed(
+                                            title="🏈 High School Stats",
+                                            description=formatted,
+                                            color=0x2ecc71
+                                        )
+                                        embed.set_footer(text="Harry's HS Stats 🏈 | Data scraped from MaxPreps")
+                                        await message.channel.send(embed=embed)
+                                    else:
+                                        embed = discord.Embed(
+                                            title=f"🔍 No Results for '{player_name}'",
+                                            description=(
+                                                f"Couldn't find a high school player matching **{player_name}**.\n\n"
+                                                "**Tips:**\n"
+                                                "• Check the spelling\n"
+                                                "• Add a state (e.g., 'HS stats for John Smith (TX)')\n"
+                                                "• Use `/hs_stats` for more options"
+                                            ),
+                                            color=0xffa500
+                                        )
+                                        embed.set_footer(text="Harry's HS Stats 🏈 | Data scraped from MaxPreps")
+                                        await message.channel.send(embed=embed)
+                                    return
+                                    
+                                except Exception as e:
+                                    logger.error(f"❌ Error in HS stats lookup: {e}", exc_info=True)
+                                    await thinking_msg.edit(content=f"❌ Error looking up HS stats: {str(e)}")
+                                    return
+                        else:
+                            await message.channel.send(
+                                "❌ HS stats scraper not available. Missing dependencies: `pip install httpx beautifulsoup4`"
+                            )
+                            return
 
                 # Fall back to player lookup if no other query type matched
                 player_keywords = ['from', 'player', 'stats', 'what do you know', 'tell me about', 'who is', 'info on', 'lookup']
@@ -3225,6 +3308,210 @@ async def get_team_ratings(
     except Exception as e:
         logger.error(f"❌ Error in /team_ratings: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
+
+
+# =============================================================================
+# HIGH SCHOOL STATS COMMANDS (HS_STATS Module - Off by Default)
+# =============================================================================
+
+
+@bot.tree.command(name="hs_stats", description="Look up high school football player stats from MaxPreps")
+async def get_hs_stats(
+    interaction: discord.Interaction,
+    name: str,
+    state: str = None,
+    school: str = None
+):
+    """
+    Look up high school football player stats.
+
+    Args:
+        name: Player name (e.g., "Arch Manning")
+        state: Optional state to narrow search (e.g., "Louisiana", "TX")
+        school: Optional high school name to narrow search
+    """
+    if not await check_module_enabled(interaction, FeatureModule.HS_STATS):
+        return
+
+    if not hs_stats_scraper.is_available:
+        await interaction.response.send_message(
+            "❌ High school stats scraper is not available.\n"
+            "Missing dependencies: `pip install httpx beautifulsoup4`",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer()
+
+    try:
+        player_data = await hs_stats_scraper.lookup_player(name, state, school)
+
+        if not player_data:
+            # No results found
+            embed = discord.Embed(
+                title=f"🔍 No Results for '{name}'",
+                description=(
+                    f"Couldn't find a player matching **{name}**.\n\n"
+                    "**Tips:**\n"
+                    "• Check the spelling of the name\n"
+                    "• Add a state filter (e.g., `/hs_stats name:Arch Manning state:Louisiana`)\n"
+                    "• Add a school filter for common names\n"
+                    "• MaxPreps data may be limited for some players"
+                ),
+                color=0xffa500
+            )
+            embed.set_footer(text="Harry's HS Stats 🏈 | Data scraped from MaxPreps")
+            await interaction.followup.send(embed=embed)
+            return
+
+        # Format and send stats
+        formatted = hs_stats_scraper.format_player_stats(player_data)
+
+        embed = discord.Embed(
+            title=f"🏈 High School Stats",
+            description=formatted,
+            color=0x2ecc71
+        )
+        embed.set_footer(text="Harry's HS Stats 🏈 | Data scraped from MaxPreps")
+        await interaction.followup.send(embed=embed)
+
+    except Exception as e:
+        logger.error(f"❌ Error in /hs_stats: {e}", exc_info=True)
+        await interaction.followup.send(
+            f"❌ Error looking up player: {str(e)}",
+            ephemeral=True
+        )
+
+
+@bot.tree.command(name="hs_stats_bulk", description="Look up multiple HS players at once")
+async def get_hs_stats_bulk(
+    interaction: discord.Interaction,
+    players: str
+):
+    """
+    Bulk lookup for high school players.
+
+    Args:
+        players: Comma-separated list of player names
+                 Format: "Name (State/School), Name (State/School)"
+                 Example: "Arch Manning (LA), Dylan Raiola (AZ)"
+    """
+    if not await check_module_enabled(interaction, FeatureModule.HS_STATS):
+        return
+
+    if not hs_stats_scraper.is_available:
+        await interaction.response.send_message(
+            "❌ High school stats scraper is not available.\n"
+            "Missing dependencies: `pip install httpx beautifulsoup4`",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer()
+
+    try:
+        import re
+
+        # Parse player list
+        player_list = []
+        for player_entry in players.split(','):
+            player_entry = player_entry.strip()
+            if not player_entry:
+                continue
+
+            # Parse "Name (State/School)" format
+            match = re.match(r'^(.+?)\s*\(([^)]+)\)\s*$', player_entry)
+            if match:
+                name = match.group(1).strip()
+                location = match.group(2).strip()
+                # Assume 2-letter = state, otherwise school
+                if len(location) <= 3:
+                    player_list.append({'name': name, 'state': location})
+                else:
+                    player_list.append({'name': name, 'school': location})
+            else:
+                player_list.append({'name': player_entry})
+
+        if not player_list:
+            await interaction.followup.send(
+                "❌ No valid player names provided.\n"
+                "Format: `Arch Manning (LA), Dylan Raiola (AZ)`",
+                ephemeral=True
+            )
+            return
+
+        if len(player_list) > 10:
+            await interaction.followup.send(
+                "⚠️ Too many players (max 10). Showing first 10.",
+                ephemeral=True
+            )
+            player_list = player_list[:10]
+
+        # Send progress message
+        await interaction.followup.send(f"🔍 Looking up {len(player_list)} players... (this may take a moment)")
+
+        # Bulk lookup
+        results = await hs_stats_scraper.lookup_multiple_players(player_list)
+
+        # Format results
+        found_count = sum(1 for r in results if r.get('found'))
+        embed = discord.Embed(
+            title=f"🏈 HS Stats Bulk Lookup ({found_count}/{len(results)} found)",
+            color=0x2ecc71 if found_count > 0 else 0xff6b6b
+        )
+
+        for result in results:
+            query = result.get('query', {})
+            player_name = query.get('name', 'Unknown')
+
+            if result.get('found'):
+                data = result.get('data', {})
+                # Compact format for bulk
+                school = data.get('school', 'Unknown School')
+                position = data.get('position', '')
+
+                # Get most recent season stats
+                seasons = data.get('seasons', [])
+                stats_line = ""
+                if seasons:
+                    recent = seasons[-1]
+                    if recent.get('passing'):
+                        p = recent['passing']
+                        stats_line = f"Pass: {p.get('yards', '?')} YDS, {p.get('touchdowns', '?')} TD"
+                    elif recent.get('rushing'):
+                        r = recent['rushing']
+                        stats_line = f"Rush: {r.get('yards', '?')} YDS, {r.get('touchdowns', '?')} TD"
+                    elif recent.get('receiving'):
+                        rc = recent['receiving']
+                        stats_line = f"Rec: {rc.get('yards', '?')} YDS, {rc.get('touchdowns', '?')} TD"
+                    elif recent.get('defense'):
+                        d = recent['defense']
+                        stats_line = f"Def: {d.get('tackles', '?')} TKL, {d.get('sacks', '?')} SCK"
+
+                value = f"🏫 {school}"
+                if position:
+                    value += f" | 📍 {position}"
+                if stats_line:
+                    value += f"\n{stats_line}"
+
+                embed.add_field(name=f"✅ {player_name}", value=value, inline=False)
+            else:
+                error = result.get('error', 'Not found on MaxPreps')
+                embed.add_field(
+                    name=f"❌ {player_name}",
+                    value=f"_{error}_",
+                    inline=False
+                )
+
+        embed.set_footer(text="Harry's HS Stats 🏈 | Data scraped from MaxPreps")
+        await interaction.followup.send(embed=embed)
+
+    except Exception as e:
+        logger.error(f"❌ Error in /hs_stats_bulk: {e}", exc_info=True)
+        await interaction.followup.send(
+            f"❌ Error during bulk lookup: {str(e)}",
+            ephemeral=True
+        )
 
 
 @bot.tree.command(name="harry", description="Ask Harry (the bot) about league rules and policies")

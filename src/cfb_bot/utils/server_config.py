@@ -21,6 +21,7 @@ class FeatureModule(Enum):
     CORE = "core"           # Always on - Harry's personality, general AI
     CFB_DATA = "cfb_data"   # Player lookup, rankings, matchups, etc.
     LEAGUE = "league"       # Timer, charter, rules, league staff
+    HS_STATS = "hs_stats"   # High school stats scraping (MaxPreps)
 
 
 # Default settings for new servers
@@ -29,6 +30,7 @@ DEFAULT_CONFIG = {
         FeatureModule.CORE.value: True,      # Always True, can't disable
         FeatureModule.CFB_DATA.value: True,  # Enabled by default
         FeatureModule.LEAGUE.value: False,   # Disabled by default (opt-in)
+        FeatureModule.HS_STATS.value: False, # Disabled by default (opt-in, uses web scraping)
     },
     "settings": {
         "timer_channel_id": None,
