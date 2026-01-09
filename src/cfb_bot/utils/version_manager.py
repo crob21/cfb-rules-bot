@@ -11,10 +11,29 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.15.0"
+CURRENT_VERSION = "1.15.1"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.15.1": {
+        "date": "2026-01-09",
+        "title": "Code Cleanup & Optimization",
+        "emoji": "🧹",
+        "features": [
+            {
+                "category": "Code Quality",
+                "emoji": "🧹",
+                "changes": [
+                    "Added Colors class with constants for consistent theming",
+                    "Added Footers class for standard footer texts",
+                    "Replaced 132 hardcoded color values with constants",
+                    "Replaced 39 hardcoded footer strings with constants",
+                    "Fixed indentation issues in reaction handlers",
+                    "Improved code maintainability and consistency"
+                ]
+            }
+        ]
+    },
     "1.15.0": {
         "date": "2026-01-09",
         "title": "High School Stats Scraper",
