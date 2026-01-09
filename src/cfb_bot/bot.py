@@ -140,7 +140,7 @@ async def send_startup_notification(version: str):
     """
     Send a combined startup notification with version info, features, and timer status.
     """
-    from .utils.version_manager import VersionManager
+from .utils.version_manager import VersionManager
 
     version_mgr = VersionManager()
     version_info = version_mgr.get_latest_version_info()
@@ -290,6 +290,7 @@ async def check_module_enabled(interaction, module) -> bool:
     module_names = {
         FeatureModule.CFB_DATA: "CFB Data",
         FeatureModule.LEAGUE: "League Features",
+        FeatureModule.HS_STATS: "High School Stats",
     }
     name = module_names.get(module, module.value)
 
@@ -636,7 +637,7 @@ async def on_message(message):
         if not server_config.is_channel_enabled(guild_id, channel_id):
             # Harry is not enabled in this channel - stay silent
             logger.debug(f"🔇 Channel {channel_id} not enabled for Harry in guild {guild_id}")
-            return
+        return
 
     # Check if the bot is @mentioned (only responds to @CFB Bot, not just "harry" in text)
     bot_mentioned = False
@@ -2065,7 +2066,7 @@ async def on_reaction_add(reaction, user):
             await reaction.message.edit(embed=embed)
             await safe_clear_reactions(reaction.message)
             del bot.pending_rule_scans[reaction.message.id]
-            return
+        return
 
     # Handle different emoji reactions
     if reaction.emoji == '❓':
@@ -2111,12 +2112,12 @@ async def on_reaction_add(reaction, user):
         # Duck emoji - Oregon rivalry (only if auto_responses is on)
         reaction_guild_id = reaction.message.guild.id if reaction.message.guild else 0
         if server_config.auto_responses_enabled(reaction_guild_id):
-            embed = discord.Embed(
-                title="🦆 Oregon Sucks!",
-                description="Oregon sucks! 🦆💩\n\nBut CFB 26 rules are awesome! Ask me about them!",
-                color=0x1e90ff
-            )
-            await reaction.message.channel.send(embed=embed)
+        embed = discord.Embed(
+            title="🦆 Oregon Sucks!",
+            description="Oregon sucks! 🦆💩\n\nBut CFB 26 rules are awesome! Ask me about them!",
+            color=0x1e90ff
+        )
+        await reaction.message.channel.send(embed=embed)
 
     elif reaction.emoji == '🐕':
         # Dog emoji - Huskies support
@@ -5465,7 +5466,7 @@ async def list_blocked_channels(interaction: discord.Interaction):
 @bot.tree.command(name="config", description="Configure Harry's features for this server")
 @app_commands.describe(
     action="What to do: view, enable, or disable",
-    module="Which module: cfb_data or league"
+    module="Which module: cfb_data, league, or hs_stats"
 )
 @app_commands.choices(action=[
     app_commands.Choice(name="view", value="view"),
@@ -5475,6 +5476,7 @@ async def list_blocked_channels(interaction: discord.Interaction):
 @app_commands.choices(module=[
     app_commands.Choice(name="cfb_data - Player lookup, rankings, matchups, etc.", value="cfb_data"),
     app_commands.Choice(name="league - Timer, charter, rules, dynasty features", value="league"),
+    app_commands.Choice(name="hs_stats - High school stats from MaxPreps (scraping)", value="hs_stats"),
 ])
 async def config_command(
     interaction: discord.Interaction,
@@ -5638,7 +5640,7 @@ async def config_command(
             inline=False
         )
         embed.set_footer(text="Harry's Server Config 🏈")
-        await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(embed=embed)
 
         # Log to admin channel
         await send_admin_log(

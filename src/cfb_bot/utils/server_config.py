@@ -61,6 +61,10 @@ COMMAND_MODULES = {
     "betting": FeatureModule.CFB_DATA,
     "team_ratings": FeatureModule.CFB_DATA,
 
+    # High School Stats commands
+    "hs_stats": FeatureModule.HS_STATS,
+    "hs_stats_bulk": FeatureModule.HS_STATS,
+
     # League commands
     "advance": FeatureModule.LEAGUE,
     "stop_countdown": FeatureModule.LEAGUE,
@@ -277,6 +281,7 @@ class ServerConfigManager:
             FeatureModule.CORE: "🤖 **Core** - Harry's personality, general AI chat, bot management",
             FeatureModule.CFB_DATA: "🏈 **CFB Data** - Player lookup, rankings, matchups, schedules, draft, transfers, betting, ratings",
             FeatureModule.LEAGUE: "🏆 **League** - Timer, advance, charter, rules, league staff, dynasty features",
+            FeatureModule.HS_STATS: "🏫 **HS Stats** - High school football stats from MaxPreps (web scraping)",
         }
         return descriptions.get(module, str(module))
 
