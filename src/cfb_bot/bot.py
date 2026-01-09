@@ -292,7 +292,7 @@ from .utils.timekeeper import (CFB_DYNASTY_WEEKS, TOTAL_WEEKS_PER_SEASON,
                                get_week_actions, get_week_info, get_week_name,
                                get_week_notes, get_week_phase)
 from .utils.version_manager import VersionManager
-from .utils.player_lookup import player_lookup
+from .utils.cfb_data import cfb_data
 from .utils.hs_stats_scraper import hs_stats_scraper
 from .utils.server_config import server_config, FeatureModule
 
@@ -1147,7 +1147,7 @@ async def on_message(message):
                 return
 
             # Check if this is a CFB data query (player, rankings, matchup, etc.)
-            if bot_mentioned and player_lookup.is_available:
+            if bot_mentioned and cfb_data.is_available:
                 message_lower = message.content.lower()
 
                 # Check for bulk player lookup (multiple lines with player names)
@@ -1160,15 +1160,15 @@ async def on_message(message):
 
                 if is_bulk_request or has_multiple_players:
                     # Try to parse as player list
-                    player_list = player_lookup.parse_player_list(message.content)
+                    player_list = cfb_data.parse_player_list(message.content)
 
                     if len(player_list) >= 2:
                         logger.info(f"🏈 Bulk player lookup: {len(player_list)} players detected")
                         thinking_msg = await message.channel.send(f"🔍 Looking up {len(player_list)} players, hang on...")
 
                         try:
-                            results = await player_lookup.lookup_multiple_players(player_list)
-                            response = player_lookup.format_bulk_player_response(results)
+                            results = await cfb_data.lookup_multiple_players(player_list)
+                            response = cfb_data.format_bulk_player_response(results)
 
                             await thinking_msg.delete()
 
@@ -1201,7 +1201,7 @@ async def on_message(message):
                             return
 
                 # First check if it's a CFB data query using our comprehensive parser
-                cfb_query = player_lookup.parse_cfb_query(message.content)
+                cfb_query = cfb_data.parse_cfb_query(message.content)
                 query_type = cfb_query.get('type')
 
                 if query_type:
@@ -1212,16 +1212,16 @@ async def on_message(message):
                         if query_type == 'rankings':
                             team = cfb_query.get('team')
                             if team:
-                                result = await player_lookup.get_team_ranking(team)
-                                response = player_lookup.format_team_ranking(result)
+                                result = await cfb_data.get_team_ranking(team)
+                                response = cfb_data.format_team_ranking(result)
                                 title = f"📊 {team} Rankings"
                                 await thinking_msg.delete()
                                 embed = discord.Embed(title=title, description=response, color=Colors.PRIMARY)
                                 embed.set_footer(text=Footers.CFB_DATA)
                                 await message.channel.send(embed=embed)
                             else:
-                                result = await player_lookup.get_rankings()
-                                fields, week_num = player_lookup.format_rankings(result)
+                                result = await cfb_data.get_rankings()
+                                fields, week_num = cfb_data.format_rankings(result)
                                 title = f"📊 College Football Rankings (Week {week_num})" if week_num else "📊 College Football Rankings"
                                 await thinking_msg.delete()
                                 embed = discord.Embed(title=title, color=Colors.PRIMARY)
@@ -1234,8 +1234,8 @@ async def on_message(message):
                         elif query_type == 'matchup':
                             team1 = cfb_query.get('team1')
                             team2 = cfb_query.get('team2')
-                            result = await player_lookup.get_matchup_history(team1, team2)
-                            response = player_lookup.format_matchup(result)
+                            result = await cfb_data.get_matchup_history(team1, team2)
+                            response = cfb_data.format_matchup(result)
                             await thinking_msg.delete()
                             embed = discord.Embed(title=f"🏈 {team1} vs {team2}", description=response, color=Colors.PRIMARY)
                             embed.set_footer(text=Footers.CFB_DATA)
@@ -1244,8 +1244,8 @@ async def on_message(message):
 
                         elif query_type == 'schedule':
                             team = cfb_query.get('team')
-                            result = await player_lookup.get_team_schedule(team)
-                            response = player_lookup.format_schedule(result, team)
+                            result = await cfb_data.get_team_schedule(team)
+                            response = cfb_data.format_schedule(result, team)
                             await thinking_msg.delete()
                             embed = discord.Embed(title=f"📅 {team} Schedule", description=response, color=Colors.PRIMARY)
                             embed.set_footer(text=Footers.CFB_DATA)
@@ -1254,8 +1254,8 @@ async def on_message(message):
 
                         elif query_type == 'draft':
                             team = cfb_query.get('team')
-                            result = await player_lookup.get_draft_picks(team)
-                            response = player_lookup.format_draft_picks(result, team)
+                            result = await cfb_data.get_draft_picks(team)
+                            response = cfb_data.format_draft_picks(result, team)
                             await thinking_msg.delete()
                             embed = discord.Embed(title=f"🏈 NFL Draft Picks", description=response, color=Colors.PRIMARY)
                             embed.set_footer(text=Footers.CFB_DATA)
@@ -1264,8 +1264,8 @@ async def on_message(message):
 
                         elif query_type == 'transfers':
                             team = cfb_query.get('team')
-                            result = await player_lookup.get_team_transfers(team)
-                            response = player_lookup.format_transfers(result, team)
+                            result = await cfb_data.get_team_transfers(team)
+                            response = cfb_data.format_transfers(result, team)
                             await thinking_msg.delete()
                             embed = discord.Embed(title=f"🔄 {team} Transfers", description=response, color=Colors.PRIMARY)
                             embed.set_footer(text=Footers.CFB_DATA)
@@ -1275,8 +1275,8 @@ async def on_message(message):
                         elif query_type == 'betting':
                             team1 = cfb_query.get('team1')
                             team2 = cfb_query.get('team2')
-                            result, query_info = await player_lookup.get_betting_lines(team=team1)
-                            response = player_lookup.format_betting_lines(result, query_info)
+                            result, query_info = await cfb_data.get_betting_lines(team=team1)
+                            response = cfb_data.format_betting_lines(result, query_info)
                             await thinking_msg.delete()
                             embed = discord.Embed(title=f"💰 Betting Lines", description=response, color=Colors.PRIMARY)
                             embed.set_footer(text=Footers.CFB_DATA)
@@ -1285,8 +1285,8 @@ async def on_message(message):
 
                         elif query_type == 'ratings':
                             team = cfb_query.get('team')
-                            result = await player_lookup.get_team_ratings(team)
-                            response = player_lookup.format_ratings(result)
+                            result = await cfb_data.get_team_ratings(team)
+                            response = cfb_data.format_ratings(result)
                             await thinking_msg.delete()
                             embed = discord.Embed(title=f"📈 {team} Ratings", description=response, color=Colors.PRIMARY)
                             embed.set_footer(text=Footers.CFB_DATA)
@@ -1385,7 +1385,7 @@ async def on_message(message):
                 # Check for player-related queries (but not league rule queries)
                 if any(kw in message_lower for kw in player_keywords) and not any(term in message_lower for term in ['rule', 'charter', 'policy', 'advance']):
                     # Use the player_lookup parser
-                    parsed = player_lookup.parse_player_query(message.content)
+                    parsed = cfb_data.parse_player_query(message.content)
                     if parsed.get('name') and len(parsed['name']) > 2:
                         # DUPLICATE CHECK: Use a unique key for this specific lookup
                         lookup_key = f"player_lookup:{message.id}:{parsed['name']}"
@@ -1406,12 +1406,12 @@ async def on_message(message):
 
                             logger.info(f"🔍 Searching for player: {name}" + (f" from {team}" if team else ""))
 
-                            player_info = await player_lookup.get_full_player_info(name, team)
+                            player_info = await cfb_data.get_full_player_info(name, team)
 
                             await thinking_msg.delete()
 
                             if player_info:
-                                response = player_lookup.format_player_response(player_info)
+                                response = cfb_data.format_player_response(player_info)
                                 embed = discord.Embed(
                                     title="🏈 Player Info",
                                     description=response,
@@ -2858,7 +2858,7 @@ async def lookup_player(
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
 
-    if not player_lookup.is_available:
+    if not cfb_data.is_available:
         await interaction.response.send_message(
             "❌ Player lookup is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
@@ -2870,10 +2870,10 @@ async def lookup_player(
     logger.info(f"🏈 /player command from {interaction.user}: {name}" + (f" from {team}" if team else ""))
 
     try:
-        player_info = await player_lookup.get_full_player_info(name, team)
+        player_info = await cfb_data.get_full_player_info(name, team)
 
         if player_info:
-            response = player_lookup.format_player_response(player_info)
+            response = cfb_data.format_player_response(player_info)
             embed = discord.Embed(
                 title="🏈 Player Info",
                 description=response,
@@ -2923,7 +2923,7 @@ async def lookup_players_bulk(
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
 
-    if not player_lookup.is_available:
+    if not cfb_data.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
@@ -2931,7 +2931,7 @@ async def lookup_players_bulk(
         return
 
     # Parse the player list
-    players = player_lookup.parse_player_list(player_list)
+    players = cfb_data.parse_player_list(player_list)
 
     if not players:
         await interaction.response.send_message(
@@ -2957,8 +2957,8 @@ async def lookup_players_bulk(
     logger.info(f"🏈 /players bulk lookup from {interaction.user}: {len(players)} players")
 
     try:
-        results = await player_lookup.lookup_multiple_players(players)
-        response = player_lookup.format_bulk_player_response(results)
+        results = await cfb_data.lookup_multiple_players(players)
+        response = cfb_data.format_bulk_player_response(results)
 
         # Split into multiple messages if too long
         if len(response) > 4000:
@@ -3008,7 +3008,7 @@ async def get_rankings(
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
 
-    if not player_lookup.is_available:
+    if not cfb_data.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
@@ -3023,8 +3023,8 @@ async def get_rankings(
     try:
         if team:
             # Team-specific ranking lookup
-            result = await player_lookup.get_team_ranking(team, year)
-            response = player_lookup.format_team_ranking(result)
+            result = await cfb_data.get_team_ranking(team, year)
+            response = cfb_data.format_team_ranking(result)
             title = f"📊 {team} Rankings ({year})"
 
             embed = discord.Embed(title=title, description=response, color=Colors.PRIMARY)
@@ -3032,8 +3032,8 @@ async def get_rankings(
             await interaction.followup.send(embed=embed)
         else:
             # Full rankings - use fields to avoid character limit
-            result = await player_lookup.get_rankings(year, week=week)
-            fields, week_num = player_lookup.format_rankings(result, poll_filter=poll, top_n=top)
+            result = await cfb_data.get_rankings(year, week=week)
+            fields, week_num = cfb_data.format_rankings(result, poll_filter=poll, top_n=top)
 
             if not fields:
                 await interaction.followup.send("No rankings found for the specified criteria.", ephemeral=True)
@@ -3088,7 +3088,7 @@ async def get_matchup(
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
 
-    if not player_lookup.is_available:
+    if not cfb_data.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
@@ -3098,8 +3098,8 @@ async def get_matchup(
     await interaction.response.defer()
 
     try:
-        result = await player_lookup.get_matchup_history(team1, team2)
-        response = player_lookup.format_matchup(result)
+        result = await cfb_data.get_matchup_history(team1, team2)
+        response = cfb_data.format_matchup(result)
 
         embed = discord.Embed(
             title=f"🏈 {team1} vs {team2}",
@@ -3130,7 +3130,7 @@ async def get_cfb_schedule(
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
 
-    if not player_lookup.is_available:
+    if not cfb_data.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
@@ -3140,8 +3140,8 @@ async def get_cfb_schedule(
     await interaction.response.defer()
 
     try:
-        result = await player_lookup.get_team_schedule(team, year)
-        response = player_lookup.format_schedule(result, team)
+        result = await cfb_data.get_team_schedule(team, year)
+        response = cfb_data.format_schedule(result, team)
 
         embed = discord.Embed(
             title=f"📅 {team} Schedule ({year})",
@@ -3172,7 +3172,7 @@ async def get_draft_picks(
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
 
-    if not player_lookup.is_available:
+    if not cfb_data.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
@@ -3182,8 +3182,8 @@ async def get_draft_picks(
     await interaction.response.defer()
 
     try:
-        result = await player_lookup.get_draft_picks(team, year)
-        response = player_lookup.format_draft_picks(result, team)
+        result = await cfb_data.get_draft_picks(team, year)
+        response = cfb_data.format_draft_picks(result, team)
 
         title = f"🏈 {year} NFL Draft Picks" + (f" from {team}" if team else "")
         embed = discord.Embed(title=title, description=response, color=Colors.PRIMARY)
@@ -3211,7 +3211,7 @@ async def get_transfers(
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
 
-    if not player_lookup.is_available:
+    if not cfb_data.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
@@ -3221,8 +3221,8 @@ async def get_transfers(
     await interaction.response.defer()
 
     try:
-        result = await player_lookup.get_team_transfers(team, year)
-        response = player_lookup.format_transfers(result, team)
+        result = await cfb_data.get_team_transfers(team, year)
+        response = cfb_data.format_transfers(result, team)
 
         embed = discord.Embed(
             title=f"🔄 {team} Transfer Portal ({year})",
@@ -3255,7 +3255,7 @@ async def get_betting(
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
 
-    if not player_lookup.is_available:
+    if not cfb_data.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
@@ -3265,8 +3265,8 @@ async def get_betting(
     await interaction.response.defer()
 
     try:
-        result, query_info = await player_lookup.get_betting_lines(team, year, week)
-        response = player_lookup.format_betting_lines(result, query_info)
+        result, query_info = await cfb_data.get_betting_lines(team, year, week)
+        response = cfb_data.format_betting_lines(result, query_info)
 
         # Build title from query info
         title = "💰 Betting Lines"
@@ -3310,7 +3310,7 @@ async def get_team_ratings(
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
 
-    if not player_lookup.is_available:
+    if not cfb_data.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
@@ -3320,8 +3320,8 @@ async def get_team_ratings(
     await interaction.response.defer()
 
     try:
-        result = await player_lookup.get_team_ratings(team, year)
-        response = player_lookup.format_ratings(result)
+        result = await cfb_data.get_team_ratings(team, year)
+        response = cfb_data.format_ratings(result)
 
         embed = discord.Embed(
             title=f"📈 {team} Advanced Ratings ({year})",

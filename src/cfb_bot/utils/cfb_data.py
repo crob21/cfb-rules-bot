@@ -1,6 +1,16 @@
 """
-Player Lookup Module
-Integrates with CollegeFootballData.com API using the official cfbd library.
+CFB Data Module
+Comprehensive College Football Data integration using CollegeFootballData.com API.
+
+Features:
+- Player lookups and stats
+- Team rankings (AP, Coaches, CFP)
+- Team schedules and game results
+- Matchup history between teams
+- NFL Draft picks by school
+- Transfer portal data
+- Betting lines
+- Advanced ratings (SP+, SRS, Elo)
 """
 
 import asyncio
@@ -2373,5 +2383,5 @@ class CFBDataLookup:
 PlayerLookup = CFBDataLookup
 
 # Singleton instance
-player_lookup = CFBDataLookup()
-cfb_data = player_lookup  # Alias for new features
+cfb_data = CFBDataLookup()
+player_lookup = cfb_data  # Backwards compatibility alias
