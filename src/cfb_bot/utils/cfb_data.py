@@ -1431,15 +1431,32 @@ class CFBDataLookup:
 
             if results:
                 lines = []
+                today = datetime.now().date()
 
-                # Debug: Log first game's available attributes
-                if results:
-                    first_game = results[0]
-                    logger.info(f"📊 DEBUG - Game attrs: {[a for a in dir(first_game) if not a.startswith('_')]}")
-                    g_date = getattr(first_game, 'start_date', None)
-                    logger.info(f"📊 DEBUG - First game start_date: {g_date}")
+                # For postseason, filter to only show upcoming games
+                filtered_count = 0
+                skipped_count = 0
 
                 for game in results:
+                    # Check if game has already been played
+                    start_date_str = getattr(game, 'start_date', None)
+                    game_date = None
+                    if start_date_str:
+                        try:
+                            # Parse ISO format date string
+                            if 'T' in str(start_date_str):
+                                game_date = datetime.fromisoformat(str(start_date_str).replace('Z', '+00:00')).date()
+                            else:
+                                game_date = datetime.strptime(str(start_date_str)[:10], '%Y-%m-%d').date()
+                        except Exception as e:
+                            logger.warning(f"⚠️ Could not parse date '{start_date_str}': {e}")
+
+                    # For postseason, only show upcoming games (today or future)
+                    # For regular season, show all games
+                    if season_type == 'postseason' and game_date and game_date < today:
+                        skipped_count += 1
+                        continue
+
                     game_lines = []
                     for line in getattr(game, 'lines', []):
                         game_lines.append({
@@ -1456,9 +1473,14 @@ class CFBDataLookup:
                         'awayTeam': getattr(game, 'away_team', None),
                         'awayScore': getattr(game, 'away_score', None),
                         'week': getattr(game, 'week', None),
-                        'seasonType': getattr(game, 'season_type', season_type),  # Track if postseason
+                        'seasonType': getattr(game, 'season_type', season_type),
+                        'startDate': str(start_date_str) if start_date_str else None,
                         'lines': game_lines,
                     })
+                    filtered_count += 1
+
+                if skipped_count > 0:
+                    logger.info(f"📊 Filtered out {skipped_count} past games, showing {filtered_count} upcoming")
                 logger.info(f"✅ Found {len(lines)} games with lines")
                 return lines, query_info
             return [], query_info
