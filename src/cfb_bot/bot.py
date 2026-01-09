@@ -1281,7 +1281,16 @@ async def on_message(message):
                     # Use the player_lookup parser
                     parsed = player_lookup.parse_player_query(message.content)
                     if parsed.get('name') and len(parsed['name']) > 2:
-                        logger.info(f"🏈 Player lookup request from {message.author}: {message.content}")
+                        # DUPLICATE CHECK: Use a unique key for this specific lookup
+                        lookup_key = f"player_lookup:{message.id}:{parsed['name']}"
+                        if hasattr(bot, '_active_player_lookups') and lookup_key in bot._active_player_lookups:
+                            logger.warning(f"⚠️ DUPLICATE player lookup blocked: {lookup_key}")
+                            return
+                        if not hasattr(bot, '_active_player_lookups'):
+                            bot._active_player_lookups = set()
+                        bot._active_player_lookups.add(lookup_key)
+                        
+                        logger.info(f"🏈 Player lookup request from {message.author}: {message.content} [key={lookup_key}]")
 
                         thinking_msg = await message.channel.send("🔍 Looking up that player, hang on...")
 
@@ -1324,11 +1333,17 @@ async def on_message(message):
                                 )
                                 embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")
                                 await message.channel.send(embed=embed)
+                            # Clean up lookup key
+                            if hasattr(bot, '_active_player_lookups') and lookup_key in bot._active_player_lookups:
+                                bot._active_player_lookups.discard(lookup_key)
                             return
 
                         except Exception as e:
                             logger.error(f"❌ Error in player lookup: {e}", exc_info=True)
                             await thinking_msg.edit(content=f"❌ Error looking up player: {str(e)}")
+                            # Clean up lookup key
+                            if hasattr(bot, '_active_player_lookups') and lookup_key in bot._active_player_lookups:
+                                bot._active_player_lookups.discard(lookup_key)
                             return
 
             # Check if this is a rule scan request (e.g., "scan #channel for rules")

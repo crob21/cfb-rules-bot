@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 def get_current_cfb_season() -> int:
     """
     Get the current CFB season year.
-    
+
     CFB seasons run Aug-Jan, so:
     - Jan-July: Previous year's season (Jan 2026 = 2025 season)
     - Aug-Dec: Current year's season (Sept 2025 = 2025 season)
@@ -905,7 +905,7 @@ class CFBDataLookup:
         """
         if not self.is_available:
             return []
-        
+
         # Default to current season
         if year is None:
             year = get_current_cfb_season()
@@ -1037,7 +1037,7 @@ class CFBDataLookup:
         """Get a team's schedule/results for a season"""
         if not self.is_available:
             return []
-        
+
         if year is None:
             year = get_current_cfb_season()
 
@@ -1082,7 +1082,7 @@ class CFBDataLookup:
         """
         if not self.is_available:
             return {'picks': [], 'suggestions': []}
-        
+
         # Default to current calendar year (draft happens in April)
         if year is None:
             year = datetime.now().year
@@ -1247,7 +1247,7 @@ class CFBDataLookup:
         """Get transfer portal activity for a team (incoming and outgoing)"""
         if not self.is_available:
             return {'incoming': [], 'outgoing': []}
-        
+
         if year is None:
             year = datetime.now().year
 
@@ -1296,7 +1296,7 @@ class CFBDataLookup:
         """Get betting lines for games"""
         if not self.is_available:
             return []
-        
+
         if year is None:
             year = get_current_cfb_season()
 
@@ -1349,7 +1349,7 @@ class CFBDataLookup:
         """Get advanced ratings for a team (SP+, SRS, Elo, FPI)"""
         if not self.is_available:
             return None
-        
+
         if year is None:
             year = get_current_cfb_season()
 
