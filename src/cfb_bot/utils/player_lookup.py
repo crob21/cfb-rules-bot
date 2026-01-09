@@ -442,12 +442,24 @@ class PlayerLookup:
         Parse a natural language query for player info
 
         Args:
-            query: Natural language query like "James Smith from Alabama"
+            query: Natural language query like "@Harry what do you know about James Smith from Alabama"
 
         Returns:
             Dictionary with 'name' and 'team' keys
         """
+        import re
+
+        query = query.strip()
+
+        # Remove Discord mentions (format: <@123456789> or <@!123456789>)
+        query = re.sub(r'<@!?\d+>', '', query)
+
+        # Remove any remaining @ mentions (like @Harry)
+        query = re.sub(r'@\w+', '', query)
+
         query = query.lower().strip()
+
+        logger.info(f"🔍 Parsing player query: '{query}'")
 
         # Remove common prefixes
         prefixes_to_remove = [
@@ -462,36 +474,43 @@ class PlayerLookup:
             "information on",
             "stats for",
             "stats on",
+            "player info for",
+            "player stats for",
             "player"
         ]
 
         for prefix in prefixes_to_remove:
             if query.startswith(prefix):
                 query = query[len(prefix):].strip()
+                logger.info(f"🔍 After removing '{prefix}': '{query}'")
 
         # Handle "from [team]" pattern
         team = None
         if " from " in query:
-            parts = query.split(" from ")
+            parts = query.split(" from ", 1)  # Split only on first occurrence
             query = parts[0].strip()
             team = parts[1].strip()
         elif " at " in query:
-            parts = query.split(" at ")
+            parts = query.split(" at ", 1)
             query = parts[0].strip()
             team = parts[1].strip()
         elif " on " in query:
-            parts = query.split(" on ")
+            parts = query.split(" on ", 1)
             query = parts[0].strip()
             team = parts[1].strip()
 
-        # Clean up team name (remove "the" prefix)
-        if team and team.startswith("the "):
-            team = team[4:]
-
-        # Title case the name
-        name = query.title()
+        # Clean up team name (remove "the" prefix and trailing punctuation)
         if team:
-            team = team.title()
+            if team.startswith("the "):
+                team = team[4:]
+            team = team.rstrip('?.!')
+
+        # Title case the name and clean up
+        name = query.title().strip()
+        if team:
+            team = team.title().strip()
+
+        logger.info(f"✅ Parsed player query: name='{name}', team='{team}'")
 
         return {
             'name': name,
