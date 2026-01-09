@@ -3272,12 +3272,12 @@ async def get_betting(
         title = "💰 Betting Lines"
         if team:
             title += f" - {team}"
-        
+
         # Add year to title
         q_year = query_info.get('year', '')
         q_season_type = query_info.get('season_type', 'regular')
         q_week = query_info.get('week', '')
-        
+
         if q_season_type == 'postseason':
             title += f" ({q_year} Postseason)"
         elif q_week and q_week != 'none':

@@ -1142,7 +1142,7 @@ class CFBDataLookup:
                     # Show all colleges that might match
                     potential_matches = [c for c in all_colleges if search_term.lower() in c.lower() or c.lower().startswith(search_term.lower())]
                     logger.info(f"🔍 Potential colleges for '{search_term}': {potential_matches}")
-                    
+
                     # Show which ones our matcher would accept
                     actual_matches = [c for c in all_colleges if self._team_matches(search_term, c)]
                     logger.info(f"🔍 _team_matches accepts: {actual_matches}")
@@ -1198,60 +1198,76 @@ class CFBDataLookup:
     def _get_current_cfb_week_and_type(self, year: int) -> tuple:
         """
         Estimate the current CFB week and season type based on the date.
-        
+
         Returns:
             tuple: (week_number or None, season_type: 'regular', 'postseason', or None)
-        
+
         CFB season typically:
         - Week 0: Last week of August
         - Week 1-15: Regular season (Sept-Nov)
-        - Postseason: December bowls, January playoffs/championship
+        - Postseason weeks (12-team CFP era, 2024+):
+          - Week 1: First Round (Dec 20-21, campus sites)
+          - Week 2: Quarterfinals (Dec 31 - Jan 1, NY6 bowls)
+          - Week 3: Semifinals (Jan 9-10)
+          - Week 4: Championship (Jan 20)
         """
         now = datetime.now()
-        
-        # January is postseason (bowls/playoffs/championship)
+
+        # January is postseason (playoffs/championship)
         if now.month == 1:
-            if now.day <= 20:
-                # Bowl/playoff season - use postseason type, no specific week
-                return (None, 'postseason')
-            # Late January = offseason, show week 1 preview
+            if now.day <= 2:
+                # Jan 1-2: Quarterfinals weekend (Rose, Sugar, etc.)
+                return (2, 'postseason')
+            elif now.day <= 10:
+                # Jan 3-10: Semifinals weekend
+                return (3, 'postseason')
+            elif now.day <= 21:
+                # Jan 11-21: Championship weekend
+                return (4, 'postseason')
+            # Late January = offseason, show week 1 preview for next year
             return (1, 'regular')
-        
+
         # February-July = Offseason
         if now.month >= 2 and now.month < 8:
             return (1, 'regular')
-        
+
         # If we're querying a different year than current, return week 1
         if now.year != year:
             return (1, 'regular')
-        
+
         # August - Week 0 or preseason
         if now.month == 8:
             if now.day >= 24:
                 return (0, 'regular')  # Week 0 games
             return (1, 'regular')
-        
+
         # September weeks 1-4
         elif now.month == 9:
             return (min(1 + (now.day - 1) // 7, 4), 'regular')
-        
+
         # October weeks 5-9
         elif now.month == 10:
             return (min(5 + (now.day - 1) // 7, 9), 'regular')
-        
+
         # November weeks 10-14
         elif now.month == 11:
             return (min(10 + (now.day - 1) // 7, 14), 'regular')
-        
-        # December - conference championships and bowls
+
+        # December - conference championships and bowls/playoffs
         elif now.month == 12:
             if now.day <= 7:
                 return (15, 'regular')  # Conference championship week
-            # Bowl season starts
-            return (None, 'postseason')
-        
+            elif now.day <= 14:
+                return (16, 'regular')  # Army-Navy, early bowls
+            elif now.day <= 22:
+                # CFP First Round (Dec 20-21)
+                return (1, 'postseason')
+            else:
+                # Late December - Quarterfinals prep or early bowls
+                return (1, 'postseason')
+
         return (1, 'regular')
-    
+
     def _team_matches(self, search_term: str, college: str) -> bool:
         """
         Smart team matching for draft picks.
@@ -1259,7 +1275,7 @@ class CFBDataLookup:
         """
         if not college:
             return False
-            
+
         search_lower = search_term.lower().strip()
         college_lower = college.lower().strip()
 
@@ -1367,7 +1383,7 @@ class CFBDataLookup:
     async def get_betting_lines(self, team: Optional[str] = None, year: int = None, week: Optional[int] = None, season_type: str = None) -> tuple:
         """
         Get betting lines for games. If no week specified, gets current/upcoming week.
-        
+
         Returns:
             tuple: (lines_list, query_info_dict)
         """
@@ -1376,14 +1392,14 @@ class CFBDataLookup:
 
         if year is None:
             year = get_current_cfb_season()
-        
+
         original_week = week
         original_season_type = season_type
-        
+
         # Auto-detect current week and season type if not specified
         if week is None and season_type is None:
             week, season_type = self._get_current_cfb_week_and_type(year)
-        
+
         # Track what we're querying
         query_info = {
             'year': year,
@@ -1712,14 +1728,14 @@ class CFBDataLookup:
             return "No betting lines available"
 
         parts = ["💰 **Betting Lines**"]
-        
+
         # Show query debug info if provided
         if query_info:
             year = query_info.get('year', '?')
             week = query_info.get('week', 'auto')
             season_type = query_info.get('season_type', 'auto')
             parts.append(f"_Query: {year} | Week: {week} | Type: {season_type}_")
-        
+
         parts.append("")
 
         for game in lines[:10]:
@@ -1733,7 +1749,7 @@ class CFBDataLookup:
                 # Map playoff weeks to round names
                 round_names = {
                     1: "First Round",
-                    2: "Quarterfinals", 
+                    2: "Quarterfinals",
                     3: "Semifinals",
                     4: "Championship",
                     5: "Championship",
