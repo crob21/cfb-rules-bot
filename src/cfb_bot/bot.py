@@ -5035,7 +5035,7 @@ async def config_command(
             channel_status += "\n**Enabled Channels:** None (Harry disabled everywhere)"
 
         auto_status = "✅ On" if auto_responses else "❌ Off"
-        channel_status += f"\n**Auto-Responses (Rivalry):** {auto_status}"
+        channel_status += f"\n**Rivalry Responses:** {auto_status}"
 
         embed.add_field(
             name="📺 Channel Settings",
@@ -5076,7 +5076,7 @@ async def config_command(
                 "`/config disable league` - Disable dynasty features\n"
                 "`/set_admin_channel #channel` - Set admin output channel\n"
                 "`/channel enable` - Enable Harry in this channel\n"
-                "`/channel toggle_auto` - Toggle rivalry auto-responses"
+                "`/channel toggle_rivalry` - Toggle 'Fuck Oregon!' responses"
             ),
             inline=False
         )
@@ -5159,7 +5159,7 @@ async def config_command(
     app_commands.Choice(name="enable - Allow Harry in this channel", value="enable"),
     app_commands.Choice(name="disable - Remove Harry from this channel", value="disable"),
     app_commands.Choice(name="disable_all - Remove Harry from ALL channels", value="disable_all"),
-    app_commands.Choice(name="toggle_auto - Toggle auto-responses for this channel", value="toggle_auto"),
+    app_commands.Choice(name="toggle_rivalry - Toggle rivalry responses (Fuck Oregon!, etc.)", value="toggle_rivalry"),
 ])
 async def channel_command(
     interaction: discord.Interaction,
@@ -5180,7 +5180,7 @@ async def channel_command(
     target_channel = channel or interaction.channel
 
     # Check admin for enable/disable
-    if action in ["enable", "disable", "disable_all", "toggle_auto"]:
+    if action in ["enable", "disable", "disable_all", "toggle_rivalry"]:
         is_admin = (
             interaction.user.guild_permissions.administrator or
             (admin_manager and admin_manager.is_admin(interaction.user, interaction))
@@ -5241,7 +5241,7 @@ async def channel_command(
                 "`/channel enable` - Enable Harry in this channel\n"
                 "`/channel disable` - Disable Harry in this channel\n"
                 "`/channel disable_all` - Disable Harry everywhere\n"
-                "`/channel toggle_auto` - Toggle auto-responses here"
+                "`/channel toggle_rivalry` - Toggle 'Fuck Oregon!' jump-ins"
             ),
             inline=False
         )
@@ -5317,7 +5317,7 @@ async def channel_command(
         embed.set_footer(text="Harry's Channel Config 🏈")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    elif action == "toggle_auto":
+    elif action == "toggle_rivalry":
         current = server_config.auto_responses_enabled(guild_id, target_channel.id)
         new_value = not current
         server_config.set_channel_override(guild_id, target_channel.id, "auto_responses", new_value)
