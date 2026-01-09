@@ -76,7 +76,7 @@ class PlayerLookup:
             logger.warning("Player lookup not available")
             return []
 
-        years_to_try = [year] if year else [2024, 2023, 2022]
+        years_to_try = [year] if year else [2025, 2024, 2023]
 
         for try_year in years_to_try:
             try:
@@ -142,7 +142,7 @@ class PlayerLookup:
         if not self.is_available:
             return []
 
-        years_to_try = [year] if year else [2024, 2023]
+        years_to_try = [year] if year else [2025, 2024, 2023]
 
         for try_year in years_to_try:
             try:
@@ -248,7 +248,7 @@ class PlayerLookup:
             return None
 
         # Try multiple recruiting classes
-        years_to_try = [year] if year else [2024, 2023, 2022, 2021]
+        years_to_try = [year] if year else [2025, 2024, 2023, 2022]
 
         for try_year in years_to_try:
             try:
@@ -460,11 +460,12 @@ class PlayerLookup:
         tasks = []
 
         if player_team:
-            # Stats for multiple years
+            # Stats for multiple years (most recent first)
             async def get_stats():
-                for stat_year in [2024, 2023, 2022]:
+                for stat_year in [2025, 2024, 2023]:
                     s = await self.get_player_stats(player_name, player_team, stat_year)
                     if s and any(v for v in s.values() if v):
+                        logger.info(f"✅ Found stats for {stat_year} season")
                         return s
                 return None
 
