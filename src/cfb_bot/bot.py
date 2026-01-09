@@ -29,6 +29,7 @@ from typing import Optional
 
 import aiohttp
 import discord
+from discord import app_commands
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
@@ -128,17 +129,17 @@ async def check_module_enabled(interaction, module) -> bool:
     """
     if not interaction.guild:
         return True  # Allow in DMs
-    
+
     if server_config.is_module_enabled(interaction.guild.id, module):
         return True
-    
+
     # Module is disabled - send helpful message
     module_names = {
         FeatureModule.CFB_DATA: "CFB Data",
         FeatureModule.LEAGUE: "League Features",
     }
     name = module_names.get(module, module.value)
-    
+
     await interaction.response.send_message(
         f"❌ **{name}** module is not enabled on this server.\n"
         f"An admin can enable it with: `/config enable {module.value}`",
@@ -943,25 +944,25 @@ async def on_message(message):
                 # Check for bulk player lookup (multiple lines with player names)
                 bulk_indicators = ['look up these', 'lookup these', 'find these', 'check these', 'these players', 'player list']
                 content_lines = message.content.strip().split('\n')
-                
+
                 # Detect bulk lookup: either explicit request or multiple lines with player-like content
                 is_bulk_request = any(ind in message_lower for ind in bulk_indicators)
                 has_multiple_players = len(content_lines) >= 3 and any('(' in line for line in content_lines)
-                
+
                 if is_bulk_request or has_multiple_players:
                     # Try to parse as player list
                     player_list = player_lookup.parse_player_list(message.content)
-                    
+
                     if len(player_list) >= 2:
                         logger.info(f"🏈 Bulk player lookup: {len(player_list)} players detected")
                         thinking_msg = await message.channel.send(f"🔍 Looking up {len(player_list)} players, hang on...")
-                        
+
                         try:
                             results = await player_lookup.lookup_multiple_players(player_list)
                             response = player_lookup.format_bulk_player_response(results)
-                            
+
                             await thinking_msg.delete()
-                            
+
                             # Split into multiple messages if too long
                             if len(response) > 4000:
                                 # Send as multiple embeds
@@ -984,7 +985,7 @@ async def on_message(message):
                                 embed.set_footer(text="Harry's Bulk Lookup 🏈 | Data from CollegeFootballData.com")
                                 await message.channel.send(embed=embed)
                             return
-                            
+
                         except Exception as e:
                             logger.error(f"❌ Error in bulk player lookup: {e}", exc_info=True)
                             await thinking_msg.edit(content=f"❌ Error looking up players: {str(e)}")
@@ -2595,7 +2596,7 @@ async def lookup_players_bulk(
 ):
     """
     Look up multiple players at once.
-    
+
     Args:
         player_list: List of players separated by commas or semicolons.
                      Format: "Name (Team Position)" or "Name, Team"
@@ -2603,7 +2604,7 @@ async def lookup_players_bulk(
     """
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
-    
+
     if not player_lookup.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
@@ -2613,7 +2614,7 @@ async def lookup_players_bulk(
 
     # Parse the player list
     players = player_lookup.parse_player_list(player_list)
-    
+
     if not players:
         await interaction.response.send_message(
             "❌ Couldn't parse any players from that list, mate!\n\n"
@@ -2625,7 +2626,7 @@ async def lookup_players_bulk(
             ephemeral=True
         )
         return
-    
+
     if len(players) > 15:
         await interaction.response.send_message(
             f"❌ That's {len(players)} players - max is 15 at a time to avoid rate limits!",
@@ -2634,13 +2635,13 @@ async def lookup_players_bulk(
         return
 
     await interaction.response.defer()
-    
+
     logger.info(f"🏈 /players bulk lookup from {interaction.user}: {len(players)} players")
 
     try:
         results = await player_lookup.lookup_multiple_players(players)
         response = player_lookup.format_bulk_player_response(results)
-        
+
         # Split into multiple messages if too long
         if len(response) > 4000:
             chunks = [response[i:i+4000] for i in range(0, len(response), 4000)]
