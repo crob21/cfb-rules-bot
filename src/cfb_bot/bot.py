@@ -4985,9 +4985,34 @@ async def config_command(
                 inline=False
             )
 
+        # Show channel/auto-response status
+        enabled_channels = server_config.get_enabled_channels(guild_id)
+        current_channel_enabled = server_config.is_channel_enabled(guild_id, interaction.channel.id)
+        auto_responses = server_config.auto_responses_enabled(guild_id, interaction.channel.id)
+        
+        channel_status = f"**This Channel:** {'✅ Enabled' if current_channel_enabled else '❌ Disabled'}"
+        if enabled_channels:
+            channel_status += f"\n**Enabled Channels:** {len(enabled_channels)} channel(s)"
+        else:
+            channel_status += "\n**Enabled Channels:** None (Harry disabled everywhere)"
+        
+        auto_status = "✅ On" if auto_responses else "❌ Off"
+        channel_status += f"\n**Auto-Responses (Rivalry):** {auto_status}"
+        
+        embed.add_field(
+            name="📺 Channel Settings",
+            value=channel_status,
+            inline=False
+        )
+
         embed.add_field(
             name="💡 How to Change",
-            value="`/config enable cfb_data` - Enable CFB data features\n`/config disable league` - Disable dynasty features",
+            value=(
+                "`/config enable cfb_data` - Enable CFB data features\n"
+                "`/config disable league` - Disable dynasty features\n"
+                "`/channel enable` - Enable Harry in this channel\n"
+                "`/channel toggle_auto` - Toggle rivalry auto-responses"
+            ),
             inline=False
         )
 
