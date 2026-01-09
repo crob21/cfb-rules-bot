@@ -1415,10 +1415,14 @@ class CFBDataLookup:
             kwargs = {'year': year}
             if team:
                 kwargs['team'] = team
-            if week:
+            # Note: CFBD API may not support week filtering for postseason
+            # Only pass week for regular season queries
+            if week and season_type != 'postseason':
                 kwargs['week'] = week
             if season_type:
                 kwargs['season_type'] = season_type
+            
+            logger.info(f"📊 API kwargs: {kwargs}")
 
             results = await asyncio.to_thread(
                 self._betting_api.get_lines,
