@@ -1063,6 +1063,7 @@ class CFBDataLookup:
                 
                 # Normalize search term (remove common mascot names)
                 search_term = self._normalize_team_name(team) if team else None
+                logger.info(f"🔍 Normalized search: '{team}' -> '{search_term}'")
 
                 for pick in results:
                     college = getattr(pick, 'college_team', None) or ''
@@ -1075,6 +1076,15 @@ class CFBDataLookup:
                     if search_term:
                         if not self._team_matches(search_term, college):
                             continue
+                
+                # Debug: log all colleges that contain search term
+                if search_term:
+                    matching_colleges = [c for c in all_colleges if search_term.lower() in c.lower()]
+                    logger.info(f"🔍 Colleges containing '{search_term}': {matching_colleges}")
+                    
+                    # Also log exact matches
+                    exact_matches = [c for c in all_colleges if search_term.lower() == c.lower()]
+                    logger.info(f"🔍 Exact matches for '{search_term}': {exact_matches}")
 
                     picks.append({
                         'round': getattr(pick, 'round', None),
