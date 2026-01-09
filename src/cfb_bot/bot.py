@@ -50,11 +50,11 @@ class Colors:
 
 class Footers:
     """Standard footer texts"""
-    CFB_DATA = Footers.CFB_DATA
-    PLAYER_LOOKUP = Footers.PLAYER_LOOKUP
-    HS_STATS = Footers.HS_STATS
-    CONFIG = Footers.CONFIG
-    DEFAULT = Footers.DEFAULT
+    CFB_DATA = "Harry's CFB Data 🏈 | Data from CollegeFootballData.com"
+    PLAYER_LOOKUP = "Harry's Player Lookup 🏈 | Data from CollegeFootballData.com"
+    HS_STATS = "Harry's HS Stats 🏈 | Data scraped from MaxPreps"
+    CONFIG = "Harry's Server Config 🏈"
+    DEFAULT = "Harry - Your CFB 26 League Assistant 🏈"
 
 
 # Admin-only channel for bot notifications (Booze's Playground)
