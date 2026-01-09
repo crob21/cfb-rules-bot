@@ -1249,26 +1249,45 @@ class CFBDataLookup:
 
     # ==================== FORMATTERS ====================
 
-    def format_rankings(self, rankings: List[Dict], poll_filter: Optional[str] = None) -> str:
-        """Format rankings for Discord"""
+    def format_rankings(self, rankings: List[Dict], poll_filter: Optional[str] = None, top_n: int = 25) -> List[Dict]:
+        """
+        Format rankings for Discord as structured data for embed fields.
+        
+        Returns:
+            List of dicts with 'name' (poll name) and 'value' (ranked teams)
+        """
         if not rankings:
-            return "No rankings available"
+            return []
 
-        response_parts = []
+        fields = []
+        
+        # Priority order for polls
+        poll_priority = ['AP Top 25', 'Coaches Poll', 'Playoff Committee Rankings', 'AP']
+        
+        # Sort polls by priority
+        sorted_rankings = sorted(rankings, key=lambda p: (
+            poll_priority.index(p.get('poll', '')) if p.get('poll', '') in poll_priority else 99,
+            p.get('poll', '')
+        ))
 
-        for poll in rankings:
+        for poll in sorted_rankings:
             poll_name = poll.get('poll', 'Unknown')
             if poll_filter and poll_filter.lower() not in poll_name.lower():
                 continue
 
-            response_parts.append(f"**{poll_name}**")
-            for rank in poll.get('ranks', [])[:25]:  # Top 25
+            ranks_list = []
+            for rank in poll.get('ranks', [])[:top_n]:
                 r = rank.get('rank', '?')
                 school = rank.get('school', 'Unknown')
-                response_parts.append(f"{r}. {school}")
-            response_parts.append("")
+                ranks_list.append(f"`{r:>2}.` {school}")
+            
+            if ranks_list:
+                fields.append({
+                    'name': f"📊 {poll_name}",
+                    'value': "\n".join(ranks_list)
+                })
 
-        return "\n".join(response_parts) if response_parts else "No matching polls found"
+        return fields
 
     def format_team_ranking(self, team_ranking: Dict) -> str:
         """Format a team's ranking across polls"""
