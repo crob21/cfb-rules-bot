@@ -4716,7 +4716,7 @@ async def add_bot_admin(interaction: discord.Interaction, user: discord.Member):
             color=0x00ff00
         )
         embed.set_footer(text=f"Added by {interaction.user.display_name}")
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
         logger.info(f"✅ Bot admin added: {user.display_name} ({user.id}) by {interaction.user.display_name}")
     else:
         embed = discord.Embed(
@@ -4753,7 +4753,7 @@ async def remove_bot_admin(interaction: discord.Interaction, user: discord.Membe
             color=0xff0000
         )
         embed.set_footer(text=f"Removed by {interaction.user.display_name}")
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
         logger.info(f"✅ Bot admin removed: {user.display_name} ({user.id}) by {interaction.user.display_name}")
     else:
         embed = discord.Embed(
@@ -4778,7 +4778,7 @@ async def list_bot_admins(interaction: discord.Interaction):
             description="No bot-specific admins configured.\n\nAnyone with Discord Administrator permission can use admin commands.\n\nUse `/add_bot_admin @user` to add bot admins!",
             color=0x808080
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
     embed = discord.Embed(
@@ -4809,7 +4809,7 @@ async def list_bot_admins(interaction: discord.Interaction):
     )
 
     embed.set_footer(text="CFB 26 League Bot - Admin Management")
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.tree.command(name="block_channel", description="Block unprompted responses in a channel (Admin only)")
 async def block_channel(interaction: discord.Interaction, channel: discord.TextChannel):
@@ -4842,7 +4842,7 @@ async def block_channel(interaction: discord.Interaction, channel: discord.TextC
             inline=False
         )
         embed.set_footer(text=f"Blocked by {interaction.user.display_name} 🔇")
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
         logger.info(f"🔇 {interaction.user} blocked channel #{channel.name} (ID: {channel.id})")
     else:
         embed = discord.Embed(
@@ -4878,7 +4878,7 @@ async def unblock_channel(interaction: discord.Interaction, channel: discord.Tex
             color=0x00ff00
         )
         embed.set_footer(text=f"Unblocked by {interaction.user.display_name} 🔊")
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
         logger.info(f"🔊 {interaction.user} unblocked channel #{channel.name} (ID: {channel.id})")
     else:
         embed = discord.Embed(
@@ -4903,7 +4903,7 @@ async def list_blocked_channels(interaction: discord.Interaction):
             description="No channels are blocked!\n\nI can make unprompted responses in all channels.\n\nUse `/block_channel #channel` to block channels (Admin only).",
             color=0x00ff00
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
     embed = discord.Embed(
@@ -4937,7 +4937,7 @@ async def list_blocked_channels(interaction: discord.Interaction):
     )
 
     embed.set_footer(text="CFB 26 League Bot - Channel Management")
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 @bot.tree.command(name="config", description="Configure Harry's features for this server")
