@@ -40,13 +40,26 @@ class HSStatsScraper:
     """
     
     BASE_URL = "https://www.maxpreps.com"
-    SEARCH_URL = "https://www.maxpreps.com/search/default.aspx"
     
-    # User agent to avoid blocks
+    # MaxPreps updated their site - try multiple search patterns
+    SEARCH_PATTERNS = [
+        "/search/?query={query}&type=athletes&sport=football",  # New pattern
+        "/search/athletes/?q={query}&sport=football",           # Alternative
+        "/search/?q={query}",                                   # Generic search
+    ]
+    
+    # User agent to avoid blocks - use a modern Chrome UA
     HEADERS = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
     }
     
     # Rate limiting
@@ -139,26 +152,63 @@ class HSStatsScraper:
             if state:
                 search_query += f" {state}"
             
-            # MaxPreps search URL format
-            search_url = f"{self.BASE_URL}/search/athletes.aspx?search={quote_plus(search_query)}&sport=football"
-            
             logger.info(f"🔍 Searching MaxPreps for: {search_query}")
             
-            response = await client.get(search_url)
-            response.raise_for_status()
+            # Try multiple search URL patterns (MaxPreps updates their site frequently)
+            response = None
+            for pattern in self.SEARCH_PATTERNS:
+                search_url = self.BASE_URL + pattern.format(query=quote_plus(search_query))
+                logger.debug(f"🔍 Trying search URL: {search_url}")
+                
+                try:
+                    response = await client.get(search_url)
+                    if response.status_code == 200:
+                        logger.info(f"✅ Search URL worked: {search_url}")
+                        break
+                    else:
+                        logger.debug(f"❌ Search URL returned {response.status_code}")
+                except Exception as e:
+                    logger.debug(f"❌ Search URL failed: {e}")
+                    continue
+            
+            if not response or response.status_code != 200:
+                # Fallback: Try direct athlete URL construction
+                # MaxPreps URLs: /la/new-orleans/newman-greenies/athletes/arch-manning/football/
+                slug_name = name.lower().replace(' ', '-').replace("'", "")
+                direct_url = f"{self.BASE_URL}/athletes/{slug_name}/football/"
+                logger.info(f"🔍 Trying direct URL: {direct_url}")
+                
+                try:
+                    response = await client.get(direct_url)
+                    if response.status_code == 200:
+                        # Found via direct URL - return as single result
+                        return [{
+                            'name': name,
+                            'school': None,
+                            'profile_url': str(response.url)  # Use final URL after redirects
+                        }]
+                except Exception:
+                    pass
+                
+                logger.warning(f"❌ All search methods failed for: {search_query}")
+                return []
             
             soup = BeautifulSoup(response.text, 'html.parser')
             
             # Parse search results
             results = []
             
-            # MaxPreps search results are typically in a list/table format
-            # The exact selectors may need adjustment based on current site structure
-            player_cards = soup.select('.athlete-card, .search-result-item, .player-row, [data-athlete-id]')
+            # MaxPreps search results - try multiple selectors for their React-based site
+            player_cards = soup.select(
+                '.athlete-card, .search-result-item, .player-row, '
+                '[data-athlete-id], .athlete-result, .search-athlete, '
+                'div[class*="athlete"], div[class*="player"], '
+                'a[href*="/athletes/"]'
+            )
             
             if not player_cards:
-                # Try alternative selectors
-                player_cards = soup.select('a[href*="/athlete/"]')
+                # Try finding any links to athlete pages
+                player_cards = soup.select('a[href*="/athletes/"]')
             
             for card in player_cards[:10]:  # Limit to top 10 results
                 try:
@@ -223,6 +273,10 @@ class HSStatsScraper:
             await self._rate_limit()
             client = await self._get_client()
             
+            # Make sure we're hitting the stats page
+            if '/stats/' not in profile_url and '/stats' not in profile_url:
+                profile_url = profile_url.rstrip('/') + '/stats/'
+            
             logger.info(f"🔍 Fetching stats from: {profile_url}")
             
             response = await client.get(profile_url)
@@ -243,28 +297,50 @@ class HSStatsScraper:
                 'seasons': []
             }
             
-            # Player name
-            name_elem = soup.select_one('h1, .athlete-name, .player-name')
+            # Player name - MaxPreps uses h1 with the player name
+            name_elem = soup.select_one('h1')
             if name_elem:
-                player_data['name'] = name_elem.get_text(strip=True)
+                # Clean the name (remove extra whitespace, "Stats" suffix, etc.)
+                name_text = name_elem.get_text(strip=True)
+                # Remove "'s Stats" or similar
+                name_text = re.sub(r"'s\s+Stats?$", "", name_text, flags=re.I)
+                player_data['name'] = name_text.strip()
             
-            # School
-            school_elem = soup.select_one('.school-name, .team-name, [data-school]')
-            if school_elem:
-                player_data['school'] = school_elem.get_text(strip=True)
+            # School - try multiple selectors for MaxPreps layout
+            school_selectors = [
+                'a[href*="/schools/"]', 'a[href*="-greenies"]', 'a[href*="-tigers"]',
+                '.school-name', '.team-name', '[class*="school"]',
+                'a[href*="/la/"], a[href*="/tx/"], a[href*="/ca/"]'  # State-based URLs
+            ]
+            for selector in school_selectors:
+                school_elem = soup.select_one(selector)
+                if school_elem:
+                    school_text = school_elem.get_text(strip=True)
+                    if school_text and len(school_text) > 2 and school_text != player_data['name']:
+                        player_data['school'] = school_text
+                        break
             
-            # Location (City, State)
-            location_elem = soup.select_one('.location, .school-location')
-            if location_elem:
-                player_data['location'] = location_elem.get_text(strip=True)
+            # Try to extract from page breadcrumbs or meta
+            if not player_data['school']:
+                # Look in the URL path for school info
+                # URL format: /la/new-orleans/newman-greenies/athletes/...
+                import re
+                url_match = re.search(r'/([a-z]{2})/([^/]+)/([^/]+)/athletes/', profile_url)
+                if url_match:
+                    state = url_match.group(1).upper()
+                    city = url_match.group(2).replace('-', ' ').title()
+                    school = url_match.group(3).replace('-', ' ').title()
+                    player_data['school'] = school
+                    player_data['location'] = f"{city}, {state}"
             
-            # Position
-            pos_elem = soup.select_one('.position, [data-position]')
-            if pos_elem:
-                player_data['position'] = pos_elem.get_text(strip=True)
+            # Position - look for QB, WR, RB, etc.
+            page_text = soup.get_text()
+            pos_match = re.search(r'\b(QB|WR|RB|TE|OL|DL|LB|CB|S|K|P|ATH)\b', page_text)
+            if pos_match:
+                player_data['position'] = pos_match.group(1)
             
-            # Parse stats tables
-            stats_tables = soup.select('table.stats-table, table[data-sport="football"], .stats-container table')
+            # Parse all stats tables on the page
+            stats_tables = soup.select('table')
             
             for table in stats_tables:
                 season_stats = self._parse_stats_table(table)
