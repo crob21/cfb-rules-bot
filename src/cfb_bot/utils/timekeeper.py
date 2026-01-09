@@ -1001,15 +1001,24 @@ class TimekeeperManager:
             embed.set_footer(text="Harry's Advance Timer 🏈 | Admin notification")
 
             try:
-                # Try to send to admin channel (Booze's Playground)
-                admin_channel_id = 1417663211292852244
-                admin_channel = self.bot.get_channel(admin_channel_id)
-                if admin_channel:
-                    await admin_channel.send(embed=embed)
-                    logger.info(f"📢 Sent timer restoration notification to admin channel")
-                else:
-                    # Fallback to logging only if admin channel not found
-                    logger.info(f"📢 Timer restored (admin channel not found, logged only)")
+                # Try to send to configured admin channel for each guild
+                from .server_config import server_config
+                
+                sent_to_guilds = set()
+                for guild in self.bot.guilds:
+                    if guild.id in sent_to_guilds:
+                        continue
+                    
+                    admin_channel_id = server_config.get_admin_channel(guild.id)
+                    if admin_channel_id:
+                        admin_channel = guild.get_channel(admin_channel_id)
+                        if admin_channel:
+                            await admin_channel.send(embed=embed)
+                            sent_to_guilds.add(guild.id)
+                            logger.info(f"📢 Sent timer restoration notification to #{admin_channel.name} in {guild.name}")
+                
+                if not sent_to_guilds:
+                    logger.info(f"📢 Timer restored (no admin channels configured)")
             except Exception as e:
                 logger.error(f"❌ Failed to send restoration message: {e}")
 

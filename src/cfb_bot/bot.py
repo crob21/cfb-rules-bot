@@ -51,6 +51,49 @@ def get_notification_channel():
     return bot.get_channel(channel_id)
 
 
+async def send_admin_notification(title: str, description: str, color: int = 0x1e90ff, fields: list = None):
+    """
+    Send a notification to all configured admin channels.
+    
+    Args:
+        title: Embed title
+        description: Embed description
+        color: Embed color (default blue)
+        fields: Optional list of {"name": str, "value": str, "inline": bool} dicts
+    """
+    embed = discord.Embed(
+        title=title,
+        description=description,
+        color=color
+    )
+    if fields:
+        for field in fields:
+            embed.add_field(
+                name=field.get("name", ""),
+                value=field.get("value", ""),
+                inline=field.get("inline", False)
+            )
+    embed.set_footer(text="Harry Admin Notification 🔧")
+    
+    sent_count = 0
+    for guild in bot.guilds:
+        admin_channel_id = server_config.get_admin_channel(guild.id)
+        if admin_channel_id:
+            channel = guild.get_channel(admin_channel_id)
+            if channel:
+                try:
+                    await channel.send(embed=embed)
+                    sent_count += 1
+                    logger.info(f"📢 Sent admin notification to #{channel.name} in {guild.name}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to send to {guild.name}: {e}")
+    
+    if sent_count == 0:
+        logger.info(f"📢 Admin notification not sent (no admin channels configured)")
+    
+    return sent_count
+
+
 async def send_week_schedule(channel, week_num):
     """Send the schedule for a given week to a channel"""
     if week_num is None:
@@ -383,6 +426,17 @@ async def on_ready():
             logger.info(f'💬 Or mention @Harry in chat for natural conversations!')
         except Exception as e:
             logger.error(f'❌ Failed to sync commands: {e}')
+        
+        # Send startup notification to admin channels
+        try:
+            await send_admin_notification(
+                title="🏈 Harry is Online!",
+                description=f"Bot started successfully.\n\n**Version:** {current_version}\n**Guilds:** {len(bot.guilds)}\n**Commands:** Synced ✅",
+                color=0x00ff00
+            )
+        except Exception as e:
+            logger.error(f"❌ Failed to send startup notification: {e}")
+            
     except Exception as e:
         logger.error(f"❌ Critical error in on_ready: {e}")
         logger.exception("Full error details:")
@@ -3889,7 +3943,7 @@ async def set_admin_channel(interaction: discord.Interaction, channel: discord.T
         return
 
     guild_id = interaction.guild.id
-    
+
     # Update the channel ID and persist it
     server_config.set_admin_channel(guild_id, channel.id)
     await server_config.save_to_discord()
@@ -5021,7 +5075,7 @@ async def config_command(
             admin_channel_text = f"#{admin_ch.name}" if admin_ch else f"ID: {admin_channel_id}"
         else:
             admin_channel_text = "❌ Not Set"
-        
+
         # Show channel/auto-response status
         enabled_channels = server_config.get_enabled_channels(guild_id)
         current_channel_enabled = server_config.is_channel_enabled(guild_id, interaction.channel.id)
@@ -5052,9 +5106,9 @@ async def config_command(
                 timer_text = f"#{timer_ch.name}" if timer_ch else f"ID: {timer_channel_id}"
             else:
                 timer_text = "#general (default)"
-            
+
             league_status = f"**Timer Channel:** {timer_text}"
-            
+
             # Get league staff if timekeeper is available
             if timekeeper_manager:
                 staff = timekeeper_manager.get_league_staff()
@@ -5062,7 +5116,7 @@ async def config_command(
                 co_commish_name = staff.get('co_commish_name', 'Not Set')
                 league_status += f"\n**League Owner:** {owner_name}"
                 league_status += f"\n**Co-Commissioner:** {co_commish_name}"
-            
+
             embed.add_field(
                 name="🏆 League Settings",
                 value=league_status,
