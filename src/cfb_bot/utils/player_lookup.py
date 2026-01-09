@@ -461,49 +461,87 @@ class PlayerLookup:
 
         logger.info(f"🔍 Parsing player query: '{query}'")
 
-        # Remove common prefixes
+        # Remove common prefixes (order matters - longer/more specific first)
         prefixes_to_remove = [
+            # Question formats
             "what do you know about",
+            "what can you tell me about",
+            "what are the stats for",
+            "what are the stats on",
+            "do you have info on",
+            "do you have any info on",
+            "can you tell me about",
+            "can you look up",
+            "can you find",
+            "could you look up",
+            "any info on",
+            "got any info on",
+            # Command formats
             "tell me about",
-            "who is",
+            "give me info on",
+            "give me stats for",
+            "give me stats on",
+            "get me stats for",
+            "get me stats on",
+            "get me info on",
+            "pull up",
+            "pull stats for",
+            "show me stats for",
+            "show me stats on",
+            "show me info on",
             "show me",
-            "find",
-            "lookup",
             "look up",
-            "info on",
+            "lookup",
+            "find me",
+            "find",
+            # Simple formats
             "information on",
+            "info on",
             "stats for",
             "stats on",
             "player info for",
             "player stats for",
-            "player"
+            "player info",
+            "player stats",
+            "who is",
+            "who's",
+            "player",
         ]
 
         for prefix in prefixes_to_remove:
             if query.startswith(prefix):
                 query = query[len(prefix):].strip()
                 logger.info(f"🔍 After removing '{prefix}': '{query}'")
+                break  # Only remove one prefix
 
-        # Handle "from [team]" pattern
+        # Handle team patterns (check in order of specificity)
         team = None
-        if " from " in query:
-            parts = query.split(" from ", 1)  # Split only on first occurrence
-            query = parts[0].strip()
-            team = parts[1].strip()
-        elif " at " in query:
-            parts = query.split(" at ", 1)
-            query = parts[0].strip()
-            team = parts[1].strip()
-        elif " on " in query:
-            parts = query.split(" on ", 1)
-            query = parts[0].strip()
-            team = parts[1].strip()
+        team_patterns = [
+            " who plays for ",
+            " that plays for ",
+            " playing for ",
+            " plays for ",
+            " from ",
+            " at ",
+            " on ",
+            ", ",  # "James Smith, Alabama"
+        ]
 
-        # Clean up team name (remove "the" prefix and trailing punctuation)
+        for pattern in team_patterns:
+            if pattern in query:
+                parts = query.split(pattern, 1)
+                query = parts[0].strip()
+                team = parts[1].strip()
+                logger.info(f"🔍 Found team pattern '{pattern.strip()}': name='{query}', team='{team}'")
+                break
+
+        # Clean up team name (remove common prefixes and trailing punctuation)
         if team:
-            if team.startswith("the "):
-                team = team[4:]
-            team = team.rstrip('?.!')
+            team_prefixes = ["the ", "team "]
+            for tp in team_prefixes:
+                if team.startswith(tp):
+                    team = team[len(tp):]
+            team = team.rstrip('?.!').strip()
 
         # Title case the name and clean up
         name = query.title().strip()
