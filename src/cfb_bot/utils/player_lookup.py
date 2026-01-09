@@ -1732,8 +1732,10 @@ class CFBDataLookup:
                 all_stats = result.get('all_stats', {})
                 recruiting = result.get('recruiting')
                 
-                # Build compact player line
-                p_name = f"{player.get('first_name', '')} {player.get('last_name', '')}".strip()
+                # Build compact player line - API returns 'name' or 'firstName'/'lastName'
+                p_name = player.get('name') or f"{player.get('firstName', '')} {player.get('lastName', '')}".strip()
+                if not p_name:
+                    p_name = name  # Fall back to query name
                 p_team = player.get('team', 'N/A')
                 p_pos = player.get('position', '?')
                 p_year = player.get('year', '')
