@@ -469,7 +469,7 @@ class PlayerLookup:
                 return None
 
             tasks.append(('stats', get_stats()))
-        
+
         tasks.append(('recruiting', self.get_recruiting_info(player_name)))
         tasks.append(('transfer', self.search_transfer(player_name)))
 
@@ -541,7 +541,7 @@ class PlayerLookup:
 
         # Header
         response_parts.append(f"🏈 **{name}** - {team}")
-        
+
         # Vitals line
         vitals = []
         if position:
@@ -554,7 +554,7 @@ class PlayerLookup:
             vitals.append(f"**{height_fmt}**")
         if weight_fmt:
             vitals.append(f"**{weight_fmt}**")
-        
+
         if vitals:
             response_parts.append(" | ".join(vitals))
 
@@ -579,7 +579,7 @@ class PlayerLookup:
         # Stats section
         if stats:
             has_stats = False
-            
+
             # Passing
             passing = stats.get('passing', {})
             if passing:
@@ -652,12 +652,12 @@ class PlayerLookup:
             state_rank = recruiting.get('stateRank')
 
             star_display = "⭐" * stars if stars else "N/R"
-            
+
             if rating:
                 response_parts.append(f"🎯 **Recruiting:** {star_display} ({rating:.4f})")
             else:
                 response_parts.append(f"🎯 **Recruiting:** {star_display}")
-            
+
             ranks = []
             if ranking:
                 ranks.append(f"#{ranking} National")
@@ -665,7 +665,7 @@ class PlayerLookup:
                 ranks.append(f"#{pos_rank} {recruiting.get('position', 'Pos')}")
             if state_rank:
                 ranks.append(f"#{state_rank} {recruiting.get('state', 'State')}")
-            
+
             if ranks:
                 response_parts.append(f"   {' | '.join(ranks)}")
 

@@ -955,10 +955,15 @@ async def on_message(message):
                     else:
                         embed = discord.Embed(
                             title="❓ Player Not Found",
-                            description=f"Couldn't find a player matching **{name}**" + (f" from **{team}**" if team else "") + ".\n\nTry checking the spelling or use the full name, ya muppet!",
+                            description=f"Couldn't find a player matching **{name}**" + (f" from **{team}**" if team else "") + ".",
                             color=0xff6600
                         )
-                        embed.set_footer(text="Harry's Player Lookup 🏈")
+                        embed.add_field(
+                            name="💡 Tips",
+                            value="• Check the spelling\n• Use full name (First Last)\n• FCS/smaller schools may have limited data\n• Try without the team name",
+                            inline=False
+                        )
+                        embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")
                         await message.channel.send(embed=embed)
                     return
 
@@ -2393,10 +2398,15 @@ async def lookup_player(
         else:
             embed = discord.Embed(
                 title="❓ Player Not Found",
-                description=f"Couldn't find a player matching **{name}**" + (f" from **{team}**" if team else "") + ".\n\nTry checking the spelling or use the full name, ya muppet!",
+                description=f"Couldn't find a player matching **{name}**" + (f" from **{team}**" if team else "") + ".",
                 color=0xff6600
             )
-            embed.set_footer(text="Harry's Player Lookup 🏈")
+            embed.add_field(
+                name="💡 Tips",
+                value="• Check the spelling\n• Use full name (First Last)\n• FCS/smaller schools may have limited data\n• Try without the team name",
+                inline=False
+            )
+            embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")
             await interaction.followup.send(embed=embed)
 
     except Exception as e:
