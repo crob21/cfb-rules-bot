@@ -136,6 +136,73 @@ async def send_admin_log(event: str, details: str = None, guild_id: int = None):
     )
 
 
+async def send_startup_notification(version: str):
+    """
+    Send a combined startup notification with version info, features, and timer status.
+    """
+    from .utils.version_manager import VersionManager
+    
+    version_mgr = VersionManager()
+    version_info = version_mgr.get_latest_version_info()
+    version_title = version_info.get('title', 'Update')
+    version_emoji = version_info.get('emoji', '📌')
+    
+    # Get latest features preview
+    changes_preview = []
+    for feature_group in version_info.get('features', [])[:2]:
+        for change in feature_group.get('changes', [])[:3]:
+            changes_preview.append(f"• {change}")
+    changes_text = "\n".join(changes_preview[:5]) if changes_preview else "No changes listed"
+    
+    # Build description
+    description = f"**Version {version}** - {version_title}\n\n"
+    description += f"**Guilds:** {len(bot.guilds)} | **Status:** Online ✅\n\n"
+    
+    # Check for restored timer
+    timer_info = None
+    if timekeeper_manager:
+        timer_info = timekeeper_manager.get_restored_timer_info()
+    
+    if timer_info:
+        description += f"**⏰ Timer Restored**\n"
+        description += f"Channel: #{timer_info['channel_name']}\n"
+        description += f"Time Remaining: {int(timer_info['hours_remaining'])}h {timer_info['minutes_remaining']}m\n"
+        description += f"Ends At: {timer_info['end_time']}\n\n"
+    
+    # Create embed
+    embed = discord.Embed(
+        title="🏈 Harry is Online!",
+        description=description,
+        color=0x00ff00
+    )
+    
+    embed.add_field(
+        name=f"{version_emoji} What's New",
+        value=changes_text,
+        inline=False
+    )
+    
+    embed.set_footer(text="Harry Admin Notification 🔧 | Use /whats_new for full details")
+    
+    # Send to all admin channels
+    sent_count = 0
+    for guild in bot.guilds:
+        admin_channel_id = server_config.get_admin_channel(guild.id)
+        if admin_channel_id:
+            channel = guild.get_channel(admin_channel_id)
+            if channel:
+                try:
+                    await channel.send(embed=embed)
+                    sent_count += 1
+                except Exception as e:
+                    logger.error(f"❌ Failed to send startup to {guild.name}: {e}")
+    
+    if sent_count > 0:
+        logger.info(f"📢 Sent startup notification to {sent_count} admin channel(s)")
+    else:
+        logger.info(f"📢 Startup complete (no admin channels configured)")
+
+
 async def send_week_schedule(channel, week_num):
     """Send the schedule for a given week to a channel"""
     if week_num is None:
@@ -469,13 +536,9 @@ async def on_ready():
         except Exception as e:
             logger.error(f'❌ Failed to sync commands: {e}')
         
-        # Send startup notification to admin channels
+        # Send combined startup notification to admin channels
         try:
-            await send_admin_notification(
-                title="🏈 Harry is Online!",
-                description=f"Bot started successfully.\n\n**Version:** {current_version}\n**Guilds:** {len(bot.guilds)}\n**Commands:** Synced ✅",
-                color=0x00ff00
-            )
+            await send_startup_notification(current_version)
         except Exception as e:
             logger.error(f"❌ Failed to send startup notification: {e}")
             

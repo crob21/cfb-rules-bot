@@ -616,6 +616,14 @@ class TimekeeperManager:
         self.nag_message_index: int = 0
         # Notification channel (for timer announcements)
         self.notification_channel_id: Optional[int] = NOTIFICATION_CHANNEL_ID
+        # Restored timer info (for combined startup notification)
+        self._restored_timer_info: Optional[Dict] = None
+
+    def get_restored_timer_info(self) -> Optional[Dict]:
+        """Get info about restored timer (for startup notification) and clear it"""
+        info = self._restored_timer_info
+        self._restored_timer_info = None  # Clear after reading
+        return info
 
     async def _save_state_to_discord(self, state: Dict):
         """Save timer state to a Discord DM channel (persists across deployments, invisible to users)"""
@@ -969,58 +977,13 @@ class TimekeeperManager:
             logger.info(f"⏰ Time remaining: {hours_remaining:.1f} hours")
             logger.info(f"⏰ End time: {end_time}")
 
-            # Get version info for the restore message
-            from .version_manager import VersionManager
-            version_mgr = VersionManager()
-            version = version_mgr.get_current_version()
-            version_info = version_mgr.get_latest_version_info()
-            version_title = version_info.get('title', 'Update')
-            version_emoji = version_info.get('emoji', '📌')
-
-            # Get first 3 changes from latest version
-            changes_preview = []
-            for feature_group in version_info.get('features', [])[:2]:
-                for change in feature_group.get('changes', [])[:2]:
-                    changes_preview.append(f"• {change}")
-            changes_text = "\n".join(changes_preview[:4]) if changes_preview else "No changes listed"
-
-            # Send restoration notification to admin channel instead of public
-            embed = discord.Embed(
-                title="⏰ Timer Restored!",
-                description=f"Restored advance countdown after a restart.\n\n"
-                           f"**Channel:** #{channel.name}\n"
-                           f"**Time Remaining:** {int(hours_remaining)}h {int((time_remaining.total_seconds() % 3600) / 60)}m\n"
-                           f"**Ends At:** {end_time.strftime('%I:%M %p')}",
-                color=0x00ff00
-            )
-            embed.add_field(
-                name=f"{version_emoji} Version {version} - {version_title}",
-                value=changes_text,
-                inline=False
-            )
-            embed.set_footer(text="Harry's Advance Timer 🏈 | Admin notification")
-
-            try:
-                # Try to send to configured admin channel for each guild
-                from .server_config import server_config
-                
-                sent_to_guilds = set()
-                for guild in self.bot.guilds:
-                    if guild.id in sent_to_guilds:
-                        continue
-                    
-                    admin_channel_id = server_config.get_admin_channel(guild.id)
-                    if admin_channel_id:
-                        admin_channel = guild.get_channel(admin_channel_id)
-                        if admin_channel:
-                            await admin_channel.send(embed=embed)
-                            sent_to_guilds.add(guild.id)
-                            logger.info(f"📢 Sent timer restoration notification to #{admin_channel.name} in {guild.name}")
-                
-                if not sent_to_guilds:
-                    logger.info(f"📢 Timer restored (no admin channels configured)")
-            except Exception as e:
-                logger.error(f"❌ Failed to send restoration message: {e}")
+            # Store restore info for combined startup notification
+            self._restored_timer_info = {
+                'channel_name': channel.name,
+                'hours_remaining': hours_remaining,
+                'minutes_remaining': int((time_remaining.total_seconds() % 3600) / 60),
+                'end_time': end_time.strftime('%I:%M %p')
+            }
 
         except Exception as e:
             logger.error(f"❌ Failed to load timer state: {e}")
