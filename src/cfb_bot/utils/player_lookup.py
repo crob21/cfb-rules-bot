@@ -7,7 +7,22 @@ import asyncio
 import logging
 import os
 import re
+from datetime import datetime
 from typing import Any, Dict, List, Optional
+
+
+def get_current_cfb_season() -> int:
+    """
+    Get the current CFB season year.
+    
+    CFB seasons run Aug-Jan, so:
+    - Jan-July: Previous year's season (Jan 2026 = 2025 season)
+    - Aug-Dec: Current year's season (Sept 2025 = 2025 season)
+    """
+    now = datetime.now()
+    if now.month < 8:  # Before August = previous year's season
+        return now.year - 1
+    return now.year
 
 logger = logging.getLogger(__name__)
 
@@ -877,19 +892,23 @@ class CFBDataLookup:
             logger.error(f"Error getting team info: {e}")
             return None
 
-    async def get_rankings(self, year: int = 2025, week: Optional[int] = None, latest_only: bool = True) -> List[Dict[str, Any]]:
+    async def get_rankings(self, year: int = None, week: Optional[int] = None, latest_only: bool = True) -> List[Dict[str, Any]]:
         """
         Get team rankings (AP, Coaches, CFP)
 
         Args:
-            year: Season year
+            year: Season year (default: current season)
             week: Specific week (if None and latest_only=True, gets most recent)
             latest_only: If True, only return the most recent week's rankings
-            
+
         Returns list of polls with their rankings
         """
         if not self.is_available:
             return []
+        
+        # Default to current season
+        if year is None:
+            year = get_current_cfb_season()
 
         try:
             logger.info(f"🔍 Fetching rankings for {year}" + (f" week {week}" if week else " (latest)"))
@@ -909,7 +928,7 @@ class CFBDataLookup:
                     max_week = max(getattr(pw, 'week', 0) for pw in results)
                     results = [pw for pw in results if getattr(pw, 'week', 0) == max_week]
                     logger.info(f"📅 Using latest week: {max_week}")
-                
+
                 rankings = []
                 for poll_week in results:
                     week_num = getattr(poll_week, 'week', None)
@@ -939,8 +958,10 @@ class CFBDataLookup:
             logger.error(f"Error fetching rankings: {e}")
             return []
 
-    async def get_team_ranking(self, team: str, year: int = 2025) -> Optional[Dict[str, Any]]:
+    async def get_team_ranking(self, team: str, year: int = None) -> Optional[Dict[str, Any]]:
         """Get a specific team's ranking across all polls"""
+        if year is None:
+            year = get_current_cfb_season()
         rankings = await self.get_rankings(year)
 
         if not rankings:
@@ -1012,10 +1033,13 @@ class CFBDataLookup:
             logger.error(f"Error fetching matchup: {e}")
             return None
 
-    async def get_team_schedule(self, team: str, year: int = 2025) -> List[Dict[str, Any]]:
+    async def get_team_schedule(self, team: str, year: int = None) -> List[Dict[str, Any]]:
         """Get a team's schedule/results for a season"""
         if not self.is_available:
             return []
+        
+        if year is None:
+            year = get_current_cfb_season()
 
         try:
             logger.info(f"🔍 Fetching schedule for {team} ({year})")
@@ -1049,7 +1073,7 @@ class CFBDataLookup:
             logger.error(f"Error fetching schedule: {e}")
             return []
 
-    async def get_draft_picks(self, team: Optional[str] = None, year: int = 2025) -> Dict[str, Any]:
+    async def get_draft_picks(self, team: Optional[str] = None, year: int = None) -> Dict[str, Any]:
         """
         Get NFL draft picks, optionally filtered by college team.
 
@@ -1058,6 +1082,10 @@ class CFBDataLookup:
         """
         if not self.is_available:
             return {'picks': [], 'suggestions': []}
+        
+        # Default to current calendar year (draft happens in April)
+        if year is None:
+            year = datetime.now().year
 
         try:
             logger.info(f"🔍 Fetching draft picks" + (f" from {team}" if team else "") + f" ({year})")
@@ -1071,7 +1099,7 @@ class CFBDataLookup:
             if results:
                 picks = []
                 all_colleges = set()
-                
+
                 # Normalize search term (remove common mascot names)
                 search_term = self._normalize_team_name(team) if team else None
                 logger.info(f"🔍 Normalized search: '{team}' -> '{search_term}'")
@@ -1087,12 +1115,12 @@ class CFBDataLookup:
                     if search_term:
                         if not self._team_matches(search_term, college):
                             continue
-                
+
                 # Debug: log all colleges that contain search term
                 if search_term:
                     matching_colleges = [c for c in all_colleges if search_term.lower() in c.lower()]
                     logger.info(f"🔍 Colleges containing '{search_term}': {matching_colleges}")
-                    
+
                     # Also log exact matches
                     exact_matches = [c for c in all_colleges if search_term.lower() == c.lower()]
                     logger.info(f"🔍 Exact matches for '{search_term}': {exact_matches}")
@@ -1124,7 +1152,7 @@ class CFBDataLookup:
         except Exception as e:
             logger.error(f"Error fetching draft picks: {e}", exc_info=True)
             return {'picks': [], 'suggestions': []}
-    
+
     def _normalize_team_name(self, team: str) -> str:
         """
         Normalize team name by removing common mascot suffixes.
@@ -1133,7 +1161,7 @@ class CFBDataLookup:
         """
         if not team:
             return team
-            
+
         # Common mascot names to strip
         mascots = [
             'huskies', 'ducks', 'buckeyes', 'wolverines', 'trojans', 'bulldogs',
@@ -1146,15 +1174,15 @@ class CFBDataLookup:
             'jayhawks', 'cyclones', 'red raiders', 'horned frogs', 'cowboys',
             'golden eagles', 'panthers', 'knights', 'owls', 'mustangs', 'thundering herd'
         ]
-        
+
         team_lower = team.lower().strip()
-        
+
         for mascot in mascots:
             if team_lower.endswith(' ' + mascot):
                 return team[:-(len(mascot) + 1)].strip()
-        
+
         return team.strip()
-    
+
     def _team_matches(self, search_term: str, college: str) -> bool:
         """
         Smart team matching - exact match preferred, then contains.
@@ -1162,16 +1190,16 @@ class CFBDataLookup:
         """
         search_lower = search_term.lower()
         college_lower = college.lower()
-        
+
         # Exact match (case-insensitive)
         if search_lower == college_lower:
             return True
-        
+
         # Exact word match at the start (e.g., "Washington" matches "Washington" but not "Washington State")
         # Only match if search term IS the college name, not a substring
         college_words = college_lower.split()
         search_words = search_lower.split()
-        
+
         # If search is single word and matches first word of college exactly
         if len(search_words) == 1 and college_words and search_words[0] == college_words[0]:
             # But NOT if college has "State" after it (to avoid Washington matching Washington State)
@@ -1180,12 +1208,12 @@ class CFBDataLookup:
             # Allow "Ohio" to match "Ohio State" but not "Washington" to match "Washington State" randomly
             # Actually, let's be strict - only exact matches for single words
             return False
-        
+
         # Multi-word search - check if all words match in order
         if len(search_words) > 1:
             if college_lower.startswith(search_lower):
                 return True
-        
+
         return False
 
     def _find_similar_teams(self, query: str, team_list: List[str], limit: int = 5) -> List[str]:
@@ -1215,10 +1243,13 @@ class CFBDataLookup:
             logger.error(f"Error finding similar teams: {e}")
             return []
 
-    async def get_team_transfers(self, team: str, year: int = 2025) -> Dict[str, List[Dict[str, Any]]]:
+    async def get_team_transfers(self, team: str, year: int = None) -> Dict[str, List[Dict[str, Any]]]:
         """Get transfer portal activity for a team (incoming and outgoing)"""
         if not self.is_available:
             return {'incoming': [], 'outgoing': []}
+        
+        if year is None:
+            year = datetime.now().year
 
         try:
             logger.info(f"🔍 Fetching transfers for {team} ({year})")
@@ -1261,10 +1292,13 @@ class CFBDataLookup:
             logger.error(f"Error fetching transfers: {e}")
             return {'incoming': [], 'outgoing': []}
 
-    async def get_betting_lines(self, team: Optional[str] = None, year: int = 2025, week: Optional[int] = None) -> List[Dict[str, Any]]:
+    async def get_betting_lines(self, team: Optional[str] = None, year: int = None, week: Optional[int] = None) -> List[Dict[str, Any]]:
         """Get betting lines for games"""
         if not self.is_available:
             return []
+        
+        if year is None:
+            year = get_current_cfb_season()
 
         try:
             logger.info(f"🔍 Fetching betting lines" + (f" for {team}" if team else "") + f" ({year})")
@@ -1311,10 +1345,13 @@ class CFBDataLookup:
             logger.error(f"Error fetching betting lines: {e}")
             return []
 
-    async def get_team_ratings(self, team: str, year: int = 2025) -> Optional[Dict[str, Any]]:
+    async def get_team_ratings(self, team: str, year: int = None) -> Optional[Dict[str, Any]]:
         """Get advanced ratings for a team (SP+, SRS, Elo, FPI)"""
         if not self.is_available:
             return None
+        
+        if year is None:
+            year = get_current_cfb_season()
 
         ratings = {}
 
@@ -1413,7 +1450,7 @@ class CFBDataLookup:
             poll_name = poll.get('poll', 'Unknown')
             if poll_filter and poll_filter.lower() not in poll_name.lower():
                 continue
-            
+
             # Track week number
             if week_num is None:
                 week_num = poll.get('week')

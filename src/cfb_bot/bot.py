@@ -54,7 +54,7 @@ def get_notification_channel():
 async def send_admin_notification(title: str, description: str, color: int = 0x1e90ff, fields: list = None, guild_id: int = None):
     """
     Send a notification to configured admin channels.
-    
+
     Args:
         title: Embed title
         description: Embed description
@@ -75,10 +75,10 @@ async def send_admin_notification(title: str, description: str, color: int = 0x1
                 inline=field.get("inline", False)
             )
     embed.set_footer(text="Harry Admin Notification 🔧")
-    
+
     sent_count = 0
     guilds_to_notify = [bot.get_guild(guild_id)] if guild_id else bot.guilds
-    
+
     for guild in guilds_to_notify:
         if not guild:
             continue
@@ -91,14 +91,14 @@ async def send_admin_notification(title: str, description: str, color: int = 0x1
                     sent_count += 1
                 except Exception as e:
                     logger.error(f"❌ Failed to send to {guild.name}: {e}")
-    
+
     return sent_count
 
 
 async def send_admin_error(error_type: str, error_msg: str, context: str = None, guild_id: int = None):
     """
     Send an error report to admin channels.
-    
+
     Args:
         error_type: Type of error (e.g., "Command Error", "AI Error")
         error_msg: Error message/details
@@ -108,7 +108,7 @@ async def send_admin_error(error_type: str, error_msg: str, context: str = None,
     description = f"**Error:** {error_msg[:500]}"
     if context:
         description = f"**Context:** {context}\n\n{description}"
-    
+
     await send_admin_notification(
         title=f"❌ {error_type}",
         description=description,
@@ -120,14 +120,14 @@ async def send_admin_error(error_type: str, error_msg: str, context: str = None,
 async def send_admin_log(event: str, details: str = None, guild_id: int = None):
     """
     Send an important log event to admin channels.
-    
+
     Args:
         event: Event name (e.g., "Config Changed", "Module Enabled")
         details: Optional details about the event
         guild_id: Optional - only send to this guild's admin channel
     """
     description = details if details else "No additional details."
-    
+
     await send_admin_notification(
         title=f"📋 {event}",
         description=description,
@@ -141,49 +141,49 @@ async def send_startup_notification(version: str):
     Send a combined startup notification with version info, features, and timer status.
     """
     from .utils.version_manager import VersionManager
-    
+
     version_mgr = VersionManager()
     version_info = version_mgr.get_latest_version_info()
     version_title = version_info.get('title', 'Update')
     version_emoji = version_info.get('emoji', '📌')
-    
+
     # Get latest features preview
     changes_preview = []
     for feature_group in version_info.get('features', [])[:2]:
         for change in feature_group.get('changes', [])[:3]:
             changes_preview.append(f"• {change}")
     changes_text = "\n".join(changes_preview[:5]) if changes_preview else "No changes listed"
-    
+
     # Build description
     description = f"**Version {version}** - {version_title}\n\n"
     description += f"**Guilds:** {len(bot.guilds)} | **Status:** Online ✅\n\n"
-    
+
     # Check for restored timer
     timer_info = None
     if timekeeper_manager:
         timer_info = timekeeper_manager.get_restored_timer_info()
-    
+
     if timer_info:
         description += f"**⏰ Timer Restored**\n"
         description += f"Channel: #{timer_info['channel_name']}\n"
         description += f"Time Remaining: {int(timer_info['hours_remaining'])}h {timer_info['minutes_remaining']}m\n"
         description += f"Ends At: {timer_info['end_time']}\n\n"
-    
+
     # Create embed
     embed = discord.Embed(
         title="🏈 Harry is Online!",
         description=description,
         color=0x00ff00
     )
-    
+
     embed.add_field(
         name=f"{version_emoji} What's New",
         value=changes_text,
         inline=False
     )
-    
+
     embed.set_footer(text="Harry Admin Notification 🔧 | Use /whats_new for full details")
-    
+
     # Send to all admin channels
     sent_count = 0
     for guild in bot.guilds:
@@ -196,7 +196,7 @@ async def send_startup_notification(version: str):
                     sent_count += 1
                 except Exception as e:
                     logger.error(f"❌ Failed to send startup to {guild.name}: {e}")
-    
+
     if sent_count > 0:
         logger.info(f"📢 Sent startup notification to {sent_count} admin channel(s)")
     else:
@@ -535,13 +535,13 @@ async def on_ready():
             logger.info(f'💬 Or mention @Harry in chat for natural conversations!')
         except Exception as e:
             logger.error(f'❌ Failed to sync commands: {e}')
-        
+
         # Send combined startup notification to admin channels
         try:
             await send_startup_notification(current_version)
         except Exception as e:
             logger.error(f"❌ Failed to send startup notification: {e}")
-            
+
     except Exception as e:
         logger.error(f"❌ Critical error in on_ready: {e}")
         logger.exception("Full error details:")
@@ -2869,7 +2869,7 @@ async def lookup_players_bulk(
 async def get_rankings(
     interaction: discord.Interaction,
     team: str = None,
-    year: int = 2025,
+    year: int = None,
     week: int = None,
     poll: str = None,
     top: int = 10
@@ -2879,7 +2879,7 @@ async def get_rankings(
 
     Args:
         team: Optional team to check ranking for
-        year: Year to check (default: 2025)
+        year: Year to check (default: current season)
         week: Specific week (default: latest available)
         poll: Filter by poll name (AP, Coaches, CFP)
         top: How many teams to show per poll (default: 10, max: 25)
@@ -2895,7 +2895,7 @@ async def get_rankings(
         return
 
     await interaction.response.defer()
-    
+
     # Clamp top to reasonable range
     top = max(1, min(25, top))
 
@@ -2905,7 +2905,7 @@ async def get_rankings(
             result = await player_lookup.get_team_ranking(team, year)
             response = player_lookup.format_team_ranking(result)
             title = f"📊 {team} Rankings ({year})"
-            
+
             embed = discord.Embed(title=title, description=response, color=0x1e90ff)
             embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
             await interaction.followup.send(embed=embed)
@@ -2913,20 +2913,20 @@ async def get_rankings(
             # Full rankings - use fields to avoid character limit
             result = await player_lookup.get_rankings(year, week=week)
             fields, week_num = player_lookup.format_rankings(result, poll_filter=poll, top_n=top)
-            
+
             if not fields:
                 await interaction.followup.send("No rankings found for the specified criteria.", ephemeral=True)
                 return
-            
+
             # Build title with week info
             title = f"🏈 College Football Rankings ({year})"
             if week_num:
                 title += f" - Week {week_num}"
             if poll:
                 title += f" - {poll}"
-            
+
             embed = discord.Embed(title=title, color=0x1e90ff)
-            
+
             # Add fields (Discord limit: 25 fields, 1024 chars per field value)
             for field in fields[:6]:  # Limit to 6 polls max
                 value = field['value']
@@ -2936,13 +2936,13 @@ async def get_rankings(
                     value = '\n'.join(lines)
                     if len(value) > 1020:
                         value = value[:1020] + "..."
-                
+
                 embed.add_field(
                     name=field['name'],
                     value=value,
                     inline=True
                 )
-            
+
             embed.set_footer(text=f"Week {week_num} | Top {top} | Harry's CFB Data 🏈")
             await interaction.followup.send(embed=embed)
 
@@ -2997,14 +2997,14 @@ async def get_matchup(
 async def get_cfb_schedule(
     interaction: discord.Interaction,
     team: str,
-    year: int = 2025
+    year: int = None
 ):
     """
     Get a team's full schedule for a season
 
     Args:
         team: Team name (e.g., "Nebraska")
-        year: Season year (default: 2025)
+        year: Season year (default: current season)
     """
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
@@ -3039,14 +3039,14 @@ async def get_cfb_schedule(
 async def get_draft_picks(
     interaction: discord.Interaction,
     team: str = None,
-    year: int = 2025
+    year: int = None
 ):
     """
     Get NFL draft picks, optionally filtered by college
 
     Args:
         team: Optional college team to filter by
-        year: Draft year (default: 2025)
+        year: Draft year (default: current year)
     """
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
@@ -3078,14 +3078,14 @@ async def get_draft_picks(
 async def get_transfers(
     interaction: discord.Interaction,
     team: str,
-    year: int = 2025
+    year: int = None
 ):
     """
     Get transfer portal incoming and outgoing for a team
 
     Args:
         team: Team name (e.g., "USC")
-        year: Year to check (default: 2025)
+        year: Year to check (default: current year)
     """
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
@@ -3120,7 +3120,7 @@ async def get_transfers(
 async def get_betting(
     interaction: discord.Interaction,
     team: str = None,
-    year: int = 2025,
+    year: int = None,
     week: int = None
 ):
     """
@@ -3128,7 +3128,7 @@ async def get_betting(
 
     Args:
         team: Optional team to filter by
-        year: Season year (default: 2025)
+        year: Season year (default: current season)
         week: Optional week number
     """
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
@@ -3166,14 +3166,14 @@ async def get_betting(
 async def get_team_ratings(
     interaction: discord.Interaction,
     team: str,
-    year: int = 2025
+    year: int = None
 ):
     """
     Get advanced analytics ratings for a team
 
     Args:
         team: Team name (e.g., "Ohio State")
-        year: Season year (default: 2025)
+        year: Season year (default: current season)
     """
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
@@ -5329,7 +5329,7 @@ async def config_command(
         )
         embed.set_footer(text="Harry's Server Config 🏈")
         await interaction.response.send_message(embed=embed)
-        
+
         # Log to admin channel
         await send_admin_log(
             "Module Enabled",
@@ -5367,7 +5367,7 @@ async def config_command(
         )
         embed.set_footer(text="Harry's Server Config 🏈")
         await interaction.response.send_message(embed=embed)
-        
+
         # Log to admin channel
         await send_admin_log(
             "Module Disabled",
