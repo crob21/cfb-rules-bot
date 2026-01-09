@@ -1354,21 +1354,37 @@ class CFBDataLookup:
             logger.error(f"Error fetching transfers: {e}")
             return {'incoming': [], 'outgoing': []}
 
-    async def get_betting_lines(self, team: Optional[str] = None, year: int = None, week: Optional[int] = None, season_type: str = None) -> List[Dict[str, Any]]:
-        """Get betting lines for games. If no week specified, gets current/upcoming week."""
+    async def get_betting_lines(self, team: Optional[str] = None, year: int = None, week: Optional[int] = None, season_type: str = None) -> tuple:
+        """
+        Get betting lines for games. If no week specified, gets current/upcoming week.
+        
+        Returns:
+            tuple: (lines_list, query_info_dict)
+        """
         if not self.is_available:
-            return []
+            return [], {}
 
         if year is None:
             year = get_current_cfb_season()
         
+        original_week = week
+        original_season_type = season_type
+        
         # Auto-detect current week and season type if not specified
         if week is None and season_type is None:
             week, season_type = self._get_current_cfb_week_and_type(year)
+        
+        # Track what we're querying
+        query_info = {
+            'year': year,
+            'week': week if week else 'none',
+            'season_type': season_type if season_type else 'regular',
+            'auto_detected': original_week is None and original_season_type is None
+        }
 
         try:
             week_info = f"Week {week}" if week else "postseason"
-            logger.info(f"🔍 Fetching betting lines" + (f" for {team}" if team else "") + f" ({year} {week_info})")
+            logger.info(f"🔍 Fetching betting lines" + (f" for {team}" if team else "") + f" ({year} {week_info}, type={season_type})")
 
             kwargs = {'year': year}
             if team:
@@ -1406,14 +1422,14 @@ class CFBDataLookup:
                         'lines': game_lines,
                     })
                 logger.info(f"✅ Found {len(lines)} games with lines")
-                return lines
-            return []
+                return lines, query_info
+            return [], query_info
         except ApiException as e:
             logger.error(f"❌ Betting API error: {e.status}")
-            return []
+            return [], query_info
         except Exception as e:
             logger.error(f"Error fetching betting lines: {e}")
-            return []
+            return [], query_info
 
     async def get_team_ratings(self, team: str, year: int = None) -> Optional[Dict[str, Any]]:
         """Get advanced ratings for a team (SP+, SRS, Elo, FPI)"""
@@ -1680,12 +1696,21 @@ class CFBDataLookup:
 
         return "\n".join(parts)
 
-    def format_betting_lines(self, lines: List[Dict]) -> str:
+    def format_betting_lines(self, lines: List[Dict], query_info: Dict = None) -> str:
         """Format betting lines for Discord"""
         if not lines:
             return "No betting lines available"
 
-        parts = ["💰 **Betting Lines**", ""]
+        parts = ["💰 **Betting Lines**"]
+        
+        # Show query debug info if provided
+        if query_info:
+            year = query_info.get('year', '?')
+            week = query_info.get('week', 'auto')
+            season_type = query_info.get('season_type', 'auto')
+            parts.append(f"_Query: {year} | Week: {week} | Type: {season_type}_")
+        
+        parts.append("")
 
         for game in lines[:10]:
             home = game.get('homeTeam', '?')

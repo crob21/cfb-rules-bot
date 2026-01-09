@@ -1275,8 +1275,8 @@ async def on_message(message):
                         elif query_type == 'betting':
                             team1 = cfb_query.get('team1')
                             team2 = cfb_query.get('team2')
-                            result = await player_lookup.get_betting_lines(team=team1)
-                            response = player_lookup.format_betting_lines(result)
+                            result, query_info = await player_lookup.get_betting_lines(team=team1)
+                            response = player_lookup.format_betting_lines(result, query_info)
                             await thinking_msg.delete()
                             embed = discord.Embed(title=f"💰 Betting Lines", description=response, color=Colors.PRIMARY)
                             embed.set_footer(text=Footers.CFB_DATA)
@@ -1312,10 +1312,10 @@ async def on_message(message):
                                 r'(?:hs\s+(?:stats|player)|high\s+school(?:er)?\s+(?:stats)?|recruit|maxpreps)\s+(?:for\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
                                 r'(?:what do you know about|tell me about|lookup|info on)\s+(?:hs\s+|high\s+school\s+)?recruit\s+(.+?)(?:\s+from\s+|\s*\()([\w\s]+)\)?',
                             ]
-                            
+
                             player_name = None
                             state = None
-                            
+
                             for pattern in hs_patterns:
                                 match = re.search(pattern, message.content, re.IGNORECASE)
                                 if match:
@@ -1323,7 +1323,7 @@ async def on_message(message):
                                     if len(match.groups()) > 1 and match.group(2):
                                         state = match.group(2).strip()
                                     break
-                            
+
                             # Fallback: extract any capitalized names after keywords
                             if not player_name:
                                 for kw in hs_keywords:
@@ -1336,15 +1336,15 @@ async def on_message(message):
                                         if name_match:
                                             player_name = name_match.group(1)
                                         break
-                            
+
                             if player_name and len(player_name) > 3:
                                 logger.info(f"🏈 HS stats lookup request: {player_name}" + (f" ({state})" if state else ""))
                                 thinking_msg = await message.channel.send("🔍 Looking up high school stats, hang on...")
-                                
+
                                 try:
                                     player_data = await hs_stats_scraper.lookup_player(player_name, state)
                                     await thinking_msg.delete()
-                                    
+
                                     if player_data:
                                         formatted = hs_stats_scraper.format_player_stats(player_data)
                                         embed = discord.Embed(
@@ -1369,7 +1369,7 @@ async def on_message(message):
                                         embed.set_footer(text=Footers.HS_STATS)
                                         await message.channel.send(embed=embed)
                                     return
-                                    
+
                                 except Exception as e:
                                     logger.error(f"❌ Error in HS stats lookup: {e}", exc_info=True)
                                     await thinking_msg.edit(content=f"❌ Error looking up HS stats: {str(e)}")
@@ -1395,7 +1395,7 @@ async def on_message(message):
                         if not hasattr(bot, '_active_player_lookups'):
                             bot._active_player_lookups = set()
                         bot._active_player_lookups.add(lookup_key)
-                        
+
                         logger.info(f"🏈 Player lookup request from {message.author}: {message.content} [key={lookup_key}]")
 
                         thinking_msg = await message.channel.send("🔍 Looking up that player, hang on...")
@@ -3265,33 +3265,25 @@ async def get_betting(
     await interaction.response.defer()
 
     try:
-        result = await player_lookup.get_betting_lines(team, year, week)
-        response = player_lookup.format_betting_lines(result)
-        
-        # Get the actual week and season type from results
-        actual_week = result[0].get('week') if result else week
-        season_type = result[0].get('seasonType', 'regular') if result else 'regular'
+        result, query_info = await player_lookup.get_betting_lines(team, year, week)
+        response = player_lookup.format_betting_lines(result, query_info)
 
+        # Build title from query info
         title = "💰 Betting Lines"
         if team:
             title += f" - {team}"
         
-        # Show week or postseason in title
-        if season_type == 'postseason':
-            # Map playoff weeks to round names
-            round_names = {
-                1: "First Round",
-                2: "Quarterfinals", 
-                3: "Semifinals",
-                4: "Championship",
-                5: "Championship",
-            }
-            round_name = round_names.get(actual_week, "Playoffs")
-            title += f" ({round_name})"
-        elif actual_week:
-            title += f" (Week {actual_week})"
-        elif not week:
-            title += " (Postseason)"
+        # Add year to title
+        q_year = query_info.get('year', '')
+        q_season_type = query_info.get('season_type', 'regular')
+        q_week = query_info.get('week', '')
+        
+        if q_season_type == 'postseason':
+            title += f" ({q_year} Postseason)"
+        elif q_week and q_week != 'none':
+            title += f" ({q_year} Week {q_week})"
+        else:
+            title += f" ({q_year})"
 
         embed = discord.Embed(title=title, description=response, color=Colors.PRIMARY)
         embed.set_footer(text=Footers.CFB_DATA)
