@@ -1185,47 +1185,62 @@ class CFBDataLookup:
 
         return team.strip()
 
-    def _get_current_cfb_week(self, year: int) -> int:
+    def _get_current_cfb_week_and_type(self, year: int) -> tuple:
         """
-        Estimate the current CFB week based on the date.
+        Estimate the current CFB week and season type based on the date.
+        
+        Returns:
+            tuple: (week_number or None, season_type: 'regular', 'postseason', or None)
         
         CFB season typically:
         - Week 0: Last week of August
-        - Week 1: First week of September
-        - Weeks 2-14: September through November
-        - Bowl season: December/January
+        - Week 1-15: Regular season (Sept-Nov)
+        - Postseason: December bowls, January playoffs/championship
         """
         now = datetime.now()
         
-        # If we're in a different year than the season, return week 1
-        if now.year != year and now.month > 1:
-            return 1
+        # January is postseason (bowls/playoffs/championship)
+        if now.month == 1:
+            if now.day <= 20:
+                # Bowl/playoff season - use postseason type, no specific week
+                return (None, 'postseason')
+            # Late January = offseason, show week 1 preview
+            return (1, 'regular')
         
-        # Season start is typically last Saturday of August
-        # Approximate: Week 1 starts around Sept 1
-        if now.month < 8:
-            return 1  # Offseason, show preseason/week 1
-        elif now.month == 8:
+        # February-July = Offseason
+        if now.month >= 2 and now.month < 8:
+            return (1, 'regular')
+        
+        # If we're querying a different year than current, return week 1
+        if now.year != year:
+            return (1, 'regular')
+        
+        # August - Week 0 or preseason
+        if now.month == 8:
             if now.day >= 24:
-                return 0  # Week 0 games
-            return 1
+                return (0, 'regular')  # Week 0 games
+            return (1, 'regular')
+        
+        # September weeks 1-4
         elif now.month == 9:
-            # September weeks 1-4
-            return min(1 + (now.day - 1) // 7, 4)
+            return (min(1 + (now.day - 1) // 7, 4), 'regular')
+        
+        # October weeks 5-9
         elif now.month == 10:
-            # October weeks 5-9
-            return min(5 + (now.day - 1) // 7, 9)
+            return (min(5 + (now.day - 1) // 7, 9), 'regular')
+        
+        # November weeks 10-14
         elif now.month == 11:
-            # November weeks 10-14
-            return min(10 + (now.day - 1) // 7, 14)
+            return (min(10 + (now.day - 1) // 7, 14), 'regular')
+        
+        # December - conference championships and bowls
         elif now.month == 12:
-            # December - conference championships and bowls
             if now.day <= 7:
-                return 15  # Conference championship week
-            return 16  # Bowl season
-        else:
-            # January - bowl season / playoffs
-            return 16
+                return (15, 'regular')  # Conference championship week
+            # Bowl season starts
+            return (None, 'postseason')
+        
+        return (1, 'regular')
     
     def _team_matches(self, search_term: str, college: str) -> bool:
         """
@@ -1339,7 +1354,7 @@ class CFBDataLookup:
             logger.error(f"Error fetching transfers: {e}")
             return {'incoming': [], 'outgoing': []}
 
-    async def get_betting_lines(self, team: Optional[str] = None, year: int = None, week: Optional[int] = None) -> List[Dict[str, Any]]:
+    async def get_betting_lines(self, team: Optional[str] = None, year: int = None, week: Optional[int] = None, season_type: str = None) -> List[Dict[str, Any]]:
         """Get betting lines for games. If no week specified, gets current/upcoming week."""
         if not self.is_available:
             return []
@@ -1347,18 +1362,21 @@ class CFBDataLookup:
         if year is None:
             year = get_current_cfb_season()
         
-        # Auto-detect current week if not specified
-        if week is None:
-            week = self._get_current_cfb_week(year)
+        # Auto-detect current week and season type if not specified
+        if week is None and season_type is None:
+            week, season_type = self._get_current_cfb_week_and_type(year)
 
         try:
-            logger.info(f"🔍 Fetching betting lines" + (f" for {team}" if team else "") + f" ({year} Week {week})")
+            week_info = f"Week {week}" if week else "postseason"
+            logger.info(f"🔍 Fetching betting lines" + (f" for {team}" if team else "") + f" ({year} {week_info})")
 
             kwargs = {'year': year}
             if team:
                 kwargs['team'] = team
             if week:
                 kwargs['week'] = week
+            if season_type:
+                kwargs['season_type'] = season_type
 
             results = await asyncio.to_thread(
                 self._betting_api.get_lines,

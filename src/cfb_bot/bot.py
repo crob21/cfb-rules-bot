@@ -3168,8 +3168,13 @@ async def get_betting(
         title = "💰 Betting Lines"
         if team:
             title += f" - {team}"
+        
+        # Show week or postseason in title
         if actual_week:
             title += f" (Week {actual_week})"
+        elif not week:
+            # No week specified and none in results = postseason
+            title += " (Postseason)"
 
         embed = discord.Embed(title=title, description=response, color=0x1e90ff)
         embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
