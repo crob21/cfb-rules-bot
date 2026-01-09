@@ -1127,12 +1127,15 @@ class CFBDataLookup:
                         'college': college,
                     })
 
-                # Debug: log all colleges that contain search term
+                # Debug: log matching info
                 if search_term:
-                    matching_colleges = [c for c in all_colleges if search_term.lower() in c.lower()]
-                    logger.info(f"🔍 Colleges containing '{search_term}': {matching_colleges}")
-                    exact_matches = [c for c in all_colleges if search_term.lower() == c.lower()]
-                    logger.info(f"🔍 Exact matches for '{search_term}': {exact_matches}")
+                    # Show all colleges that might match
+                    potential_matches = [c for c in all_colleges if search_term.lower() in c.lower() or c.lower().startswith(search_term.lower())]
+                    logger.info(f"🔍 Potential colleges for '{search_term}': {potential_matches}")
+                    
+                    # Show which ones our matcher would accept
+                    actual_matches = [c for c in all_colleges if self._team_matches(search_term, c)]
+                    logger.info(f"🔍 _team_matches accepts: {actual_matches}")
 
                 logger.info(f"✅ Found {len(picks)} draft picks" + (f" from {team}" if team else ""))
 
@@ -1184,31 +1187,34 @@ class CFBDataLookup:
 
     def _team_matches(self, search_term: str, college: str) -> bool:
         """
-        Smart team matching - exact match preferred, then contains.
-        Handles 'Washington' matching 'Washington' but NOT 'Washington State'
+        Smart team matching for draft picks.
+        Handles variations like 'Miami' matching 'Miami (FL)' or 'Miami (Ohio)'
         """
-        search_lower = search_term.lower()
-        college_lower = college.lower()
+        if not college:
+            return False
+            
+        search_lower = search_term.lower().strip()
+        college_lower = college.lower().strip()
 
         # Exact match (case-insensitive)
         if search_lower == college_lower:
             return True
 
-        # Exact word match at the start (e.g., "Washington" matches "Washington" but not "Washington State")
-        # Only match if search term IS the college name, not a substring
-        college_words = college_lower.split()
-        search_words = search_lower.split()
+        # Check if search term matches the base name (before any parenthetical)
+        # e.g., "Miami" matches "Miami (FL)" or "Miami (Ohio)"
+        college_base = college_lower.split('(')[0].strip()
+        if search_lower == college_base:
+            return True
 
-        # If search is single word and matches first word of college exactly
-        if len(search_words) == 1 and college_words and search_words[0] == college_words[0]:
-            # But NOT if college has "State" after it (to avoid Washington matching Washington State)
-            if len(college_words) == 1:
+        # Check if college starts with search term followed by space or (
+        # e.g., "Miami" matches "Miami Hurricanes" or "Miami (FL)"
+        if college_lower.startswith(search_lower + ' ') or college_lower.startswith(search_lower + '('):
+            # But exclude "State" suffix to avoid Washington matching Washington State
+            if ' state' not in college_lower or search_lower.endswith(' state'):
                 return True
-            # Allow "Ohio" to match "Ohio State" but not "Washington" to match "Washington State" randomly
-            # Actually, let's be strict - only exact matches for single words
-            return False
 
-        # Multi-word search - check if all words match in order
+        # For multi-word searches, check if college starts with the search term
+        search_words = search_lower.split()
         if len(search_words) > 1:
             if college_lower.startswith(search_lower):
                 return True
