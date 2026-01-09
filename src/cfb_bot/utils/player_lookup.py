@@ -1046,18 +1046,24 @@ class CFBDataLookup:
         try:
             logger.info(f"🔍 Fetching draft picks" + (f" from {team}" if team else "") + f" ({year})")
 
-            kwargs = {'year': year}
-            if team:
-                kwargs['college'] = team
-
+            # First, get all draft picks for the year
             results = await asyncio.to_thread(
                 self._draft_api.get_draft_picks,
-                **kwargs
+                year=year
             )
 
             if results:
                 picks = []
+                team_lower = team.lower() if team else None
+                
                 for pick in results:
+                    college = getattr(pick, 'college_team', None) or ''
+                    
+                    # If team filter specified, match case-insensitively
+                    if team_lower:
+                        if team_lower not in college.lower():
+                            continue
+                    
                     picks.append({
                         'round': getattr(pick, 'round', None),
                         'pick': getattr(pick, 'pick', None),
@@ -1065,16 +1071,19 @@ class CFBDataLookup:
                         'nflTeam': getattr(pick, 'nfl_team', None),
                         'name': getattr(pick, 'name', None),
                         'position': getattr(pick, 'position', None),
-                        'college': getattr(pick, 'college_team', None),
+                        'college': college,
                     })
-                logger.info(f"✅ Found {len(picks)} draft picks")
+                
+                logger.info(f"✅ Found {len(picks)} draft picks" + (f" from {team}" if team else ""))
                 return picks
+            
+            logger.warning(f"⚠️ No draft results returned for year {year}")
             return []
         except ApiException as e:
-            logger.error(f"❌ Draft API error: {e.status}")
+            logger.error(f"❌ Draft API error: {e.status} - {e.body}")
             return []
         except Exception as e:
-            logger.error(f"Error fetching draft picks: {e}")
+            logger.error(f"Error fetching draft picks: {e}", exc_info=True)
             return []
 
     async def get_team_transfers(self, team: str, year: int = 2025) -> Dict[str, List[Dict[str, Any]]]:
