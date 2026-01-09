@@ -460,16 +460,17 @@ class PlayerLookup:
         tasks = []
 
         if player_team:
-            # Stats for multiple years (most recent first)
-            async def get_stats():
-                for stat_year in [2025, 2024, 2023]:
+            # Stats for ALL available years
+            async def get_all_stats():
+                all_stats = {}
+                for stat_year in [2025, 2024, 2023, 2022, 2021]:
                     s = await self.get_player_stats(player_name, player_team, stat_year)
                     if s and any(v for v in s.values() if v):
                         logger.info(f"✅ Found stats for {stat_year} season")
-                        return s
-                return None
+                        all_stats[stat_year] = s
+                return all_stats if all_stats else None
 
-            tasks.append(('stats', get_stats()))
+            tasks.append(('stats', get_all_stats()))
 
         tasks.append(('recruiting', self.get_recruiting_info(player_name)))
         tasks.append(('transfer', self.search_transfer(player_name)))
@@ -577,69 +578,87 @@ class PlayerLookup:
                 response_parts.append(f"   Eligibility: {transfer.get('eligibility')}")
             response_parts.append("")
 
-        # Stats section
-        if stats:
-            has_stats = False
+        # Stats section (multi-year)
+        if stats and isinstance(stats, dict):
+            has_any_stats = False
 
-            # Passing
-            passing = stats.get('passing', {})
-            if passing:
-                comp = passing.get('COMPLETIONS', passing.get('completions', 0))
-                att = passing.get('ATT', passing.get('attempts', 0))
-                yards = passing.get('YDS', passing.get('yards', 0))
-                tds = passing.get('TD', passing.get('touchdowns', 0))
-                ints = passing.get('INT', passing.get('interceptions', 0))
-                if any([comp, yards, tds]):
-                    response_parts.append("📊 **Passing:**")
-                    response_parts.append(f"   {comp}/{att} | {yards} YDS | {tds} TD | {ints} INT")
-                    has_stats = True
+            # Sort years descending (most recent first)
+            for year in sorted(stats.keys(), reverse=True):
+                year_stats = stats[year]
+                year_has_stats = False
+                year_parts = []
 
-            # Rushing
-            rushing = stats.get('rushing', {})
-            if rushing:
-                carries = rushing.get('CAR', rushing.get('carries', 0))
-                yards = rushing.get('YDS', rushing.get('yards', 0))
-                tds = rushing.get('TD', rushing.get('touchdowns', 0))
-                if any([carries, yards, tds]):
-                    response_parts.append("📊 **Rushing:**")
-                    response_parts.append(f"   {carries} CAR | {yards} YDS | {tds} TD")
-                    has_stats = True
+                # Passing
+                passing = year_stats.get('passing', {})
+                if passing:
+                    comp = passing.get('COMPLETIONS', passing.get('completions', 0))
+                    att = passing.get('ATT', passing.get('attempts', 0))
+                    yards = passing.get('YDS', passing.get('yards', 0))
+                    tds = passing.get('TD', passing.get('touchdowns', 0))
+                    ints = passing.get('INT', passing.get('interceptions', 0))
+                    if any([comp, yards, tds]):
+                        year_parts.append(f"🏈 {comp}/{att} | {yards} YDS | {tds} TD | {ints} INT")
+                        year_has_stats = True
 
-            # Receiving
-            receiving = stats.get('receiving', {})
-            if receiving:
-                rec = receiving.get('REC', receiving.get('receptions', 0))
-                yards = receiving.get('YDS', receiving.get('yards', 0))
-                tds = receiving.get('TD', receiving.get('touchdowns', 0))
-                if any([rec, yards, tds]):
-                    response_parts.append("📊 **Receiving:**")
-                    response_parts.append(f"   {rec} REC | {yards} YDS | {tds} TD")
-                    has_stats = True
+                # Rushing
+                rushing = year_stats.get('rushing', {})
+                if rushing:
+                    carries = rushing.get('CAR', rushing.get('carries', 0))
+                    yards = rushing.get('YDS', rushing.get('yards', 0))
+                    tds = rushing.get('TD', rushing.get('touchdowns', 0))
+                    if any([carries, yards, tds]):
+                        year_parts.append(f"🏃 {carries} CAR | {yards} YDS | {tds} TD")
+                        year_has_stats = True
 
-            # Defense
-            defense = stats.get('defense', {})
-            if defense:
-                tackles = defense.get('TOT', defense.get('SOLO', defense.get('tackles', 0)))
-                solo = defense.get('SOLO', 0)
-                tfl = defense.get('TFL', 0)
-                sacks = defense.get('SACKS', defense.get('SK', 0))
-                ints = defense.get('INT', 0)
-                if any([tackles, solo, tfl, sacks, ints]):
-                    response_parts.append("📊 **Defense:**")
-                    stat_parts = []
-                    if solo:
-                        stat_parts.append(f"{solo} Solo")
-                    if tfl:
-                        stat_parts.append(f"{tfl} TFL")
-                    if sacks:
-                        stat_parts.append(f"{sacks} Sacks")
-                    if ints:
-                        stat_parts.append(f"{ints} INT")
-                    response_parts.append(f"   {' | '.join(stat_parts)}")
-                    has_stats = True
+                # Receiving
+                receiving = year_stats.get('receiving', {})
+                if receiving:
+                    rec = receiving.get('REC', receiving.get('receptions', 0))
+                    yards = receiving.get('YDS', receiving.get('yards', 0))
+                    tds = receiving.get('TD', receiving.get('touchdowns', 0))
+                    if any([rec, yards, tds]):
+                        year_parts.append(f"🎯 {rec} REC | {yards} YDS | {tds} TD")
+                        year_has_stats = True
 
-            if not has_stats:
-                response_parts.append("📊 *No stats recorded this season*")
+                # Defense
+                defense = year_stats.get('defense', {})
+                if defense:
+                    tackles = defense.get('TOT', defense.get('SOLO', defense.get('tackles', 0)))
+                    solo = defense.get('SOLO', 0)
+                    tfl = defense.get('TFL', 0)
+                    sacks = defense.get('SACKS', defense.get('SK', 0))
+                    ints = defense.get('INT', 0)
+                    if any([tackles, solo, tfl, sacks, ints]):
+                        stat_parts = []
+                        if solo:
+                            stat_parts.append(f"{solo} Solo")
+                        if tfl:
+                            stat_parts.append(f"{tfl} TFL")
+                        if sacks:
+                            stat_parts.append(f"{sacks} Sacks")
+                        if ints:
+                            stat_parts.append(f"{ints} INT")
+                        year_parts.append(f"🛡️ {' | '.join(stat_parts)}")
+                        year_has_stats = True
+
+                # Kicking
+                kicking = year_stats.get('kicking', {})
+                if kicking:
+                    fgm = kicking.get('FGM', 0)
+                    fga = kicking.get('FGA', 0)
+                    xpm = kicking.get('XPM', 0)
+                    if any([fgm, fga, xpm]):
+                        year_parts.append(f"🦵 {fgm}/{fga} FG | {xpm} XP")
+                        year_has_stats = True
+
+                if year_has_stats:
+                    response_parts.append(f"📊 **{year} Season:**")
+                    for part in year_parts:
+                        response_parts.append(f"   {part}")
+                    has_any_stats = True
+
+            if not has_any_stats:
+                response_parts.append("📊 *No stats recorded*")
         else:
             response_parts.append("📊 *No stats available*")
 
