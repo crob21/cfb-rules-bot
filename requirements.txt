@@ -7,6 +7,14 @@ requests==2.31.0
 # College Football Data API
 cfbd>=5.0.0
 
+# Dashboard Dependencies
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+jinja2>=3.1.2
+httpx>=0.26.0
+python-multipart>=0.0.6
+itsdangerous>=2.1.2
+
 # Optional AI Integration
 openai==1.6.1
 anthropic==0.7.8

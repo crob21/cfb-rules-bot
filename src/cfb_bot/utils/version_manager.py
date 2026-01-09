@@ -11,10 +11,48 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.8.1"
+CURRENT_VERSION = "1.9.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.9.0": {
+        "date": "2026-01-08",
+        "title": "Web Dashboard",
+        "emoji": "🌐",
+        "features": [
+            {
+                "category": "Web Dashboard",
+                "emoji": "🌐",
+                "changes": [
+                    "NEW: Full web dashboard for managing Harry!",
+                    "Login with Discord OAuth",
+                    "Visual toggle for modules (CFB Data, League)",
+                    "Manage bot admins with clicks",
+                    "Beautiful dark theme UI"
+                ]
+            },
+            {
+                "category": "Dashboard Features",
+                "emoji": "⚙️",
+                "changes": [
+                    "Server selector for multi-server management",
+                    "Enable/disable modules per server",
+                    "Add/remove bot admins visually",
+                    "See available commands per module"
+                ]
+            },
+            {
+                "category": "Technical",
+                "emoji": "🔧",
+                "changes": [
+                    "FastAPI backend with async support",
+                    "Discord OAuth2 integration",
+                    "Session-based authentication",
+                    "RESTful API for config management"
+                ]
+            }
+        ]
+    },
     "1.8.1": {
         "date": "2026-01-08",
         "title": "Bulk Player Lookup",
