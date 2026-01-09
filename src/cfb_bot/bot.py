@@ -140,8 +140,6 @@ async def send_startup_notification(version: str):
     """
     Send a combined startup notification with version info, features, and timer status.
     """
-from .utils.version_manager import VersionManager
-
     version_mgr = VersionManager()
     version_info = version_mgr.get_latest_version_info()
     version_title = version_info.get('title', 'Update')
@@ -2112,12 +2110,12 @@ async def on_reaction_add(reaction, user):
         # Duck emoji - Oregon rivalry (only if auto_responses is on)
         reaction_guild_id = reaction.message.guild.id if reaction.message.guild else 0
         if server_config.auto_responses_enabled(reaction_guild_id):
-        embed = discord.Embed(
-            title="🦆 Oregon Sucks!",
-            description="Oregon sucks! 🦆💩\n\nBut CFB 26 rules are awesome! Ask me about them!",
-            color=0x1e90ff
-        )
-        await reaction.message.channel.send(embed=embed)
+            embed = discord.Embed(
+                title="🦆 Oregon Sucks!",
+                description="Oregon sucks! 🦆💩\n\nBut CFB 26 rules are awesome! Ask me about them!",
+                color=0x1e90ff
+            )
+            await reaction.message.channel.send(embed=embed)
 
     elif reaction.emoji == '🐕':
         # Dog emoji - Huskies support
@@ -5640,7 +5638,7 @@ async def config_command(
             inline=False
         )
         embed.set_footer(text="Harry's Server Config 🏈")
-    await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
         # Log to admin channel
         await send_admin_log(

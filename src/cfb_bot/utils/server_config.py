@@ -185,37 +185,37 @@ class ServerConfigManager:
         return [cmd for cmd, mod in COMMAND_MODULES.items() if mod == module]
 
     # ==================== CHANNEL SETTINGS ====================
-    
+
     def get_admin_channel(self, guild_id: int) -> Optional[int]:
         """Get the admin channel ID for a guild"""
         return self.get_setting(guild_id, "admin_channel_id")
-    
+
     def set_admin_channel(self, guild_id: int, channel_id: int):
         """Set the admin channel for a guild"""
         self.set_setting(guild_id, "admin_channel_id", channel_id)
         logger.info(f"✅ Set admin channel to {channel_id} for guild {guild_id}")
-    
+
     def get_timer_channel(self, guild_id: int) -> Optional[int]:
         """Get the timer notification channel ID for a guild"""
         return self.get_setting(guild_id, "timer_channel_id")
-    
+
     def set_timer_channel(self, guild_id: int, channel_id: int):
         """Set the timer notification channel for a guild"""
         self.set_setting(guild_id, "timer_channel_id", channel_id)
         logger.info(f"✅ Set timer channel to {channel_id} for guild {guild_id}")
 
     # ==================== STORAGE ====================
-    
+
     async def save_to_discord(self):
         """Save all configs to storage backend (name kept for backwards compatibility)"""
         from .storage import get_storage
-        
+
         storage = get_storage()
-        
+
         # Save all configs as one blob (for Discord DM efficiency)
         # Convert int keys to strings for JSON
         serializable = {str(k): v for k, v in self._configs.items()}
-        
+
         success = await storage.save("server_config", "all", serializable)
         if success:
             logger.info(f"✅ Saved configs for {len(self._configs)} servers")
@@ -225,19 +225,19 @@ class ServerConfigManager:
         """Load configs from storage backend (name kept for backwards compatibility)"""
         if self._loaded:
             return True
-        
+
         from .storage import get_storage, set_storage_bot
-        
+
         # Set bot for Discord storage
         if self._bot:
             set_storage_bot(self._bot)
-        
+
         storage = get_storage()
-        
+
         try:
             # Try new format first (with "all" key)
             data = await storage.load("server_config", "all")
-            
+
             if data:
                 # New format: {"guild_id": config, ...}
                 self._configs = {int(k): v for k, v in data.items()}
@@ -246,7 +246,7 @@ class ServerConfigManager:
                 # Try loading old format (direct guild configs without "all" wrapper)
                 # Old format stored directly as SERVER_CONFIG:{guild_id: config, ...}
                 all_data = await storage.load_all("server_config")
-                
+
                 # Check if it's old format (keys are guild IDs, not "all")
                 if all_data and "all" not in all_data:
                     # Old format - guild IDs are top-level keys
@@ -257,7 +257,7 @@ class ServerConfigManager:
                             self._configs[guild_id] = v
                         except (ValueError, TypeError):
                             continue
-                    
+
                     if self._configs:
                         logger.info(f"✅ Migrated {len(self._configs)} server configs from old format")
                         # Save in new format
@@ -267,10 +267,10 @@ class ServerConfigManager:
                 else:
                     self._configs = {}
                     logger.info("📝 No existing server configs found")
-            
+
             self._loaded = True
             return True
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to load configs: {e}")
             return False
