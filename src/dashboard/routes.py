@@ -70,6 +70,8 @@ def get_server_config(guild_id: str) -> dict:
             "settings": {
                 "timer_channel_id": None,
                 "admin_channel_id": None,
+                "rivalry_mode": True,  # Enable sassy rivalry responses (Oregon hate, etc.)
+                "cockney_mode": True,  # Enable cockney personality
             },
             "admins": []
         }

@@ -66,6 +66,40 @@
     </div>
 </div>
 
+<!-- Personality Settings -->
+<div class="card">
+    <h3 class="card-title">🎭 Personality Settings</h3>
+    <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+        Customize Harry's personality for this server
+    </p>
+    
+    <div class="toggle-row">
+        <div class="toggle-info">
+            <h4>🦆 Rivalry Mode</h4>
+            <p>Enable sassy rivalry responses (Oregon hate, team banter, etc.)</p>
+        </div>
+        <label class="toggle">
+            <input type="checkbox" id="setting-rivalry_mode" 
+                   {% if config.settings.rivalry_mode is not defined or config.settings.rivalry_mode %}checked{% endif %}
+                   onchange="updateSetting('rivalry_mode', this.checked)">
+            <span class="toggle-slider"></span>
+        </label>
+    </div>
+    
+    <div class="toggle-row">
+        <div class="toggle-info">
+            <h4>🇬🇧 Cockney Mode</h4>
+            <p>Harry speaks with cockney slang and attitude (mate, ya muppet, etc.)</p>
+        </div>
+        <label class="toggle">
+            <input type="checkbox" id="setting-cockney_mode" 
+                   {% if config.settings.cockney_mode is not defined or config.settings.cockney_mode %}checked{% endif %}
+                   onchange="updateSetting('cockney_mode', this.checked)">
+            <span class="toggle-slider"></span>
+        </label>
+    </div>
+</div>
+
 <!-- Bot Admins -->
 <div class="card">
     <h3 class="card-title">👥 Bot Admins</h3>
@@ -143,6 +177,20 @@
 {% block scripts %}
 <script>
     const guildId = '{{ guild.id }}';
+    
+    async function updateSetting(setting, enabled) {
+        const result = await apiCall(`/api/server/${guildId}/settings`, 'POST', {
+            settings: { [setting]: enabled }
+        });
+        
+        if (result.success) {
+            const friendlyName = setting.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+            showToast(`${friendlyName} ${enabled ? 'enabled' : 'disabled'}!`);
+        } else {
+            showToast('Failed to update setting', 'error');
+            document.getElementById(`setting-${setting}`).checked = !enabled;
+        }
+    }
     
     async function updateModule(module, enabled) {
         const result = await apiCall(`/api/server/${guildId}/modules`, 'POST', {

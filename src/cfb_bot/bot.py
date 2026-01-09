@@ -605,7 +605,11 @@ async def on_message(message):
     greetings = ['hi', 'hello', 'hey']
     is_greeting = bot_mentioned and any(greeting in message.content.lower() for greeting in greetings)
 
-    # Check for rivalry/fun responses
+    # Check for rivalry/fun responses (gated by rivalry_mode setting)
+    guild_id = message.guild.id if message.guild else 0
+    rivalry_enabled = server_config.is_rivalry_mode(guild_id)
+
+    # Rivalry responses - only if rivalry_mode is enabled
     rivalry_keywords = {
         'oregon': 'Fuck Oregon! 🦆💩',
         'ducks': 'Ducks are assholes! 🦆💩',
@@ -629,14 +633,21 @@ async def on_message(message):
         'buckeyes': 'Ohio sucks! 🌰',
         'michigan': 'Go Blue! 💙',
         'wolverines': 'Go Blue! 💙',
+    } if rivalry_enabled else {}
+
+    # Info responses - always available (not gated)
+    info_keywords = {
         'rules': 'Here are the CFB 26 league rules! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
         'league rules': 'Here are the CFB 26 league rules! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
         'charter': 'Here\'s the official CFB 26 league charter! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
         'league charter': 'Here\'s the official CFB 26 league charter! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)'
     }
 
+    # Combine both keyword dicts
+    all_keywords = {**rivalry_keywords, **info_keywords}
+
     rivalry_response = None
-    for keyword, response in rivalry_keywords.items():
+    for keyword, response in all_keywords.items():
         if keyword in message.content.lower():
             rivalry_response = response
             break
@@ -1112,9 +1123,9 @@ async def on_message(message):
                                     color=0x1e90ff
                                 )
 
-                                # Check if it's an Oregon player and add snark
+                                # Check if it's an Oregon player and add snark (if rivalry mode is on)
                                 player_team = player_info.get('player', {}).get('team', '').lower()
-                                if 'oregon' in player_team and 'oregon state' not in player_team:
+                                if server_config.is_rivalry_mode(guild_id) and 'oregon' in player_team and 'oregon state' not in player_team:
                                     embed.set_footer(text="Harry's Player Lookup 🏈 | Though why you'd care about a Duck is beyond me...")
                                 else:
                                     embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")
@@ -2562,9 +2573,10 @@ async def lookup_player(
                 color=0x1e90ff
             )
 
-            # Check if it's an Oregon player and add snark
+            # Check if it's an Oregon player and add snark (if rivalry mode is on)
             player_team = player_info.get('player', {}).get('team', '').lower()
-            if 'oregon' in player_team and 'oregon state' not in player_team:
+            cmd_guild_id = interaction.guild.id if interaction.guild else 0
+            if server_config.is_rivalry_mode(cmd_guild_id) and 'oregon' in player_team and 'oregon state' not in player_team:
                 embed.set_footer(text="Harry's Player Lookup 🏈 | Though why you'd care about a Duck is beyond me...")
             else:
                 embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")

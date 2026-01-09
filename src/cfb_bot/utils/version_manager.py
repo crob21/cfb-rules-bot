@@ -11,10 +11,36 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.10.0"
+CURRENT_VERSION = "1.11.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.11.0": {
+        "date": "2026-01-09",
+        "title": "Personality Settings",
+        "emoji": "🎭",
+        "features": [
+            {
+                "category": "Dashboard Personality Controls",
+                "emoji": "🎭",
+                "changes": [
+                    "NEW: Toggle Rivalry Mode - Turn off Oregon hate and team banter",
+                    "NEW: Toggle Cockney Mode - Switch between cockney and neutral personality",
+                    "Per-server personality customization",
+                    "Oregon player snark now respects rivalry setting"
+                ]
+            },
+            {
+                "category": "Configurable AI Responses",
+                "emoji": "🤖",
+                "changes": [
+                    "AI prompts now use server-specific personality settings",
+                    "Four personality modes: Full, Cockney-only, Rivalry-only, Neutral",
+                    "Team responses gated behind rivalry_mode setting"
+                ]
+            }
+        ]
+    },
     "1.10.0": {
         "date": "2026-01-08",
         "title": "Smart Player Suggestions",

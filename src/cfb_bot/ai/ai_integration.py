@@ -96,7 +96,7 @@ class AICharterAssistant:
 
         return "\n".join(context_parts)
 
-    async def ask_openai(self, question: str, context: str, max_tokens: int = 500) -> Optional[str]:
+    async def ask_openai(self, question: str, context: str, max_tokens: int = 500, personality_prompt: str = None) -> Optional[str]:
         """Ask OpenAI about the charter"""
         if not self.openai_api_key:
             logger.warning("⚠️ OpenAI API key not found")
@@ -110,8 +110,11 @@ class AICharterAssistant:
         # Get schedule context
         schedule_context = self.get_schedule_context()
 
+        # Use provided personality or default full personality
+        personality = personality_prompt or "You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks."
+
         prompt = f"""
-        You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks.
+        {personality}
         Answer questions based on the league charter AND schedule information provided below in a hilariously sarcastic way.
 
         League Charter Context:
@@ -145,7 +148,7 @@ class AICharterAssistant:
         data = {
             'model': 'gpt-3.5-turbo',
             'messages': [
-                {'role': 'system', 'content': 'You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks. Be hilariously sarcastic and helpful.'},
+                {'role': 'system', 'content': f'{personality} Be hilariously sarcastic and helpful.'},
                 {'role': 'user', 'content': prompt}
             ],
             'max_tokens': max_tokens,
@@ -216,7 +219,7 @@ class AICharterAssistant:
             logger.error(f"Error calling OpenAI: {e}")
             return None
 
-    async def ask_anthropic(self, question: str, context: str, max_tokens: int = 500) -> Optional[str]:
+    async def ask_anthropic(self, question: str, context: str, max_tokens: int = 500, personality_prompt: str = None) -> Optional[str]:
         """Ask Anthropic Claude about the charter"""
         if not self.anthropic_api_key:
             logger.warning("⚠️ Anthropic API key not found")
@@ -231,8 +234,11 @@ class AICharterAssistant:
         # Get schedule context
         schedule_context = self.get_schedule_context()
 
+        # Use provided personality or default full personality
+        personality = personality_prompt or "You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks."
+
         prompt = f"""
-        You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks.
+        {personality}
         Answer questions based on the league charter AND schedule information provided below.
 
         League Charter Context:
