@@ -129,12 +129,13 @@ class PlayerLookup:
 
         return []
 
-    async def get_player_stats(self, player_id: int, year: int = 2025) -> Optional[Dict[str, Any]]:
+    async def get_player_stats(self, player_name: str, team: str, year: int = 2024) -> Optional[Dict[str, Any]]:
         """
         Get season stats for a specific player
 
         Args:
-            player_id: Player ID from search results
+            player_name: Player name to search for
+            team: Team name
             year: Season year
 
         Returns:
@@ -143,19 +144,31 @@ class PlayerLookup:
         if not self.is_available:
             return None
 
+        logger.info(f"🔍 Fetching stats for {player_name} on {team} ({year})")
+
         try:
             async with aiohttp.ClientSession() as session:
-                # Get player season stats
+                # Get player season stats by team (API doesn't support playerId filter)
                 async with session.get(
                     f"{self.BASE_URL}/stats/player/season",
                     headers=self._get_headers(),
-                    params={'year': year, 'playerId': player_id}
+                    params={'year': year, 'team': team}
                 ) as response:
                     if response.status == 200:
-                        stats = await response.json()
-                        if stats:
-                            logger.info(f"✅ Found {len(stats)} stat entries for player {player_id}")
-                        return self._parse_stats(stats)
+                        all_stats = await response.json()
+                        if all_stats:
+                            logger.info(f"✅ Found {len(all_stats)} stat entries for {team}")
+                            # Filter for the specific player (case-insensitive partial match)
+                            player_stats = [
+                                s for s in all_stats
+                                if player_name.lower() in s.get('player', '').lower()
+                            ]
+                            if player_stats:
+                                logger.info(f"✅ Found {len(player_stats)} stat entries for {player_name}")
+                                return self._parse_stats(player_stats)
+                            else:
+                                logger.info(f"No stats found for {player_name} in team stats")
+                        return None
                     else:
                         response_text = await response.text()
                         logger.warning(f"Stats fetch returned {response.status}: {response_text[:100]}")
@@ -285,19 +298,23 @@ class PlayerLookup:
             player = players[0]
             logger.info(f"✅ Using first result: {player.get('name')} - {player.get('team')}")
 
-        # Get stats for the player
-        player_id = player.get('id')
+        # Get stats for the player using their name and team
+        player_name = player.get('name', name)
+        player_team = player.get('team', team or '')
         stats = None
-        if player_id:
-            # Try stats for multiple years
-            for stat_year in [2025, 2024, 2023]:
-                stats = await self.get_player_stats(player_id, stat_year)
-                if stats and any(stats.values()):
+
+        if player_team:
+            # Try stats for multiple years (most recent first)
+            for stat_year in [2024, 2023, 2022]:
+                stats = await self.get_player_stats(player_name, player_team, stat_year)
+                if stats and any(v for v in stats.values() if v):  # Check if any category has data
                     logger.info(f"✅ Found stats for year {stat_year}")
                     break
+        else:
+            logger.warning(f"No team found for {player_name}, cannot fetch stats")
 
         # Try to get recruiting info
-        recruiting = await self.get_recruiting_info(name)
+        recruiting = await self.get_recruiting_info(player_name)
 
         return {
             'player': player,
