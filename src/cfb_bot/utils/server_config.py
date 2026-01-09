@@ -209,14 +209,38 @@ class ServerConfigManager:
         storage = get_storage()
         
         try:
+            # Try new format first (with "all" key)
             data = await storage.load("server_config", "all")
+            
             if data:
-                # Convert string keys back to ints
+                # New format: {"guild_id": config, ...}
                 self._configs = {int(k): v for k, v in data.items()}
                 logger.info(f"✅ Loaded configs for {len(self._configs)} servers")
             else:
-                self._configs = {}
-                logger.info("📝 No existing server configs found")
+                # Try loading old format (direct guild configs without "all" wrapper)
+                # Old format stored directly as SERVER_CONFIG:{guild_id: config, ...}
+                all_data = await storage.load_all("server_config")
+                
+                # Check if it's old format (keys are guild IDs, not "all")
+                if all_data and "all" not in all_data:
+                    # Old format - guild IDs are top-level keys
+                    self._configs = {}
+                    for k, v in all_data.items():
+                        try:
+                            guild_id = int(k)
+                            self._configs[guild_id] = v
+                        except (ValueError, TypeError):
+                            continue
+                    
+                    if self._configs:
+                        logger.info(f"✅ Migrated {len(self._configs)} server configs from old format")
+                        # Save in new format
+                        await self.save_to_discord()
+                    else:
+                        logger.info("📝 No existing server configs found")
+                else:
+                    self._configs = {}
+                    logger.info("📝 No existing server configs found")
             
             self._loaded = True
             return True
