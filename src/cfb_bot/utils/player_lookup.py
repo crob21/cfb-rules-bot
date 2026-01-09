@@ -37,6 +37,54 @@ class CFBDataLookup:
     - Advanced stats (SP+, SRS, Elo)
     """
 
+    # FCS Conferences - these have limited data coverage in CFBD
+    FCS_CONFERENCES = {
+        'big sky', 'big south', 'caa', 'colonial athletic', 'ivy league', 'ivy',
+        'meac', 'mid-eastern', 'missouri valley', 'mvfc', 'northeast', 'nec',
+        'ohio valley', 'ovc', 'patriot', 'pioneer', 'southern', 'socon',
+        'southland', 'swac', 'southwestern athletic', 'united athletic', 'uac'
+    }
+
+    # Known FCS Schools (partial list of common ones)
+    FCS_SCHOOLS = {
+        # Big Sky
+        'montana', 'montana state', 'eastern washington', 'weber state', 'sacramento state',
+        'uc davis', 'northern arizona', 'idaho state', 'portland state', 'cal poly',
+        # CAA
+        'delaware', 'villanova', 'james madison', 'richmond', 'william & mary',
+        'towson', 'elon', 'rhode island', 'maine', 'new hampshire', 'stony brook',
+        # Ivy League
+        'harvard', 'yale', 'princeton', 'penn', 'columbia', 'brown', 'dartmouth', 'cornell',
+        # MEAC
+        'north carolina a&t', 'nc a&t', 'howard', 'morgan state', 'norfolk state',
+        'south carolina state', 'delaware state', 'bethune-cookman',
+        # Missouri Valley (MVFC)
+        'north dakota state', 'ndsu', 'south dakota state', 'sdsu', 'northern iowa',
+        'illinois state', 'indiana state', 'missouri state', 'southern illinois',
+        'youngstown state', 'south dakota', 'north dakota',
+        # Ohio Valley
+        'southeast missouri', 'semo', 'ut martin', 'tennessee state', 'tennessee tech',
+        'eastern illinois', 'murray state', 'austin peay', 'lindenwood',
+        # Patriot League
+        'lehigh', 'lafayette', 'bucknell', 'colgate', 'fordham', 'georgetown', 'holy cross',
+        # Southern (SoCon)
+        'furman', 'chattanooga', 'etsu', 'east tennessee', 'east tennessee state',
+        'mercer', 'wofford', 'the citadel', 'citadel', 'western carolina', 'samford', 'vmi',
+        # Southland
+        'mcneese', 'nicholls', 'nicholls state', 'southeastern louisiana',
+        'houston christian', 'incarnate word', 'lamar',
+        # SWAC
+        'jackson state', 'southern', 'grambling', 'alcorn state', 'alabama a&m',
+        'alabama state', 'prairie view', 'arkansas pine bluff', 'texas southern',
+        # Big South / OVC / Others
+        'gardner-webb', 'charleston southern', 'presbyterian', 'campbell',
+        'north alabama', 'kennesaw state', 'monmouth', 'sacred heart',
+        'central connecticut', 'duquesne', 'long island', 'liu', 'wagner',
+        'robert morris', 'bryant', 'merrimack', 'st. francis', 'stonehill',
+        # Independent FCS
+        'tarleton', 'tarleton state', 'dixie state', 'utah tech'
+    }
+
     def __init__(self):
         self.api_key = os.getenv('CFB_DATA_API_KEY')
         self._api_client = None
@@ -87,6 +135,83 @@ class CFBDataLookup:
     def is_available(self) -> bool:
         """Check if the API is available"""
         return CFBD_AVAILABLE and self._api_client is not None
+
+    def is_fcs_school(self, team: str) -> bool:
+        """Check if a school is likely FCS (limited data coverage)"""
+        if not team:
+            return False
+        team_lower = team.lower().strip()
+        return team_lower in self.FCS_SCHOOLS
+
+    def get_not_found_reason(self, name: str, team: Optional[str]) -> str:
+        """Determine why a player wasn't found and return helpful message"""
+        if team and self.is_fcs_school(team):
+            return f"⚠️ {team} is an FCS school - CFBD has limited FCS data"
+        return "❓ Player not in database - check spelling or try without team"
+
+    async def find_similar_players(self, name: str, team: Optional[str] = None, limit: int = 3) -> List[Dict[str, Any]]:
+        """
+        Find players with similar names for "Did you mean?" suggestions.
+        
+        Tries:
+        1. First name only search
+        2. Last name only search  
+        3. Partial name match across all teams
+        """
+        if not self.is_available:
+            return []
+
+        suggestions = []
+        seen_ids = set()
+        
+        # Parse name into parts
+        name_parts = name.strip().split()
+        first_name = name_parts[0] if name_parts else name
+        last_name = name_parts[-1] if len(name_parts) > 1 else name
+        
+        try:
+            # Try last name search (usually more unique)
+            if len(last_name) >= 3:
+                results = await asyncio.to_thread(
+                    self._players_api.search_players,
+                    search_term=last_name,
+                    year=2025
+                )
+                for p in (results or [])[:5]:
+                    pid = getattr(p, 'id', None)
+                    if pid and pid not in seen_ids:
+                        seen_ids.add(pid)
+                        p_name = f"{getattr(p, 'first_name', '')} {getattr(p, 'last_name', '')}".strip()
+                        suggestions.append({
+                            'name': p_name,
+                            'team': getattr(p, 'team', 'Unknown'),
+                            'position': getattr(p, 'position', '?'),
+                            'id': pid
+                        })
+            
+            # Try first name if we don't have enough suggestions
+            if len(suggestions) < limit and len(first_name) >= 3:
+                results = await asyncio.to_thread(
+                    self._players_api.search_players,
+                    search_term=first_name,
+                    year=2025
+                )
+                for p in (results or [])[:5]:
+                    pid = getattr(p, 'id', None)
+                    if pid and pid not in seen_ids:
+                        seen_ids.add(pid)
+                        p_name = f"{getattr(p, 'first_name', '')} {getattr(p, 'last_name', '')}".strip()
+                        suggestions.append({
+                            'name': p_name,
+                            'team': getattr(p, 'team', 'Unknown'),
+                            'position': getattr(p, 'position', '?'),
+                            'id': pid
+                        })
+
+        except Exception as e:
+            logger.debug(f"Error finding similar players: {e}")
+
+        return suggestions[:limit]
 
     async def search_player(self, name: str, team: Optional[str] = None, year: Optional[int] = None) -> List[Dict[str, Any]]:
         """
@@ -1672,12 +1797,18 @@ class CFBDataLookup:
     async def lookup_multiple_players(self, player_list: List[Dict[str, Optional[str]]]) -> List[Dict[str, Any]]:
         """
         Look up multiple players in parallel.
+        For players not found, includes reason and similar player suggestions.
 
         Args:
             player_list: List of dicts with 'name' and optional 'team'
 
         Returns:
-            List of results, each with 'query' (original) and 'result' (player info or None)
+            List of results, each with:
+            - 'query': original query dict
+            - 'result': player info or None
+            - 'error': error message if any
+            - 'reason': why player wasn't found (if not found)
+            - 'suggestions': similar players (if not found)
         """
         if not self.is_available:
             return []
@@ -1690,8 +1821,30 @@ class CFBDataLookup:
                 return {'query': player_query, 'result': None, 'error': 'No name provided'}
 
             try:
+                # First, try with team specified
                 result = await self.get_full_player_info(name, team)
-                return {'query': player_query, 'result': result, 'error': None}
+                
+                if result:
+                    return {'query': player_query, 'result': result, 'error': None}
+                
+                # Not found - try without team filter if team was specified
+                if team:
+                    result = await self.get_full_player_info(name, None)
+                    if result:
+                        return {'query': player_query, 'result': result, 'error': None}
+                
+                # Still not found - get reason and suggestions
+                reason = self.get_not_found_reason(name, team)
+                suggestions = await self.find_similar_players(name, team, limit=3)
+                
+                return {
+                    'query': player_query,
+                    'result': None,
+                    'error': None,
+                    'reason': reason,
+                    'suggestions': suggestions
+                }
+                
             except Exception as e:
                 logger.error(f"Error looking up {name}: {e}")
                 return {'query': player_query, 'result': None, 'error': str(e)}
@@ -1792,13 +1945,40 @@ class CFBDataLookup:
 
                 parts.append("")  # Blank line between players
             else:
-                not_found.append(f"{name}" + (f" ({team})" if team else ""))
+                # Player not found - store with reason and suggestions
+                not_found.append({
+                    'name': name,
+                    'team': team,
+                    'reason': r.get('reason', '❓ Player not found'),
+                    'suggestions': r.get('suggestions', [])
+                })
 
-        # Add not found section
+        # Add not found section with reasons and suggestions
         if not_found:
             parts.append("**❌ Not Found:**")
             for nf in not_found:
-                parts.append(f"   • {nf}")
+                nf_name = nf['name']
+                nf_team = nf['team']
+                nf_reason = nf['reason']
+                nf_suggestions = nf['suggestions']
+                
+                # Player name and team
+                parts.append(f"• **{nf_name}**" + (f" ({nf_team})" if nf_team else ""))
+                
+                # Reason why not found
+                parts.append(f"   {nf_reason}")
+                
+                # Similar player suggestions
+                if nf_suggestions:
+                    suggestion_strs = []
+                    for s in nf_suggestions[:3]:
+                        s_name = s.get('name', 'Unknown')
+                        s_team = s.get('team', '?')
+                        s_pos = s.get('position', '?')
+                        suggestion_strs.append(f"{s_name} ({s_team}, {s_pos})")
+                    parts.append(f"   💡 Did you mean: {', '.join(suggestion_strs)}")
+                
+                parts.append("")  # Blank line between not-found entries
 
         # Summary
         summary = f"📊 **Found {found_count}/{len(results)} players**"

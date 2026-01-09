@@ -11,10 +11,37 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.9.1"
+CURRENT_VERSION = "1.10.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.10.0": {
+        "date": "2026-01-08",
+        "title": "Smart Player Suggestions",
+        "emoji": "💡",
+        "features": [
+            {
+                "category": "Bulk Player Lookup",
+                "emoji": "🔍",
+                "changes": [
+                    "NEW: 'Did you mean?' suggestions for players not found",
+                    "FCS school detection - warns when querying limited-data schools",
+                    "Automatic retry without team filter if initial search fails",
+                    "Shows similar players from last name / first name searches",
+                    "Helpful reasons explaining why a player wasn't found"
+                ]
+            },
+            {
+                "category": "FCS Coverage",
+                "emoji": "🏈",
+                "changes": [
+                    "Added FCS conference and school database",
+                    "Detects Mercer, ETSU, and other FCS schools",
+                    "Warns users about limited CFBD data coverage for FCS"
+                ]
+            }
+        ]
+    },
     "1.9.1": {
         "date": "2026-01-08",
         "title": "Bulk Lookup Type Fix",
