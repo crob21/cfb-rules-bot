@@ -47,6 +47,32 @@ def get_notification_channel():
         channel_id = timekeeper_manager.get_notification_channel_id()
     else:
         channel_id = GENERAL_CHANNEL_ID
+
+
+async def check_module_enabled(interaction: discord.Interaction, module: FeatureModule) -> bool:
+    """
+    Check if a module is enabled for this server.
+    Returns True if enabled, False if disabled (and sends error message).
+    """
+    if not interaction.guild:
+        return True  # Allow in DMs
+    
+    if server_config.is_module_enabled(interaction.guild.id, module):
+        return True
+    
+    # Module is disabled - send helpful message
+    module_names = {
+        FeatureModule.CFB_DATA: "CFB Data",
+        FeatureModule.LEAGUE: "League Features",
+    }
+    name = module_names.get(module, module.value)
+    
+    await interaction.response.send_message(
+        f"❌ **{name}** module is not enabled on this server.\n"
+        f"An admin can enable it with: `/config enable {module.value}`",
+        ephemeral=True
+    )
+    return False
     return bot.get_channel(channel_id)
 
 
@@ -118,6 +144,7 @@ from .utils.timekeeper import (CFB_DYNASTY_WEEKS, TOTAL_WEEKS_PER_SEASON,
                                get_week_notes, get_week_phase)
 from .utils.version_manager import VersionManager
 from .utils.player_lookup import player_lookup
+from .utils.server_config import server_config, FeatureModule
 
 # Optional Google Docs integration
 try:
@@ -318,6 +345,11 @@ async def on_ready():
             logger.info('📜 Charter loaded from Discord persistence')
         else:
             logger.info('📜 Using charter from file (no Discord version found)')
+
+        # Initialize server config manager
+        server_config.set_bot(bot)
+        await server_config.load_from_discord()
+        logger.info(f'⚙️ Server config manager initialized ({len(server_config._configs)} server configs loaded)')
 
         # Initialize schedule manager
         schedule_manager = get_schedule_manager()
@@ -1911,6 +1943,10 @@ async def dynasty(interaction: discord.Interaction, topic: str):
 @bot.tree.command(name="charter", description="Get link to the official league charter")
 async def charter(interaction: discord.Interaction):
     """Get the official league charter link"""
+    # Check if league module is enabled
+    if not await check_module_enabled(interaction, FeatureModule.LEAGUE):
+        return
+    
     embed = discord.Embed(
         title="📋 CFB 26 League Charter",
         description="Official league rules, policies, and guidelines",
@@ -2449,6 +2485,9 @@ async def lookup_player(
         name: Player name to search for (e.g., "James Smith")
         team: Optional team name to filter results (e.g., "Alabama")
     """
+    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+        return
+    
     if not player_lookup.is_available:
         await interaction.response.send_message(
             "❌ Player lookup is not configured. CFB_DATA_API_KEY is missing.",
@@ -2511,6 +2550,9 @@ async def get_rankings(
         team: Optional team to check ranking for
         year: Year to check (default: 2025)
     """
+    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+        return
+    
     if not player_lookup.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
@@ -2552,6 +2594,9 @@ async def get_matchup(
         team1: First team (e.g., "Alabama")
         team2: Second team (e.g., "Auburn")
     """
+    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+        return
+    
     if not player_lookup.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
@@ -2591,6 +2636,9 @@ async def get_cfb_schedule(
         team: Team name (e.g., "Nebraska")
         year: Season year (default: 2025)
     """
+    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+        return
+    
     if not player_lookup.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
@@ -2630,6 +2678,9 @@ async def get_draft_picks(
         team: Optional college team to filter by
         year: Draft year (default: 2025)
     """
+    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+        return
+    
     if not player_lookup.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
@@ -2666,6 +2717,9 @@ async def get_transfers(
         team: Team name (e.g., "USC")
         year: Year to check (default: 2025)
     """
+    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+        return
+    
     if not player_lookup.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
@@ -2707,6 +2761,9 @@ async def get_betting(
         year: Season year (default: 2025)
         week: Optional week number
     """
+    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+        return
+    
     if not player_lookup.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
@@ -2748,6 +2805,9 @@ async def get_team_ratings(
         team: Team name (e.g., "Ohio State")
         year: Season year (default: 2025)
     """
+    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+        return
+    
     if not player_lookup.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
@@ -2955,6 +3015,10 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
     Args:
         hours: Number of hours for the countdown (default: 48)
     """
+    # Check if league module is enabled
+    if not await check_module_enabled(interaction, FeatureModule.LEAGUE):
+        return
+    
     # Check if user is admin
     if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
         await interaction.response.send_message("❌ You need to be a bot admin to start countdowns, ya muppet!", ephemeral=True)
@@ -3051,6 +3115,10 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
 @bot.tree.command(name="time_status", description="Check the current advance countdown status")
 async def check_time_status(interaction: discord.Interaction):
     """Check the current advance countdown status"""
+    # Check if league module is enabled
+    if not await check_module_enabled(interaction, FeatureModule.LEAGUE):
+        return
+    
     # Defer immediately to prevent timeout
     try:
         await interaction.response.defer()
@@ -3365,6 +3433,10 @@ async def view_weeks(interaction: discord.Interaction):
 )
 async def view_schedule(interaction: discord.Interaction, week: Optional[int] = None):
     """View the schedule for a specific week"""
+    # Check if league module is enabled
+    if not await check_module_enabled(interaction, FeatureModule.LEAGUE):
+        return
+    
     if not schedule_manager:
         await interaction.response.send_message("❌ Schedule manager not available", ephemeral=True)
         return
@@ -4671,6 +4743,156 @@ async def list_blocked_channels(interaction: discord.Interaction):
 
     embed.set_footer(text="CFB 26 League Bot - Channel Management")
     await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="config", description="Configure Harry's features for this server")
+@app_commands.describe(
+    action="What to do: view, enable, or disable",
+    module="Which module: cfb_data or league"
+)
+@app_commands.choices(action=[
+    app_commands.Choice(name="view", value="view"),
+    app_commands.Choice(name="enable", value="enable"),
+    app_commands.Choice(name="disable", value="disable"),
+])
+@app_commands.choices(module=[
+    app_commands.Choice(name="cfb_data - Player lookup, rankings, matchups, etc.", value="cfb_data"),
+    app_commands.Choice(name="league - Timer, charter, rules, dynasty features", value="league"),
+])
+async def config_command(
+    interaction: discord.Interaction,
+    action: str = "view",
+    module: str = None
+):
+    """
+    Configure which features Harry has enabled on this server.
+    
+    Modules:
+    - core: Always enabled - Harry's personality, general AI chat
+    - cfb_data: Player lookup, rankings, matchups, schedules, draft, transfers
+    - league: Timer, advance, charter, rules, league staff, dynasty features
+    """
+    if not interaction.guild:
+        await interaction.response.send_message("❌ This command only works in servers, not DMs!", ephemeral=True)
+        return
+    
+    guild_id = interaction.guild.id
+    
+    # Check admin for enable/disable
+    if action in ["enable", "disable"]:
+        is_admin = (
+            interaction.user.guild_permissions.administrator or
+            (admin_manager and admin_manager.is_admin(interaction.user, interaction))
+        )
+        if not is_admin:
+            await interaction.response.send_message(
+                "❌ Only server admins can change feature settings, ya muppet!",
+                ephemeral=True
+            )
+            return
+    
+    if action == "view":
+        # Show current configuration
+        enabled = server_config.get_enabled_modules(guild_id)
+        
+        embed = discord.Embed(
+            title="⚙️ Harry's Configuration",
+            description=f"Feature settings for **{interaction.guild.name}**",
+            color=0x1e90ff
+        )
+        
+        for mod in FeatureModule:
+            is_enabled = mod.value in enabled
+            status = "✅ Enabled" if is_enabled else "❌ Disabled"
+            if mod == FeatureModule.CORE:
+                status = "✅ Always On"
+            
+            desc = server_config.get_module_description(mod)
+            commands = server_config.get_module_commands(mod)
+            cmd_list = ", ".join([f"`/{c}`" for c in commands[:5]])
+            if len(commands) > 5:
+                cmd_list += f" +{len(commands) - 5} more"
+            
+            embed.add_field(
+                name=f"{desc}",
+                value=f"**Status:** {status}\n**Commands:** {cmd_list}",
+                inline=False
+            )
+        
+        embed.add_field(
+            name="💡 How to Change",
+            value="`/config enable cfb_data` - Enable CFB data features\n`/config disable league` - Disable dynasty features",
+            inline=False
+        )
+        
+        embed.set_footer(text="Harry's Server Config 🏈")
+        await interaction.response.send_message(embed=embed)
+    
+    elif action == "enable":
+        if not module:
+            await interaction.response.send_message("❌ Please specify a module to enable!", ephemeral=True)
+            return
+        
+        try:
+            mod = FeatureModule(module)
+        except ValueError:
+            await interaction.response.send_message(f"❌ Unknown module: {module}", ephemeral=True)
+            return
+        
+        if mod == FeatureModule.CORE:
+            await interaction.response.send_message("Core features are always enabled, mate! Can't turn off my personality! 😎", ephemeral=True)
+            return
+        
+        server_config.enable_module(guild_id, mod)
+        await server_config.save_to_discord()
+        
+        commands = server_config.get_module_commands(mod)
+        cmd_list = ", ".join([f"`/{c}`" for c in commands[:8]])
+        
+        embed = discord.Embed(
+            title="✅ Module Enabled!",
+            description=f"**{mod.value.upper()}** features are now enabled for this server!",
+            color=0x00ff00
+        )
+        embed.add_field(
+            name="Available Commands",
+            value=cmd_list + (f"\n+{len(commands) - 8} more" if len(commands) > 8 else ""),
+            inline=False
+        )
+        embed.set_footer(text="Harry's Server Config 🏈")
+        await interaction.response.send_message(embed=embed)
+    
+    elif action == "disable":
+        if not module:
+            await interaction.response.send_message("❌ Please specify a module to disable!", ephemeral=True)
+            return
+        
+        try:
+            mod = FeatureModule(module)
+        except ValueError:
+            await interaction.response.send_message(f"❌ Unknown module: {module}", ephemeral=True)
+            return
+        
+        if mod == FeatureModule.CORE:
+            await interaction.response.send_message("Nice try, but you can't turn off my personality! I'm always here, mate! 😏", ephemeral=True)
+            return
+        
+        server_config.disable_module(guild_id, mod)
+        await server_config.save_to_discord()
+        
+        embed = discord.Embed(
+            title="❌ Module Disabled",
+            description=f"**{mod.value.upper()}** features are now disabled for this server.",
+            color=0xff6600
+        )
+        embed.add_field(
+            name="Re-enable Anytime",
+            value=f"`/config enable {mod.value}` to turn it back on",
+            inline=False
+        )
+        embed.set_footer(text="Harry's Server Config 🏈")
+        await interaction.response.send_message(embed=embed)
+
 
 @bot.tree.command(name="whats_new", description="See what's new with Harry!")
 async def whats_new(interaction: discord.Interaction):

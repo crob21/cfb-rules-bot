@@ -11,10 +11,57 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.7.0"
+CURRENT_VERSION = "1.8.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.8.0": {
+        "date": "2026-01-08",
+        "title": "Per-Server Feature Configuration",
+        "emoji": "⚙️",
+        "features": [
+            {
+                "category": "Server Configuration",
+                "emoji": "⚙️",
+                "changes": [
+                    "NEW: `/config` - Enable/disable features per server",
+                    "Modules: Core (always on), CFB Data, League",
+                    "Settings persist across bot restarts",
+                    "Admins can customize Harry for their server"
+                ]
+            },
+            {
+                "category": "Module: Core (Always On)",
+                "emoji": "🤖",
+                "changes": [
+                    "Harry's personality - always available!",
+                    "General AI chat and questions",
+                    "/ask, /help, /whats_new, /changelog",
+                    "Bot admin management"
+                ]
+            },
+            {
+                "category": "Module: CFB Data",
+                "emoji": "🏈",
+                "changes": [
+                    "Player lookup, rankings, matchups",
+                    "Schedules, draft, transfers, betting, ratings",
+                    "Enable: `/config enable cfb_data`",
+                    "Enabled by default on new servers"
+                ]
+            },
+            {
+                "category": "Module: League Features",
+                "emoji": "🏆",
+                "changes": [
+                    "Timer, advance, charter, rules",
+                    "League staff, pick commish, dynasty schedule",
+                    "Enable: `/config enable league`",
+                    "Disabled by default (opt-in for dynasty servers)"
+                ]
+            }
+        ]
+    },
     "1.7.0": {
         "date": "2026-01-08",
         "title": "Full CFB Data Suite",
