@@ -11,10 +11,38 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.11.0"
+CURRENT_VERSION = "1.12.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.12.0": {
+        "date": "2026-01-09",
+        "title": "Per-Channel Controls",
+        "emoji": "📺",
+        "features": [
+            {
+                "category": "Channel Management",
+                "emoji": "📺",
+                "changes": [
+                    "NEW: /channel command to manage where Harry responds",
+                    "Channel whitelist - enable specific channels only",
+                    "Per-channel auto-response toggles",
+                    "Harry stays silent in non-whitelisted channels"
+                ]
+            },
+            {
+                "category": "Channel Commands",
+                "emoji": "⚙️",
+                "changes": [
+                    "/channel view - See current channel settings",
+                    "/channel enable - Add channel to whitelist",
+                    "/channel disable - Remove from whitelist",
+                    "/channel enable_all - Clear whitelist (allow all)",
+                    "/channel toggle_auto - Toggle auto-responses per channel"
+                ]
+            }
+        ]
+    },
     "1.11.0": {
         "date": "2026-01-09",
         "title": "Auto Response Toggle",

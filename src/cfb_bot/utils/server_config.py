@@ -10,7 +10,7 @@ Modules:
 
 import json
 import logging
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 from enum import Enum
 
 logger = logging.getLogger('CFB26Bot.ServerConfig')
@@ -34,6 +34,12 @@ DEFAULT_CONFIG = {
         "timer_channel_id": None,
         "admin_channel_id": None,
         "auto_responses": True,   # Enable automatic jump-in responses (team banter, "Fuck Oregon!", etc.)
+    },
+    # Channel controls - empty means ALL channels allowed
+    "enabled_channels": [],  # Whitelist: [channel_id1, channel_id2] - empty = all allowed
+    # Per-channel overrides (optional)
+    "channel_overrides": {
+        # channel_id: {"auto_responses": False, "modules": {"cfb_data": False}}
     }
 }
 
@@ -240,13 +246,99 @@ class ServerConfigManager:
         }
         return descriptions.get(module, str(module))
 
-    def auto_responses_enabled(self, guild_id: int) -> bool:
+    def auto_responses_enabled(self, guild_id: int, channel_id: int = None) -> bool:
         """Check if automatic jump-in responses are enabled (team banter, etc.)"""
+        # Check channel override first
+        if channel_id:
+            override = self.get_channel_override(guild_id, channel_id, "auto_responses")
+            if override is not None:
+                return override
         return self.get_setting(guild_id, "auto_responses", True)
 
     def get_personality_prompt(self, guild_id: int) -> str:
         """Get Harry's personality prompt - ALWAYS the full cockney asshole Duck-hater"""
         return HARRY_PERSONALITY
+
+    # ==================== CHANNEL CONTROLS ====================
+
+    def is_channel_enabled(self, guild_id: int, channel_id: int) -> bool:
+        """Check if Harry is allowed to respond in this channel"""
+        config = self.get_config(guild_id)
+        enabled_channels = config.get("enabled_channels", [])
+        
+        # Empty list = all channels allowed
+        if not enabled_channels:
+            return True
+        
+        return channel_id in enabled_channels
+
+    def enable_channel(self, guild_id: int, channel_id: int) -> bool:
+        """Add a channel to the whitelist"""
+        config = self.get_config(guild_id)
+        if "enabled_channels" not in config:
+            config["enabled_channels"] = []
+        
+        if channel_id not in config["enabled_channels"]:
+            config["enabled_channels"].append(channel_id)
+            logger.info(f"✅ Enabled channel {channel_id} for guild {guild_id}")
+        return True
+
+    def disable_channel(self, guild_id: int, channel_id: int) -> bool:
+        """Remove a channel from the whitelist"""
+        config = self.get_config(guild_id)
+        if "enabled_channels" not in config:
+            config["enabled_channels"] = []
+        
+        if channel_id in config["enabled_channels"]:
+            config["enabled_channels"].remove(channel_id)
+            logger.info(f"❌ Disabled channel {channel_id} for guild {guild_id}")
+        return True
+
+    def get_enabled_channels(self, guild_id: int) -> List[int]:
+        """Get list of enabled channels (empty = all allowed)"""
+        config = self.get_config(guild_id)
+        return config.get("enabled_channels", [])
+
+    def set_channel_override(self, guild_id: int, channel_id: int, key: str, value: Any):
+        """Set a per-channel override for a setting"""
+        config = self.get_config(guild_id)
+        if "channel_overrides" not in config:
+            config["channel_overrides"] = {}
+        
+        channel_key = str(channel_id)  # JSON keys are strings
+        if channel_key not in config["channel_overrides"]:
+            config["channel_overrides"][channel_key] = {}
+        
+        config["channel_overrides"][channel_key][key] = value
+        logger.info(f"⚙️ Set channel {channel_id} override: {key}={value}")
+
+    def get_channel_override(self, guild_id: int, channel_id: int, key: str) -> Any:
+        """Get a per-channel override (returns None if not set)"""
+        config = self.get_config(guild_id)
+        overrides = config.get("channel_overrides", {})
+        channel_key = str(channel_id)
+        
+        if channel_key in overrides:
+            return overrides[channel_key].get(key)
+        return None
+
+    def is_module_enabled_for_channel(self, guild_id: int, channel_id: int, module: FeatureModule) -> bool:
+        """Check if a module is enabled for a specific channel"""
+        # First check if channel is enabled at all
+        if not self.is_channel_enabled(guild_id, channel_id):
+            return False
+        
+        # Core is always enabled
+        if module == FeatureModule.CORE:
+            return True
+        
+        # Check channel-specific override
+        override = self.get_channel_override(guild_id, channel_id, f"module_{module.value}")
+        if override is not None:
+            return override
+        
+        # Fall back to server-level setting
+        return self.is_module_enabled(guild_id, module)
 
 
 # Singleton instance

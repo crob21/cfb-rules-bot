@@ -464,6 +464,15 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
+    # Check if Harry is enabled in this channel (channel whitelist)
+    if message.guild:
+        channel_id = message.channel.id
+        guild_id = message.guild.id
+        if not server_config.is_channel_enabled(guild_id, channel_id):
+            # Harry is not enabled in this channel - stay silent
+            logger.debug(f"🔇 Channel {channel_id} not enabled for Harry in guild {guild_id}")
+            return
+
     # Check if the bot is @mentioned (only responds to @CFB Bot, not just "harry" in text)
     bot_mentioned = False
     if message.mentions:
@@ -607,7 +616,8 @@ async def on_message(message):
 
     # Check for auto jump-in responses (gated by auto_responses setting)
     guild_id = message.guild.id if message.guild else 0
-    auto_responses = server_config.auto_responses_enabled(guild_id)
+    channel_id = message.channel.id if message.channel else 0
+    auto_responses = server_config.auto_responses_enabled(guild_id, channel_id)
 
     # Team banter responses - only if auto_responses is enabled
     team_keywords = {
@@ -5048,6 +5058,198 @@ async def config_command(
         )
         embed.set_footer(text="Harry's Server Config 🏈")
         await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="channel", description="Manage which channels Harry can respond in")
+@app_commands.describe(
+    action="What to do: view, enable, disable, or toggle_auto",
+    channel="Which channel to configure (defaults to current channel)"
+)
+@app_commands.choices(action=[
+    app_commands.Choice(name="view - See channel settings", value="view"),
+    app_commands.Choice(name="enable - Allow Harry in this channel", value="enable"),
+    app_commands.Choice(name="disable - Block Harry from this channel", value="disable"),
+    app_commands.Choice(name="enable_all - Allow Harry in ALL channels", value="enable_all"),
+    app_commands.Choice(name="toggle_auto - Toggle auto-responses for this channel", value="toggle_auto"),
+])
+async def channel_command(
+    interaction: discord.Interaction,
+    action: str = "view",
+    channel: discord.TextChannel = None
+):
+    """
+    Manage which channels Harry can respond in.
+    
+    By default, Harry is enabled in ALL channels. Once you enable specific channels,
+    he'll ONLY respond in those channels (whitelist mode).
+    """
+    if not interaction.guild:
+        await interaction.response.send_message("❌ This command only works in servers!", ephemeral=True)
+        return
+
+    guild_id = interaction.guild.id
+    target_channel = channel or interaction.channel
+
+    # Check admin for enable/disable
+    if action in ["enable", "disable", "enable_all", "toggle_auto"]:
+        is_admin = (
+            interaction.user.guild_permissions.administrator or
+            (admin_manager and admin_manager.is_admin(interaction.user, interaction))
+        )
+        if not is_admin:
+            await interaction.response.send_message(
+                "❌ Only server admins can change channel settings, ya muppet!",
+                ephemeral=True
+            )
+            return
+
+    if action == "view":
+        enabled_channels = server_config.get_enabled_channels(guild_id)
+        auto_responses = server_config.auto_responses_enabled(guild_id, target_channel.id)
+        channel_enabled = server_config.is_channel_enabled(guild_id, target_channel.id)
+
+        embed = discord.Embed(
+            title="📺 Channel Settings",
+            description=f"Harry's channel configuration for **{interaction.guild.name}**",
+            color=0x1e90ff
+        )
+
+        # Current channel status
+        current_status = "✅ Enabled" if channel_enabled else "❌ Disabled"
+        auto_status = "✅ On" if auto_responses else "❌ Off"
+        
+        embed.add_field(
+            name=f"#{target_channel.name}",
+            value=f"**Status:** {current_status}\n**Auto-Responses:** {auto_status}",
+            inline=False
+        )
+
+        # Whitelist mode status
+        if enabled_channels:
+            channel_mentions = []
+            for ch_id in enabled_channels[:10]:
+                ch = interaction.guild.get_channel(ch_id)
+                if ch:
+                    channel_mentions.append(f"#{ch.name}")
+            channels_text = ", ".join(channel_mentions)
+            if len(enabled_channels) > 10:
+                channels_text += f" +{len(enabled_channels) - 10} more"
+            embed.add_field(
+                name="📋 Whitelist Mode",
+                value=f"Harry only responds in:\n{channels_text}",
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="🌐 All Channels Mode",
+                value="Harry responds in **all channels** (no whitelist set)",
+                inline=False
+            )
+
+        embed.add_field(
+            name="💡 Commands",
+            value=(
+                "`/channel enable` - Add this channel to whitelist\n"
+                "`/channel disable` - Remove from whitelist\n"
+                "`/channel enable_all` - Clear whitelist (allow all)\n"
+                "`/channel toggle_auto` - Toggle auto-responses here"
+            ),
+            inline=False
+        )
+
+        embed.set_footer(text="Harry's Channel Config 🏈")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    elif action == "enable":
+        server_config.enable_channel(guild_id, target_channel.id)
+        await server_config.save_to_discord()
+
+        embed = discord.Embed(
+            title="✅ Channel Enabled",
+            description=f"Harry can now respond in **#{target_channel.name}**!",
+            color=0x00ff00
+        )
+        
+        enabled_channels = server_config.get_enabled_channels(guild_id)
+        if len(enabled_channels) == 1:
+            embed.add_field(
+                name="⚠️ Whitelist Mode Active",
+                value="Harry will **only** respond in whitelisted channels now.\nUse `/channel enable` in other channels to add them.",
+                inline=False
+            )
+        
+        embed.set_footer(text="Harry's Channel Config 🏈")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    elif action == "disable":
+        server_config.disable_channel(guild_id, target_channel.id)
+        await server_config.save_to_discord()
+
+        enabled_channels = server_config.get_enabled_channels(guild_id)
+        
+        embed = discord.Embed(
+            title="❌ Channel Disabled",
+            description=f"Harry will no longer respond in **#{target_channel.name}**.",
+            color=0xff6600
+        )
+        
+        if not enabled_channels:
+            embed.add_field(
+                name="🌐 All Channels Mode",
+                value="Whitelist is now empty - Harry responds in **all channels** again.",
+                inline=False
+            )
+        
+        embed.set_footer(text="Harry's Channel Config 🏈")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    elif action == "enable_all":
+        # Clear the whitelist to allow all channels
+        config = server_config.get_config(guild_id)
+        config["enabled_channels"] = []
+        await server_config.save_to_discord()
+
+        embed = discord.Embed(
+            title="🌐 All Channels Enabled",
+            description="Whitelist cleared! Harry can now respond in **all channels**.",
+            color=0x00ff00
+        )
+        embed.add_field(
+            name="💡 To Restrict Again",
+            value="Use `/channel enable` in specific channels to start a whitelist.",
+            inline=False
+        )
+        embed.set_footer(text="Harry's Channel Config 🏈")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    elif action == "toggle_auto":
+        current = server_config.auto_responses_enabled(guild_id, target_channel.id)
+        new_value = not current
+        server_config.set_channel_override(guild_id, target_channel.id, "auto_responses", new_value)
+        await server_config.save_to_discord()
+
+        status = "✅ Enabled" if new_value else "❌ Disabled"
+        embed = discord.Embed(
+            title="💬 Auto-Responses Toggled",
+            description=f"Auto-responses in **#{target_channel.name}**: {status}",
+            color=0x00ff00 if new_value else 0xff6600
+        )
+        
+        if new_value:
+            embed.add_field(
+                name="What This Means",
+                value="Harry will jump in with team banter (like 'Fuck Oregon!') when keywords are mentioned.",
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="What This Means",
+                value="Harry won't auto-respond to keywords. He'll only respond when @mentioned or asked directly.",
+                inline=False
+            )
+        
+        embed.set_footer(text="Harry's Channel Config 🏈")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 @bot.tree.command(name="whats_new", description="See what's new with Harry!")
