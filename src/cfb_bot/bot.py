@@ -3161,12 +3161,15 @@ async def get_betting(
     try:
         result = await player_lookup.get_betting_lines(team, year, week)
         response = player_lookup.format_betting_lines(result)
+        
+        # Get the actual week used (may be auto-detected)
+        actual_week = result[0].get('week') if result else week
 
         title = "💰 Betting Lines"
         if team:
             title += f" - {team}"
-        if week:
-            title += f" (Week {week})"
+        if actual_week:
+            title += f" (Week {actual_week})"
 
         embed = discord.Embed(title=title, description=response, color=0x1e90ff)
         embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")

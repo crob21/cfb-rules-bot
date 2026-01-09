@@ -1185,6 +1185,48 @@ class CFBDataLookup:
 
         return team.strip()
 
+    def _get_current_cfb_week(self, year: int) -> int:
+        """
+        Estimate the current CFB week based on the date.
+        
+        CFB season typically:
+        - Week 0: Last week of August
+        - Week 1: First week of September
+        - Weeks 2-14: September through November
+        - Bowl season: December/January
+        """
+        now = datetime.now()
+        
+        # If we're in a different year than the season, return week 1
+        if now.year != year and now.month > 1:
+            return 1
+        
+        # Season start is typically last Saturday of August
+        # Approximate: Week 1 starts around Sept 1
+        if now.month < 8:
+            return 1  # Offseason, show preseason/week 1
+        elif now.month == 8:
+            if now.day >= 24:
+                return 0  # Week 0 games
+            return 1
+        elif now.month == 9:
+            # September weeks 1-4
+            return min(1 + (now.day - 1) // 7, 4)
+        elif now.month == 10:
+            # October weeks 5-9
+            return min(5 + (now.day - 1) // 7, 9)
+        elif now.month == 11:
+            # November weeks 10-14
+            return min(10 + (now.day - 1) // 7, 14)
+        elif now.month == 12:
+            # December - conference championships and bowls
+            if now.day <= 7:
+                return 15  # Conference championship week
+            return 16  # Bowl season
+        else:
+            # January - bowl season / playoffs
+            return 16
+    
     def _team_matches(self, search_term: str, college: str) -> bool:
         """
         Smart team matching for draft picks.
@@ -1298,15 +1340,19 @@ class CFBDataLookup:
             return {'incoming': [], 'outgoing': []}
 
     async def get_betting_lines(self, team: Optional[str] = None, year: int = None, week: Optional[int] = None) -> List[Dict[str, Any]]:
-        """Get betting lines for games"""
+        """Get betting lines for games. If no week specified, gets current/upcoming week."""
         if not self.is_available:
             return []
 
         if year is None:
             year = get_current_cfb_season()
+        
+        # Auto-detect current week if not specified
+        if week is None:
+            week = self._get_current_cfb_week(year)
 
         try:
-            logger.info(f"🔍 Fetching betting lines" + (f" for {team}" if team else "") + f" ({year})")
+            logger.info(f"🔍 Fetching betting lines" + (f" for {team}" if team else "") + f" ({year} Week {week})")
 
             kwargs = {'year': year}
             if team:
