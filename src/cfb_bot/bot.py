@@ -3268,18 +3268,29 @@ async def get_betting(
         result = await player_lookup.get_betting_lines(team, year, week)
         response = player_lookup.format_betting_lines(result)
         
-        # Get the actual week used (may be auto-detected)
+        # Get the actual week and season type from results
         actual_week = result[0].get('week') if result else week
+        season_type = result[0].get('seasonType', 'regular') if result else 'regular'
 
         title = "💰 Betting Lines"
         if team:
             title += f" - {team}"
         
         # Show week or postseason in title
-        if actual_week:
+        if season_type == 'postseason':
+            # Map playoff weeks to round names
+            round_names = {
+                1: "First Round",
+                2: "Quarterfinals", 
+                3: "Semifinals",
+                4: "Championship",
+                5: "Championship",
+            }
+            round_name = round_names.get(actual_week, "Playoffs")
+            title += f" ({round_name})"
+        elif actual_week:
             title += f" (Week {actual_week})"
         elif not week:
-            # No week specified and none in results = postseason
             title += " (Postseason)"
 
         embed = discord.Embed(title=title, description=response, color=Colors.PRIMARY)

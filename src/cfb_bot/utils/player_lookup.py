@@ -1402,6 +1402,7 @@ class CFBDataLookup:
                         'awayTeam': getattr(game, 'away_team', None),
                         'awayScore': getattr(game, 'away_score', None),
                         'week': getattr(game, 'week', None),
+                        'seasonType': getattr(game, 'season_type', season_type),  # Track if postseason
                         'lines': game_lines,
                     })
                 logger.info(f"✅ Found {len(lines)} games with lines")
@@ -1690,6 +1691,21 @@ class CFBDataLookup:
             home = game.get('homeTeam', '?')
             away = game.get('awayTeam', '?')
             week = game.get('week', '?')
+            season_type = game.get('seasonType', 'regular')
+
+            # Format week/round indicator based on season type
+            if season_type == 'postseason':
+                # Map playoff weeks to round names
+                round_names = {
+                    1: "First Round",
+                    2: "Quarterfinals", 
+                    3: "Semifinals",
+                    4: "Championship",
+                    5: "Championship",
+                }
+                week_str = round_names.get(week, f"Playoff Rd {week}")
+            else:
+                week_str = f"Wk {week}"
 
             # Get first available line
             game_lines = game.get('lines', [])
@@ -1701,7 +1717,7 @@ class CFBDataLookup:
                 spread_str = f"{spread:+.1f}" if spread else "N/A"
                 ou_str = f"O/U {ou}" if ou else ""
 
-                parts.append(f"**{away} @ {home}** (Wk {week})")
+                parts.append(f"**{away} @ {home}** ({week_str})")
                 parts.append(f"   Spread: {home} {spread_str} | {ou_str}")
 
         return "\n".join(parts)
