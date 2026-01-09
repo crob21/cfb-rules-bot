@@ -1041,7 +1041,7 @@ class CFBDataLookup:
     async def get_draft_picks(self, team: Optional[str] = None, year: int = 2025) -> Dict[str, Any]:
         """
         Get NFL draft picks, optionally filtered by college team.
-        
+
         Returns:
             Dict with 'picks' list and optional 'suggestions' if no matches found
         """
@@ -1060,18 +1060,20 @@ class CFBDataLookup:
             if results:
                 picks = []
                 all_colleges = set()
-                team_lower = team.lower() if team else None
+                
+                # Normalize search term (remove common mascot names)
+                search_term = self._normalize_team_name(team) if team else None
 
                 for pick in results:
                     college = getattr(pick, 'college_team', None) or ''
-                    
+
                     # Track all colleges for suggestions
                     if college:
                         all_colleges.add(college)
 
-                    # If team filter specified, match case-insensitively
-                    if team_lower:
-                        if team_lower not in college.lower():
+                    # If team filter specified, use smart matching
+                    if search_term:
+                        if not self._team_matches(search_term, college):
                             continue
 
                     picks.append({
@@ -1085,12 +1087,12 @@ class CFBDataLookup:
                     })
 
                 logger.info(f"✅ Found {len(picks)} draft picks" + (f" from {team}" if team else ""))
-                
+
                 # If no picks found but team was specified, find similar college names
                 suggestions = []
-                if not picks and team_lower and all_colleges:
+                if not picks and search_term and all_colleges:
                     suggestions = self._find_similar_teams(team, list(all_colleges))
-                
+
                 return {'picks': picks, 'suggestions': suggestions}
 
             logger.warning(f"⚠️ No draft results returned for year {year}")
@@ -1102,14 +1104,77 @@ class CFBDataLookup:
             logger.error(f"Error fetching draft picks: {e}", exc_info=True)
             return {'picks': [], 'suggestions': []}
     
+    def _normalize_team_name(self, team: str) -> str:
+        """
+        Normalize team name by removing common mascot suffixes.
+        'Washington Huskies' -> 'Washington'
+        'Ohio State Buckeyes' -> 'Ohio State'
+        """
+        if not team:
+            return team
+            
+        # Common mascot names to strip
+        mascots = [
+            'huskies', 'ducks', 'buckeyes', 'wolverines', 'trojans', 'bulldogs',
+            'tigers', 'crimson tide', 'sooners', 'longhorns', 'aggies', 'seminoles',
+            'hurricanes', 'gators', 'volunteers', 'wildcats', 'bears', 'cougars',
+            'cardinals', 'bruins', 'beavers', 'sun devils', 'buffaloes', 'utes',
+            'rebels', 'razorbacks', 'fighting irish', 'nittany lions', 'spartans',
+            'hawkeyes', 'cornhuskers', 'badgers', 'golden gophers', 'boilermakers',
+            'hoosiers', 'illini', 'terrapins', 'scarlet knights', 'mountaineers',
+            'jayhawks', 'cyclones', 'red raiders', 'horned frogs', 'cowboys',
+            'golden eagles', 'panthers', 'knights', 'owls', 'mustangs', 'thundering herd'
+        ]
+        
+        team_lower = team.lower().strip()
+        
+        for mascot in mascots:
+            if team_lower.endswith(' ' + mascot):
+                return team[:-(len(mascot) + 1)].strip()
+        
+        return team.strip()
+    
+    def _team_matches(self, search_term: str, college: str) -> bool:
+        """
+        Smart team matching - exact match preferred, then contains.
+        Handles 'Washington' matching 'Washington' but NOT 'Washington State'
+        """
+        search_lower = search_term.lower()
+        college_lower = college.lower()
+        
+        # Exact match (case-insensitive)
+        if search_lower == college_lower:
+            return True
+        
+        # Exact word match at the start (e.g., "Washington" matches "Washington" but not "Washington State")
+        # Only match if search term IS the college name, not a substring
+        college_words = college_lower.split()
+        search_words = search_lower.split()
+        
+        # If search is single word and matches first word of college exactly
+        if len(search_words) == 1 and college_words and search_words[0] == college_words[0]:
+            # But NOT if college has "State" after it (to avoid Washington matching Washington State)
+            if len(college_words) == 1:
+                return True
+            # Allow "Ohio" to match "Ohio State" but not "Washington" to match "Washington State" randomly
+            # Actually, let's be strict - only exact matches for single words
+            return False
+        
+        # Multi-word search - check if all words match in order
+        if len(search_words) > 1:
+            if college_lower.startswith(search_lower):
+                return True
+        
+        return False
+
     def _find_similar_teams(self, query: str, team_list: List[str], limit: int = 5) -> List[str]:
         """Find teams with similar names using fuzzy matching"""
         try:
             from difflib import SequenceMatcher
-            
+
             query_lower = query.lower()
             scored = []
-            
+
             for team in team_list:
                 team_lower = team.lower()
                 # Check for partial match first
@@ -1120,11 +1185,11 @@ class CFBDataLookup:
                     ratio = SequenceMatcher(None, query_lower, team_lower).ratio()
                     if ratio > 0.4:  # Threshold for relevance
                         scored.append((team, ratio))
-            
+
             # Sort by score descending
             scored.sort(key=lambda x: x[1], reverse=True)
             return [team for team, _ in scored[:limit]]
-            
+
         except Exception as e:
             logger.error(f"Error finding similar teams: {e}")
             return []
@@ -1424,17 +1489,17 @@ class CFBDataLookup:
         """Format draft picks for Discord"""
         picks = result.get('picks', [])
         suggestions = result.get('suggestions', [])
-        
+
         if not picks:
             parts = [f"No draft picks found" + (f" from **{team}**" if team else "")]
-            
+
             # Add suggestions if available
             if suggestions:
                 parts.append("")
                 parts.append("🔍 **Did you mean one of these schools?**")
                 for suggestion in suggestions[:5]:
                     parts.append(f"• {suggestion}")
-            
+
             return "\n".join(parts)
 
         parts = [f"🏈 **NFL Draft Picks**" + (f" from {team}" if team else ""), ""]
