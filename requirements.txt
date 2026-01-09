@@ -4,6 +4,9 @@ aiohttp==3.9.1
 python-dotenv==1.0.0
 requests==2.31.0
 
+# College Football Data API
+cfbd>=5.0.0
+
 # Optional AI Integration
 openai==1.6.1
 anthropic==0.7.8

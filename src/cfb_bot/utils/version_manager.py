@@ -11,10 +11,55 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.6.0"
+CURRENT_VERSION = "1.6.1"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.6.1": {
+        "date": "2026-01-08",
+        "title": "Enhanced Player Lookup with Official API",
+        "emoji": "🏈",
+        "features": [
+            {
+                "category": "Official CFBD Library",
+                "emoji": "📚",
+                "changes": [
+                    "Refactored to use official cfbd Python library",
+                    "More reliable API calls with proper error handling",
+                    "Better type safety and cleaner code",
+                    "Access to all CFBD endpoints"
+                ]
+            },
+            {
+                "category": "Transfer Portal",
+                "emoji": "🔄",
+                "changes": [
+                    "NEW: Shows transfer info for portal players!",
+                    "See origin → destination team",
+                    "Eligibility status displayed",
+                    "Automatically detects if player transferred"
+                ]
+            },
+            {
+                "category": "Enhanced Recruiting",
+                "emoji": "⭐",
+                "changes": [
+                    "National ranking, position rank, state rank",
+                    "Full recruiting class data",
+                    "Searches multiple recruiting years automatically"
+                ]
+            },
+            {
+                "category": "Natural Language",
+                "emoji": "💬",
+                "changes": [
+                    "40+ different ways to ask about a player",
+                    "Handles team patterns: from/at/plays for/comma",
+                    "Strips Discord mentions automatically"
+                ]
+            }
+        ]
+    },
     "1.6.0": {
         "date": "2026-01-08",
         "title": "Player Lookup Feature",
