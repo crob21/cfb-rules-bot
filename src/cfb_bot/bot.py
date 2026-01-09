@@ -51,15 +51,16 @@ def get_notification_channel():
     return bot.get_channel(channel_id)
 
 
-async def send_admin_notification(title: str, description: str, color: int = 0x1e90ff, fields: list = None):
+async def send_admin_notification(title: str, description: str, color: int = 0x1e90ff, fields: list = None, guild_id: int = None):
     """
-    Send a notification to all configured admin channels.
+    Send a notification to configured admin channels.
     
     Args:
         title: Embed title
         description: Embed description
         color: Embed color (default blue)
         fields: Optional list of {"name": str, "value": str, "inline": bool} dicts
+        guild_id: Optional - only send to this guild's admin channel
     """
     embed = discord.Embed(
         title=title,
@@ -76,7 +77,11 @@ async def send_admin_notification(title: str, description: str, color: int = 0x1
     embed.set_footer(text="Harry Admin Notification 🔧")
     
     sent_count = 0
-    for guild in bot.guilds:
+    guilds_to_notify = [bot.get_guild(guild_id)] if guild_id else bot.guilds
+    
+    for guild in guilds_to_notify:
+        if not guild:
+            continue
         admin_channel_id = server_config.get_admin_channel(guild.id)
         if admin_channel_id:
             channel = guild.get_channel(admin_channel_id)
@@ -84,14 +89,51 @@ async def send_admin_notification(title: str, description: str, color: int = 0x1
                 try:
                     await channel.send(embed=embed)
                     sent_count += 1
-                    logger.info(f"📢 Sent admin notification to #{channel.name} in {guild.name}")
                 except Exception as e:
                     logger.error(f"❌ Failed to send to {guild.name}: {e}")
     
-    if sent_count == 0:
-        logger.info(f"📢 Admin notification not sent (no admin channels configured)")
-    
     return sent_count
+
+
+async def send_admin_error(error_type: str, error_msg: str, context: str = None, guild_id: int = None):
+    """
+    Send an error report to admin channels.
+    
+    Args:
+        error_type: Type of error (e.g., "Command Error", "AI Error")
+        error_msg: Error message/details
+        context: Optional context (e.g., which command, which user)
+        guild_id: Optional - only send to this guild's admin channel
+    """
+    description = f"**Error:** {error_msg[:500]}"
+    if context:
+        description = f"**Context:** {context}\n\n{description}"
+    
+    await send_admin_notification(
+        title=f"❌ {error_type}",
+        description=description,
+        color=0xff0000,
+        guild_id=guild_id
+    )
+
+
+async def send_admin_log(event: str, details: str = None, guild_id: int = None):
+    """
+    Send an important log event to admin channels.
+    
+    Args:
+        event: Event name (e.g., "Config Changed", "Module Enabled")
+        details: Optional details about the event
+        guild_id: Optional - only send to this guild's admin channel
+    """
+    description = details if details else "No additional details."
+    
+    await send_admin_notification(
+        title=f"📋 {event}",
+        description=description,
+        color=0xffaa00,
+        guild_id=guild_id
+    )
 
 
 async def send_week_schedule(channel, week_num):
@@ -440,6 +482,11 @@ async def on_ready():
     except Exception as e:
         logger.error(f"❌ Critical error in on_ready: {e}")
         logger.exception("Full error details:")
+        # Try to send error to admin channels (might fail if server_config not loaded)
+        try:
+            await send_admin_error("Startup Error", str(e), "on_ready initialization")
+        except Exception:
+            pass  # Can't send if bot not fully initialized
         # Don't re-raise - let bot continue running
         # The bot will still connect, just without some features
 
@@ -5171,6 +5218,13 @@ async def config_command(
         )
         embed.set_footer(text="Harry's Server Config 🏈")
         await interaction.response.send_message(embed=embed)
+        
+        # Log to admin channel
+        await send_admin_log(
+            "Module Enabled",
+            f"**{mod.value.upper()}** enabled by {interaction.user.display_name}",
+            guild_id=guild_id
+        )
 
     elif action == "disable":
         if not module:
@@ -5202,6 +5256,13 @@ async def config_command(
         )
         embed.set_footer(text="Harry's Server Config 🏈")
         await interaction.response.send_message(embed=embed)
+        
+        # Log to admin channel
+        await send_admin_log(
+            "Module Disabled",
+            f"**{mod.value.upper()}** disabled by {interaction.user.display_name}",
+            guild_id=guild_id
+        )
 
 
 @bot.tree.command(name="channel", description="View/manage which channels Harry can respond in (no args = view status)")
