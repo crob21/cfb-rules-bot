@@ -1427,6 +1427,21 @@ class CFBDataLookup:
 
             if results:
                 lines = []
+                
+                # Debug: Log unique week values to understand postseason structure
+                unique_weeks = set()
+                for game in results:
+                    unique_weeks.add(getattr(game, 'week', None))
+                logger.info(f"📊 DEBUG - Postseason weeks in response: {sorted(unique_weeks)}")
+                
+                # Log first 3 games for debugging
+                for i, game in enumerate(results[:3]):
+                    g_week = getattr(game, 'week', None)
+                    g_type = getattr(game, 'season_type', None)
+                    g_home = getattr(game, 'home_team', None)
+                    g_away = getattr(game, 'away_team', None)
+                    logger.info(f"📊 DEBUG - Game {i+1}: {g_away} @ {g_home} (week={g_week}, type={g_type})")
+                
                 for game in results:
                     game_lines = []
                     for line in getattr(game, 'lines', []):
