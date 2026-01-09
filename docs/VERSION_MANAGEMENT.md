@@ -1,12 +1,8 @@
 # Version Management Guide 📜
 
-This guide explains how to manage versions and maintain the changelog for the CFB Rules Bot (Harry).
+This guide explains how to manage versions and maintain the changelog for Harry (CFB Rules Bot).
 
-## Overview
-
-The bot uses **Semantic Versioning** (SemVer) to track releases and changes.
-
-**Current Version:** 1.1.0
+**Current Version:** 1.13.0  
 **Version File:** `src/cfb_bot/utils/version_manager.py`
 
 ---
@@ -16,32 +12,28 @@ The bot uses **Semantic Versioning** (SemVer) to track releases and changes.
 Version format: `MAJOR.MINOR.PATCH`
 
 ### MAJOR Version (X.0.0)
-Increment when you make **incompatible API changes** or **major redesigns**
+Increment for **breaking changes** or **major redesigns**
 
 **Examples:**
 - Complete bot rewrite
 - Breaking changes to command syntax
-- Major architecture changes
 - Removing features
 
 ### MINOR Version (1.X.0)
-Increment when you add **new features** in a backwards-compatible manner
+Increment for **new features** (backwards-compatible)
 
 **Examples:**
 - Adding new slash commands
-- Adding new features (like advance timer, summarization)
-- New integrations
+- New modules (CFB Data, Dashboard)
 - Significant improvements
 
 ### PATCH Version (1.1.X)
-Increment when you make **backwards-compatible bug fixes**
+Increment for **bug fixes** (backwards-compatible)
 
 **Examples:**
 - Bug fixes
 - Performance improvements
-- Small tweaks
 - Documentation updates
-- Minor text changes
 
 ---
 
@@ -49,10 +41,9 @@ Increment when you make **backwards-compatible bug fixes**
 
 ### Step 1: Determine Version Increment
 
-Ask yourself:
-- **Did I add new features?** → Increment MINOR (1.1.0 → 1.2.0)
-- **Did I just fix bugs?** → Increment PATCH (1.1.0 → 1.1.1)
-- **Did I make breaking changes?** → Increment MAJOR (1.1.0 → 2.0.0)
+- **New features?** → MINOR (1.12.0 → 1.13.0)
+- **Bug fixes only?** → PATCH (1.12.0 → 1.12.1)
+- **Breaking changes?** → MAJOR (1.12.0 → 2.0.0)
 
 ### Step 2: Edit version_manager.py
 
@@ -62,20 +53,20 @@ Open `src/cfb_bot/utils/version_manager.py`
 
 ```python
 # Change this line:
-CURRENT_VERSION = "1.1.0"
+CURRENT_VERSION = "1.13.0"
 
 # To new version:
-CURRENT_VERSION = "1.2.0"
+CURRENT_VERSION = "1.14.0"
 ```
 
 #### Add Changelog Entry
 
-Add a new entry to the `CHANGELOG` dictionary:
+Add a new entry to the `CHANGELOG` dictionary (at the top!):
 
 ```python
 CHANGELOG: Dict[str, Dict] = {
-    "1.2.0": {  # NEW VERSION HERE
-        "date": "2025-11-15",  # Release date
+    "1.14.0": {  # NEW VERSION HERE
+        "date": "2026-01-15",  # Release date
         "title": "Brief Description",  # Short title
         "emoji": "🚀",  # Emoji for this release
         "features": [
@@ -88,10 +79,9 @@ CHANGELOG: Dict[str, Dict] = {
                     "Third change description"
                 ]
             },
-            # Add more feature categories as needed
         ]
     },
-    "1.1.0": {  # Keep existing versions below
+    "1.13.0": {  # Keep existing versions below
         # ... existing changelog
     }
 }
@@ -99,7 +89,7 @@ CHANGELOG: Dict[str, Dict] = {
 
 ### Step 3: Write Good Changelog Entries
 
-**Good changelog entries are:**
+**Good entries are:**
 - ✅ Clear and concise
 - ✅ User-focused (what users can do)
 - ✅ Specific about what changed
@@ -108,9 +98,9 @@ CHANGELOG: Dict[str, Dict] = {
 **Examples:**
 
 ✅ **Good:**
-- "Added `/advance` command with custom duration support"
-- "Channel summarization now supports focus keywords"
-- "Fixed countdown timer not sending 1-hour notification"
+- "Added `/channel` command for per-channel configuration"
+- "Smart player suggestions when lookup fails"
+- "Fixed stat calculation error in bulk lookups"
 
 ❌ **Bad:**
 - "Updated code"
@@ -121,68 +111,12 @@ CHANGELOG: Dict[str, Dict] = {
 
 ```bash
 git add src/cfb_bot/utils/version_manager.py
-git commit -m "Bump version to 1.2.0"
-git push
-```
-
-Then commit your actual changes:
-
-```bash
-git add .
-git commit -m "Add [feature name] - v1.2.0
+git commit -m "Bump version to 1.14.0
 
 - Feature 1 description
-- Feature 2 description
-- Feature 3 description"
+- Feature 2 description"
 git push
 ```
-
----
-
-## Changelog Structure
-
-### Full Example
-
-```python
-"1.2.0": {
-    "date": "2025-11-15",
-    "title": "Advanced Notifications",
-    "emoji": "🔔",
-    "features": [
-        {
-            "category": "Notifications",
-            "emoji": "🔔",
-            "changes": [
-                "Added custom notification intervals",
-                "Email notifications for countdown end",
-                "DM notifications for important events"
-            ]
-        },
-        {
-            "category": "Bug Fixes",
-            "emoji": "🐛",
-            "changes": [
-                "Fixed timer not persisting after restart",
-                "Fixed progress bar calculation error",
-                "Improved error handling"
-            ]
-        }
-    ]
-}
-```
-
-### Category Examples
-
-Common categories to use:
-- **Core Features** - Main functionality
-- **Commands** - New or updated commands
-- **Notifications** - Notification system changes
-- **Bug Fixes** - Bug fixes and corrections
-- **Performance** - Performance improvements
-- **UI/UX** - User interface improvements
-- **Admin Tools** - Admin-only features
-- **Integration** - Third-party integrations
-- **Security** - Security improvements
 
 ---
 
@@ -190,40 +124,11 @@ Common categories to use:
 
 Before deploying:
 
-1. **Check version displays correctly:**
-   - Run bot locally
-   - Check startup logs for version number
-   - Test `/version` command
-   - Test `/changelog` command
-   - Test `/changelog [your-new-version]`
-
-2. **Verify changelog formatting:**
-   - Check embeds display properly
-   - Verify all features are listed
-   - Ensure emoji show correctly
-
-3. **Test new features:**
-   - Verify all new commands work
-   - Check error handling
-   - Test edge cases
-
----
-
-## Version History Reference
-
-### Current Versions
-
-| Version | Date | Title | Major Changes |
-|---------|------|-------|---------------|
-| 1.1.0 | 2025-11-04 | Major Feature Update | Advance timer, summarization, charter management, bot admins, version control |
-| 1.0.0 | 2025-10-15 | Initial Release | Core bot, AI integration, basic commands |
-
-### Planned Versions
-
-| Version | Expected | Planned Features |
-|---------|----------|------------------|
-| 1.2.0 | TBD | Persistent timers, enhanced summarization |
-| 2.0.0 | TBD | Major architecture update |
+1. **Run bot locally** and check startup logs for version
+2. **Test `/version`** command
+3. **Test `/changelog`** command
+4. **Test `/whats_new`** command
+5. **Verify embeds** display correctly
 
 ---
 
@@ -231,22 +136,41 @@ Before deploying:
 
 When releasing a new version:
 
-- [ ] Determine correct version number (MAJOR.MINOR.PATCH)
+- [ ] Determine version number (MAJOR.MINOR.PATCH)
 - [ ] Update `CURRENT_VERSION` in `version_manager.py`
-- [ ] Add complete changelog entry with:
-  - [ ] Correct version number
+- [ ] Add changelog entry with:
+  - [ ] Version number
   - [ ] Release date
-  - [ ] Descriptive title
-  - [ ] Appropriate emoji
+  - [ ] Title and emoji
   - [ ] All features categorized
-  - [ ] Clear change descriptions
+- [ ] Update `docs/CHANGELOG.md`
 - [ ] Test version commands locally
-- [ ] Commit version update separately
-- [ ] Commit feature changes with version reference
-- [ ] Push to repository
+- [ ] Commit and push
 - [ ] Verify deployment
-- [ ] Test in production
-- [ ] Announce to users with `/whats_new`
+- [ ] Announce with `/whats_new`
+
+---
+
+## Version History Reference
+
+### Recent Versions
+
+| Version | Date | Title |
+|---------|------|-------|
+| 1.13.0 | 2026-01-09 | Storage Abstraction Layer |
+| 1.12.0 | 2026-01-09 | Per-Channel Controls |
+| 1.11.0 | 2026-01-09 | Auto Response Toggle |
+| 1.10.0 | 2026-01-08 | Smart Player Suggestions |
+| 1.9.0 | 2026-01-08 | Web Dashboard |
+| 1.8.0 | 2026-01-08 | Per-Server Configuration |
+| 1.7.0 | 2026-01-08 | Full CFB Data Suite |
+| 1.6.0 | 2026-01-08 | Player Lookup |
+| 1.5.0 | 2025-12-31 | Charter Persistence |
+| 1.4.0 | 2025-12-31 | Server-Wide Timer |
+| 1.3.0 | 2025-12-31 | Interactive Charter |
+| 1.2.0 | 2025-12-29 | Dynasty Week System |
+| 1.1.0 | 2025-11-04 | Major Feature Update |
+| 1.0.0 | 2024-09-17 | Initial Release |
 
 ---
 
@@ -258,36 +182,23 @@ When releasing a new version:
 
 ❌ **Wrong version increment** - Follow SemVer rules
 
-❌ **Missing date** - Always include release date
+❌ **Not testing** - Test version commands before deploying
 
-❌ **Not testing** - Test `/version` and `/changelog` before deploying
-
-❌ **Inconsistent formatting** - Follow the established pattern
+❌ **Forgetting docs/CHANGELOG.md** - Keep both in sync!
 
 ---
 
 ## Need Help?
 
-If you're unsure about version numbering:
+If unsure about version numbering:
 
-1. **Small fixes/tweaks?** → PATCH (1.1.0 → 1.1.1)
-2. **New features/commands?** → MINOR (1.1.0 → 1.2.0)
-3. **Breaking changes?** → MAJOR (1.1.0 → 2.0.0)
+1. **Small fixes/tweaks?** → PATCH
+2. **New features/commands?** → MINOR
+3. **Breaking changes?** → MAJOR
 
 **When in doubt, increment MINOR for any user-facing changes!**
 
 ---
 
-## Future Improvements
-
-Consider adding:
-- Automated version bumping scripts
-- Changelog generation from git commits
-- Release notes automation
-- Version comparison tools
-
----
-
-**Document Version:** 1.0
-**Last Updated:** November 4, 2025
-**Maintained By:** CFB Rules Bot Team
+**Document Version:** 2.0  
+**Last Updated:** January 9, 2026

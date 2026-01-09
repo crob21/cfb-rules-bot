@@ -1,30 +1,64 @@
 # CFB Rules Bot - Project Structure
 
 ## Overview
-A Discord bot for College Football 26 Online Dynasty League that provides league rule information, AI-powered responses, and fun rivalry interactions.
+
+A Discord bot for College Football 26 Online Dynasty League that provides league rule information, AI-powered responses, CFB data lookups, and fun rivalry interactions.
+
+**Current Version:** 1.13.0  
+**Codename:** Harry
 
 ## Directory Structure
 
 ```
 cfb-rules-bot/
 ├── main.py                     # Main entry point
+├── run_dashboard.py            # Dashboard server entry point
 ├── requirements.txt            # Python dependencies
 ├── runtime.txt                 # Python version specification
 ├── README.md                   # Project documentation
 ├── PROJECT_STRUCTURE.md        # This file
 │
-├── src/cfb_bot/               # Main bot package
-│   ├── __init__.py            # Package initialization
-│   ├── ai/                    # AI integration modules
-│   │   ├── __init__.py
-│   │   └── ai_integration.py  # OpenAI/Anthropic integration
-│   ├── integrations/          # External service integrations
-│   │   ├── __init__.py
-│   │   └── google_docs_integration.py
-│   └── utils/                 # Utility functions
+├── src/
+│   ├── cfb_bot/               # Main bot package
+│   │   ├── __init__.py        # Package initialization
+│   │   ├── bot.py             # Discord bot logic & commands
+│   │   │
+│   │   ├── ai/                # AI integration modules
+│   │   │   ├── __init__.py
+│   │   │   └── ai_integration.py  # OpenAI/Anthropic integration
+│   │   │
+│   │   ├── integrations/      # External service integrations
+│   │   │   ├── __init__.py
+│   │   │   └── google_docs_integration.py
+│   │   │
+│   │   └── utils/             # Utility modules
+│   │       ├── __init__.py
+│   │       ├── admin_check.py      # Bot admin management
+│   │       ├── audioop_fix.py      # Python 3.13 compatibility
+│   │       ├── channel_manager.py  # Channel blocking
+│   │       ├── charter_editor.py   # Charter management
+│   │       ├── player_lookup.py    # CFB player data (CFBD API)
+│   │       ├── schedule_manager.py # Schedule data
+│   │       ├── server_config.py    # Per-server configuration
+│   │       ├── storage.py          # Storage abstraction layer
+│   │       ├── summarizer.py       # Channel summaries
+│   │       ├── timekeeper.py       # Timer & dynasty weeks
+│   │       ├── update_rules.py     # Rule update utilities
+│   │       └── version_manager.py  # Version & changelog
+│   │
+│   └── dashboard/             # Web dashboard
 │       ├── __init__.py
-│       ├── audioop_fix.py     # Python 3.13 compatibility fix
-│       └── update_rules.py    # Rule update utilities
+│       ├── app.py             # FastAPI application
+│       ├── auth.py            # Discord OAuth2
+│       ├── routes.py          # API routes
+│       ├── static/            # CSS, JS assets
+│       │   ├── css/
+│       │   └── js/
+│       └── templates/         # Jinja2 HTML templates
+│           ├── base.html
+│           ├── dashboard.html
+│           ├── login.html
+│           └── server.html
 │
 ├── config/                    # Configuration files
 │   ├── env.example           # Environment variables template
@@ -34,25 +68,31 @@ cfb-rules-bot/
 │
 ├── data/                     # Data files
 │   ├── charter_content.txt   # League charter content
+│   ├── charter_changelog.json # Charter change history
 │   ├── league_rules.json     # League rules data
 │   ├── penalties.json        # Penalty information
-│   └── rules.json            # General rules data
+│   ├── rules.json            # General rules data
+│   └── schedule.json         # Season schedule
 │
 ├── tests/                    # Test files
 │   ├── unit/                 # Unit tests
 │   │   ├── test_ai.py
-│   │   ├── test_google_docs.py
-│   │   └── test_bot.py
-│   └── integration/          # Integration tests (empty)
+│   │   ├── test_bot.py
+│   │   └── test_google_docs.py
+│   └── integration/          # Integration tests
 │
 ├── docs/                     # Documentation
-│   ├── api/                  # API documentation (empty)
-│   ├── deployment/           # Deployment guides (empty)
+│   ├── README.md            # Docs overview
 │   ├── AI_SETUP.md          # AI setup instructions
-│   ├── GOOGLE_DOCS_SETUP.md # Google Docs setup
-│   ├── SETUP.md             # General setup
 │   ├── CHANGELOG.md         # Version history
-│   └── CONTRIBUTING.md      # Contribution guidelines
+│   ├── CONTRIBUTING.md      # Contribution guidelines
+│   ├── GOOGLE_DOCS_SETUP.md # Google Docs setup
+│   ├── NEW_FEATURES.md      # Feature documentation
+│   ├── SETUP.md             # General setup guide
+│   ├── TIMER_PERSISTENCE_TESTING.md
+│   ├── VERSION_MANAGEMENT.md # Version guide
+│   ├── api/                  # API documentation
+│   └── deployment/           # Deployment guides
 │
 ├── scripts/                  # Utility scripts
 │   ├── setup.py             # Setup script
@@ -62,48 +102,104 @@ cfb-rules-bot/
     └── bot.log              # Bot runtime logs
 ```
 
-## Key Files
+## Key Modules
 
-### Main Entry Point
-- `main.py` - Main entry point that imports and runs the bot
+### Core Bot (`src/cfb_bot/bot.py`)
+Main Discord bot with:
+- Slash commands
+- Event handlers (messages, reactions)
+- Natural language processing
+- Module system integration
 
-### Core Bot
-- `src/cfb_bot/__init__.py` - Main bot logic and Discord integration
+### Storage (`src/cfb_bot/utils/storage.py`)
+Pluggable storage backends:
+- `DiscordDMStorage` - Free, stores in bot owner's DMs
+- `SupabaseStorage` - PostgreSQL for scaling
 
-### AI Integration
-- `src/cfb_bot/ai/ai_integration.py` - OpenAI and Anthropic API integration
+### Server Config (`src/cfb_bot/utils/server_config.py`)
+Per-server feature configuration:
+- Module enable/disable (Core, CFB Data, League)
+- Per-channel controls
+- Auto-response toggles
+- Personality settings
 
-### External Integrations
-- `src/cfb_bot/integrations/google_docs_integration.py` - Google Docs API integration
+### Player Lookup (`src/cfb_bot/utils/player_lookup.py`)
+CFB player data via CollegeFootballData.com:
+- Player vitals and stats
+- Recruiting information
+- Transfer portal data
+- Fuzzy matching for suggestions
 
-### Configuration
-- `config/env.example` - Environment variables template
-- `config/render.yaml` - Render deployment configuration
-- `config/railway.json` - Railway deployment configuration
+### Timekeeper (`src/cfb_bot/utils/timekeeper.py`)
+Advance timer and dynasty week tracking:
+- Countdown management
+- Automatic notifications
+- 30-week season structure
+- Persistence via storage system
 
-### Data
-- `data/charter_content.txt` - League charter content (markdown format)
-- `data/league_rules.json` - Structured league rules
-- `data/penalties.json` - Penalty information
-- `data/rules.json` - General rules data
+### Dashboard (`src/dashboard/`)
+Web interface for configuration:
+- FastAPI backend
+- Discord OAuth2 authentication
+- Module management UI
+- Bot admin management
 
-## Setup
+## Configuration
 
-1. Copy `config/env.example` to `.env` and fill in your API keys
-2. Install dependencies: `pip install -r requirements.txt`
-3. Run the bot: `python main.py`
+### Environment Variables
+
+```env
+# Required
+DISCORD_BOT_TOKEN=xxx
+
+# Optional AI
+OPENAI_API_KEY=xxx
+ANTHROPIC_API_KEY=xxx
+
+# Optional CFB Data
+CFB_DATA_API_KEY=xxx
+
+# Storage Backend
+STORAGE_BACKEND=discord  # or supabase
+
+# Supabase (if scaling)
+SUPABASE_URL=xxx
+SUPABASE_KEY=xxx
+```
+
+### Feature Modules
+
+| Module | Description | Default |
+|--------|-------------|---------|
+| Core | Personality, AI, management | Always On |
+| CFB Data | Player lookup, rankings | Enabled |
+| League | Timer, charter, dynasty | Disabled |
 
 ## Deployment
 
-The bot is configured for deployment on:
-- **Render** (primary) - Uses `config/render.yaml` and `config/Procfile`
-- **Railway** (alternative) - Uses `config/railway.json`
+### Render (Recommended)
+Uses `config/render.yaml` and `config/Procfile`
 
-## Features
+### Railway
+Uses `config/railway.json`
 
-- League rule information and charter access
-- AI-powered responses about league policies
-- Fun rivalry responses for specific teams
-- Team and player information
-- Slash commands for easy interaction
-- Comprehensive logging and error handling
+## Development
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run bot
+python main.py
+
+# Run dashboard
+python run_dashboard.py
+
+# Run tests
+python -m pytest tests/
+```
+
+---
+
+**Version:** 1.13.0  
+**Last Updated:** January 9, 2026

@@ -1,456 +1,401 @@
-# New Harry Features 🏈
+# Harry's Features 🏈
 
-This document outlines the major features added to Harry, the CFB 26 League Bot.
+This document outlines all features of Harry, the CFB 26 League Bot.
 
-**Current Version:** 1.1.1
-**Release Date:** November 4, 2025
+**Current Version:** 1.13.0  
+**Last Updated:** January 9, 2026  
 **Status:** ✅ Production Ready
-
-## 1. ⏰ Advance Timer / Timekeeper
-
-Harry can now manage 48-hour advance countdowns for your league!
-
-### Commands:
-- **`/advance [hours]`** - Starts a countdown timer with custom duration (default: 48 hours)
-  - Announces when started
-  - Sends automatic reminders at:
-    - 24 hours remaining
-    - 12 hours remaining
-    - 6 hours remaining
-    - 1 hour remaining
-  - Announces "TIME'S UP! LET'S ADVANCE!" when countdown finishes
-  - **Admin only** - Requires bot admin permissions
-
-- **`/time_status`** - Check the current countdown status
-  - Shows time remaining
-  - Displays start and end times
-  - Includes a visual progress bar
-  - Color-coded urgency levels
-  - Shows persistence status (whether timer will survive deployments)
-
-- **`/stop_countdown`** (Admin only) - Stops the current countdown
-
-### How It Works:
-- Each channel can have its own independent countdown timer
-- Timers run in the background and **persist across deployments** using Discord messages
-- Automatic notifications keep everyone informed
-- Visual progress tracking with colors:
-  - 🟢 Green: 24+ hours remaining (plenty of time!)
-  - 🟠 Orange: 12-24 hours (getting closer!)
-  - 🟠 Dark Orange: 6-12 hours (time's ticking!)
-  - 🔴 Red: 1-6 hours (almost up!)
-  - 🔴 Bright Red: <1 hour (LAST HOUR!)
-
-### Timer Persistence:
-**NEW in v1.1.1+**: Timer state now persists across deployments!
-- Timer state stored in Discord messages (free, no paid storage needed!)
-- Automatically restored on bot restart/deployment
-- Searches all channels for saved timer state
-- Falls back to environment variable or file system if needed
-- See `docs/TIMER_PERSISTENCE_TESTING.md` for verification guide
-
-## 2. 📊 Channel Summarization
-
-Harry can now read and summarize channel activity!
-
-### Commands:
-- **`/summarize [hours] [focus]`** - Summarize channel messages
-  - `hours` (optional, default: 24): How many hours to look back (1-168 max)
-  - `focus` (optional): Specific topic to focus on (e.g., "rules", "voting", "recruiting")
-
-### Natural Language:
-- **`@Harry what happened in this channel for the last 3 hours?`**
-  - Detects summary requests via @mention
-  - Automatically extracts time period from question
-  - Works in any channel where @Harry is mentioned
-
-### Examples:
-```
-/summarize
-/summarize 48
-/summarize 24 recruiting
-/summarize 72 penalties
-/summarize 12 rules
-
-@Harry what happened in this channel for the last 6 hours?
-@Harry summarize the last 24 hours
-@Harry what rules were approved in the last 48 hours?
-```
-
-### Features:
-- **AI-Powered Summaries**: Uses OpenAI/Anthropic to generate intelligent summaries
-- **Structured Output**: Includes:
-  - Main topics discussed
-  - Decisions and actions taken
-  - Key participants
-  - Notable moments
-- **Fallback Mode**: If AI is unavailable, provides basic statistics:
-  - Message counts
-  - Top contributors
-  - Activity timeline
-- **Smart Filtering**: Ignores bot messages (except important ones)
-- **Context-Aware**: Can focus on specific topics
-
-### Use Cases:
-- Catch up on missed discussions
-- Review league decisions
-- Track rule discussions
-- Monitor channel activity
-- Generate meeting minutes
-
-## 3. 📝 Charter Editing & Management
-
-Harry can now edit the league charter directly from Discord!
-
-### Commands:
-
-#### `/add_rule <title> <content> [position]`
-Adds a new rule section to the charter
-- **section_title**: Title of the new section
-- **rule_content**: Content of the rule
-- **position** (optional): Where to add it (default: "end")
-  - "end" - Add to the end
-  - "after:X.X" - Add after section X.X
-  - "before:X.X" - Add before section X.X
-
-**Example:**
-```
-/add_rule "Playoff Format" "The league uses a 4-team playoff format with top seeds getting home field advantage" end
-```
-
-#### `/update_rule <section_identifier> <new_content>`
-Updates an existing rule section
-- **section_identifier**: Section number or title (e.g., "1.1", "Scheduling")
-- **new_content**: New content for the section
-
-**Example:**
-```
-/update_rule "1.2" "All games must be played by Tuesday and Friday at 9am EST. No exceptions unless approved by commissioner."
-```
-
-#### `/view_charter_backups`
-Lists all available charter backups
-- Shows up to 10 most recent backups
-- Displays timestamp and file size
-- Admin only
-
-#### `/restore_charter_backup <backup_filename>`
-Restores charter from a backup file
-- Automatically creates a backup before restoring
-- Admin only
-
-### Features:
-
-**AI-Assisted Formatting**:
-- Rules are automatically formatted into proper charter style
-- Maintains consistent formatting
-- Ensures clarity and professionalism
-
-**Automatic Backups**:
-- Every edit creates a timestamped backup
-- Backups stored in `data/charter_backups/`
-- Easy restoration if needed
-- Format: `charter_backup_YYYYMMDD_HHMMSS.txt`
-
-**Version Control**:
-- Full history of charter changes
-- Restore any previous version
-- Track when changes were made
-
-**Safety Features**:
-- Admin-only access for editing
-- Automatic backups before changes
-- Validation to prevent corruption
-- Confirmation embeds show what changed
-
-### Use Cases:
-- Add new rules after league votes
-- Update existing rules when policies change
-- Document rule changes from channel discussions
-- Maintain charter based on league meetings
-- Quickly revert bad changes
-
-## 4. 🔐 Bot Admin System
-
-Manage bot administrators directly through Discord!
-
-### Commands:
-
-#### `/add_bot_admin @user`
-Add a Discord user as a bot admin
-- User gains access to all admin-only commands
-- Requires current user to be an admin
-
-**Example:**
-```
-/add_bot_admin @Commissioner
-```
-
-#### `/remove_bot_admin @user`
-Remove a user's bot admin privileges
-- Revokes admin command access
-- Requires current user to be an admin
-
-**Example:**
-```
-/remove_bot_admin @FormerCommish
-```
-
-#### `/list_bot_admins`
-View all current bot admins
-- Shows display names and user IDs
-- Anyone can use this command
-- Also shows that Discord Administrators have access
-
-### How It Works:
-
-**Two Ways to Be a Bot Admin:**
-1. **Discord Administrator Permission** - Automatic bot admin access
-2. **Bot Admin List** - Added via `/add_bot_admin` command
-
-**Admin-Only Commands:**
-- `/stop_countdown` - Stop advance timer
-- `/add_rule` - Add charter rules
-- `/update_rule` - Update charter rules
-- `/view_charter_backups` - View backups
-- `/restore_charter_backup` - Restore backups
-- `/add_bot_admin` - Add new admins
-- `/remove_bot_admin` - Remove admins
-
-### Configuration Options:
-
-**Option 1: Through Discord (Recommended)**
-Use `/add_bot_admin @user` in Discord once deployed
-
-**Option 2: Environment Variable**
-Set `BOT_ADMIN_IDS` in your `.env` file:
-```
-BOT_ADMIN_IDS=123456789012345678,987654321098765432
-```
-(Comma-separated list of Discord User IDs)
-
-**Option 3: Hardcoded**
-Edit `src/cfb_bot/utils/admin_check.py` and add User IDs to `HARDCODED_ADMINS` list
-
-## 5. 👔 Natural Language Commissioner Updates
-
-Update league officers using natural language commands!
-
-### Commands:
-- **`@Harry update the league commish to Wusty`**
-- **`@Harry change commish to @Wusty`**
-- **`@Harry set commissioner to Wustyman`**
-- **`@Harry make Wusty the commish`**
-
-### Features:
-- **Multiple Phrasings**: Supports update/change/set/make variations
-- **@Mention Support**: Handles Discord user mentions
-- **Admin Only**: Requires bot admin permissions
-- **Automatic Backup**: Creates charter backup before updating
-- **Charter Integration**: Updates `data/charter_content.txt` automatically
-
-### Examples:
-```
-@Harry update the league commish to Wusty
-@Harry change commish to @Wusty
-@Harry set commissioner to Wustyman
-@Harry make @Wusty the commish
-```
-
-### How It Works:
-- Detects natural language patterns via @mention
-- Extracts commissioner name from message
-- Resolves @mentions to display names
-- Updates charter file automatically
-- Creates backup before changes
-
-## 6. 📨 Message Relay
-
-Relay messages between users using natural language!
-
-### Commands:
-- **`@Harry tell @User to message`**
-- **`@Harry tell @User message`** (without "to")
-
-### Examples:
-```
-@Harry tell @wustyman to fuck off
-@Harry tell @boozerob that the game is ready
-@Harry tell @user what I did
-```
-
-### Features:
-- **Natural Language**: Just ask Harry to relay a message
-- **@Mention Support**: Works with Discord user mentions
-- **Flexible Syntax**: "to" is optional
-- **Embeds**: Messages formatted as nice embeds
-
-## 7. 🔇 Channel Management
-
-Control where Harry makes unprompted responses!
-
-### Commands:
-- **`/block_channel #channel`** (Admin only) - Block unprompted responses
-- **`/unblock_channel #channel`** (Admin only) - Allow unprompted responses
-- **`/list_blocked_channels`** - Show all blocked channels
-
-### How It Works:
-- **@mentions always work** - Harry responds when mentioned, even in blocked channels
-- **No unprompted replies** - Harry won't jump into conversations in blocked channels
-- **Slash commands work** - All `/` commands function normally in blocked channels
-
-### Use Cases:
-- Keep general channels clean
-- Control where Harry interrupts conversations
-- Allow @mentions for questions anywhere
-- Maintain command functionality everywhere
-
-## 8. 📜 Version Control & Changelog
-
-Track bot versions and view update history!
-
-### Commands:
-
-#### `/version`
-Shows current bot version information
-- Version number (e.g., v1.1.0)
-- Release date
-- Total versions available
-
-**Example Output:**
-```
-🏈 Harry v1.1.0
-🎉 Major Feature Update
-📅 Release Date: 2025-11-04
-📊 Total Versions: 2
-```
-
-#### `/changelog [version]`
-View version changelog and update history
-
-**Without version parameter:**
-```
-/changelog
-```
-Shows summary of all versions
-
-**With specific version:**
-```
-/changelog 1.1.0
-```
-Shows detailed changes for that version
-
-#### `/whats_new`
-Showcase latest features in a user-friendly format
-- Highlights new features with examples
-- Perfect for announcing updates to your league
-- Automatically shows current version
-
-### Features:
-
-**Complete Version History:**
-- All versions tracked in `version_manager.py`
-- Organized by release date
-- Categorized features by type
-- Emoji indicators for each category
-
-**Easy Updates:**
-When adding new features:
-1. Update `CURRENT_VERSION` in `version_manager.py`
-2. Add new entry to `CHANGELOG` dict
-3. Categorize features appropriately
-4. Commit and deploy!
-
-**Version Display:**
-- Bot startup shows version in logs
-- `/whats_new` shows current version
-- Help commands reference version
-- Easy to track what's running
-
-## Technical Details
-
-### File Structure:
-```
-src/cfb_bot/
-├── utils/
-│   ├── timekeeper.py      # Advance timer functionality
-│   ├── summarizer.py      # Channel summarization
-│   ├── charter_editor.py  # Charter management
-│   ├── admin_check.py     # Bot admin management
-│   └── version_manager.py # Version control & changelog
-└── bot.py                 # Main bot with new commands
-```
-
-### Dependencies:
-All features use existing dependencies:
-- `discord.py` - Discord API
-- `asyncio` - Async operations
-- OpenAI/Anthropic (optional) - AI summaries and formatting
-- Python standard library (datetime, os, json, logging)
-
-### Integration:
-- All features are fully integrated into the main bot
-- Graceful fallbacks if AI is unavailable
-- Comprehensive error handling
-- Full logging for debugging
-- Cockney personality maintained throughout!
-
-## Future Enhancements (Potential)
-
-### Timekeeper:
-- ✅ ~~Persistent timers (survive bot restarts)~~ **IMPLEMENTED in v1.1.1+**
-- ✅ ~~Custom countdown durations~~ **IMPLEMENTED**
-- Multiple simultaneous timers per channel
-- Scheduled automatic advances
-- Integration with Google Calendar
-
-### Summarization:
-- ✅ ~~Optional focus parameter~~ **IMPLEMENTED**
-- ✅ ~~Natural language requests~~ **IMPLEMENTED**
-- Export summaries to files
-- Email summaries to league members
-- Compare summaries across time periods
-- Trend analysis (most discussed topics over time)
-- Sentiment analysis
-
-### Charter Editing:
-- ✅ ~~Commissioner updates via natural language~~ **IMPLEMENTED**
-- GitHub integration for version control
-- Diff view for changes
-- Approval workflow (propose → vote → implement)
-- Auto-sync with Google Docs
-- Rule change notifications
-- Markdown export
-
-## Notes
-
-- All admin commands require Discord Administrator permissions OR bot admin status
-- Charter backups are created automatically before any edits
-- Summaries work best with AI enabled (OpenAI or Anthropic)
-- Timers are per-channel and independent
-- All features include Harry's signature cockney personality!
-- Version history is tracked in `src/cfb_bot/utils/version_manager.py`
-
-## ⚠️ IMPORTANT: Updating Versions
-
-**When adding new features, you MUST update the version!**
-
-See `docs/VERSION_MANAGEMENT.md` for complete instructions on:
-- How to increment version numbers
-- How to add changelog entries
-- Version numbering conventions
-- Release process
-
-**Quick Reminder:**
-1. Edit `src/cfb_bot/utils/version_manager.py`
-2. Update `CURRENT_VERSION` (e.g., "1.1.0" → "1.2.0")
-3. Add new entry to `CHANGELOG` dict with all changes
-4. Commit with descriptive message
-5. Push and deploy!
 
 ---
 
-**Implemented**: November 4, 2025
-**Current Version**: 1.1.1
-**Author**: Harry (with assistance from Craig's AI assistant, innit!)
-**Last Updated**: November 4, 2025
+## 🏈 CFB Data Module
+
+Access comprehensive college football data powered by CollegeFootballData.com API.
+
+### Player Lookup
+
+**Commands:**
+- `/player <name> [team]` - Look up a single player
+- `/players <list>` - Bulk lookup (up to 15 players)
+
+**Natural Language:**
+- `@Harry what do you know about Jalen Milroe from Alabama?`
+- `@Harry stats for Caleb Williams USC`
+- Just paste a list of players and Harry will look them all up!
+
+**Features:**
+- Player vitals (height, weight, position, year, hometown)
+- Season stats (rushing, passing, receiving, defense)
+- Recruiting info (stars, national rank, position rank)
+- Transfer portal status
+- Smart suggestions for players not found
+- FCS school detection with limited-data warnings
+
+### Rankings
+
+**Command:** `/rankings [poll]`
+
+**Natural Language:** `@Harry where is Ohio State ranked?`
+
+**Supported Polls:**
+- AP Top 25
+- Coaches Poll
+- College Football Playoff
+
+### Matchup History
+
+**Command:** `/matchup <team1> <team2>`
+
+**Natural Language:** `@Harry Alabama vs Auburn all-time record`
+
+**Shows:**
+- All-time series record
+- Recent game results
+- Home/away splits
+
+### Team Schedules
+
+**Command:** `/cfb_schedule <team> [year]`
+
+**Natural Language:** `@Harry when does Nebraska play next?`
+
+**Shows:**
+- Full season schedule
+- Game results (W/L, scores)
+- Upcoming opponents
+- Bye weeks
+
+### NFL Draft
+
+**Command:** `/draft_picks <team> [year]`
+
+**Natural Language:** `@Harry who got drafted from Georgia?`
+
+**Shows:**
+- Draft picks by school
+- Round, pick number
+- Position, NFL team
+
+### Transfer Portal
+
+**Command:** `/transfers <team>`
+
+**Natural Language:** `@Harry USC transfer portal activity`
+
+**Shows:**
+- Incoming transfers (with origin school)
+- Outgoing transfers (with destination)
+- Player ratings
+
+### Betting Lines
+
+**Command:** `/betting <team1> <team2>`
+
+**Natural Language:** `@Harry who's favored in Bama vs Georgia?`
+
+**Shows:**
+- Point spread
+- Over/under
+- Moneyline (when available)
+
+### Advanced Ratings
+
+**Command:** `/team_ratings <team>`
+
+**Natural Language:** `@Harry how good is Texas?`
+
+**Shows:**
+- SP+ ratings (overall, offense, defense)
+- SRS (Simple Rating System)
+- Elo rating
+- FPI (when available)
+
+---
+
+## ⏰ Advance Timer / Timekeeper
+
+Server-wide countdown timers for league advances.
+
+### Commands
+
+| Command | Description | Access |
+|---------|-------------|--------|
+| `/advance [hours]` | Start countdown (default 48h) | Admin |
+| `/time_status` | Check countdown progress | Everyone |
+| `/stop_countdown` | Stop the timer | Admin |
+| `/set_timer_channel #channel` | Set notification channel | Admin |
+
+### Features
+
+- **Custom Duration**: 1-336 hours (default 48h)
+- **Automatic Notifications**: 24h, 12h, 6h, 1h remaining
+- **Visual Progress Bar**: Color-coded urgency levels
+- **Server-Wide**: One timer for the whole Discord
+- **Persistence**: Survives bot restarts and deployments!
+- **Centralized Notifications**: All alerts go to one channel (#general by default)
+
+### Progress Bar Colors
+
+| Time Remaining | Color |
+|----------------|-------|
+| 24+ hours | 🟢 Green |
+| 12-24 hours | 🟠 Orange |
+| 6-12 hours | 🟠 Dark Orange |
+| 1-6 hours | 🔴 Red |
+| < 1 hour | 🔴 Bright Red |
+
+---
+
+## 📅 Dynasty Week System
+
+Full 30-week CFB 26 season tracking with actions and notes.
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/week` | Show current week, phase, and actions |
+| `/weeks` | Show full 30-week dynasty schedule |
+| `/set_season_week <season> <week>` | Set current season and week (Admin) |
+
+### Season Structure
+
+**Regular Season (Weeks 0-15)**
+- Week 0: Season Kickoff
+- Weeks 1-12: Regular Season
+- Week 13: Rivalry Week
+- Week 14-15: Conference Championships
+
+**Post-Season (Weeks 16-21)**
+- Weeks 16-19: Bowl Games / Playoffs
+- Week 20: End of Season Recap
+- Week 21: Award Show
+
+**Offseason (Weeks 22-29)**
+- Weeks 22-25: Transfer Portal
+- Week 26: National Signing Day
+- Week 27: Training Results
+- Week 28: Encourage Transfers
+- Week 29: Preseason → New Season!
+
+---
+
+## 📝 Charter Management
+
+Interactive charter editing and rule scanning.
+
+### Interactive Updates
+
+Talk to Harry naturally:
+```
+@Harry update the advance time to 10am EST
+@Harry add a rule: no trading during playoffs
+@Harry change quarter length to 5 minutes
+```
+
+**Features:**
+- Before/after preview
+- ✅/❌ confirmation buttons
+- Automatic backups
+- Changelog tracking
+
+### Rule Scanning
+
+**Command:** `/scan_rules #channel [hours]`
+
+**Natural Language:** `@Harry scan #voting for rule changes`
+
+**Features:**
+- Detects passed, failed, and proposed rules
+- Extracts vote counts from Discord polls
+- Apply all passed rules with one click
+- AI-powered rule identification
+
+### Charter History
+
+**Command:** `/charter_history`
+
+View recent charter changes with who changed what and when.
+
+---
+
+## 👑 Co-Commissioner Picker
+
+AI-powered co-commissioner recommendations.
+
+**Command:** `/pick_commish [hours] [#channel]`
+
+### The Asshole Detector 🚨
+
+Harry rates candidates on:
+- **Activity Level** - How often they participate
+- **Helpfulness** - Do they help others?
+- **Leadership** - Natural leader vibes?
+- **Asshole Score** - Are they a dick?
+- **Drama Score** - Stir up trouble?
+- **Vibes/Humor** - Fun to be around?
+- **Reliability** - Follow through?
+- **Knowledge** - Know the game?
+
+Includes personalized roasts for each candidate!
+
+---
+
+## ⚙️ Configuration System
+
+### Per-Server Modules
+
+**Command:** `/config [module]`
+
+| Module | Description | Default |
+|--------|-------------|---------|
+| **Core** | Harry's personality, AI chat | Always On |
+| **CFB Data** | Player lookup, rankings, etc. | Enabled |
+| **League** | Timer, charter, dynasty | Disabled |
+
+### Per-Channel Controls
+
+**Command:** `/channel <action>`
+
+| Action | Description |
+|--------|-------------|
+| `view` | See current channel settings |
+| `enable` | Enable Harry in this channel |
+| `disable` | Disable Harry in this channel |
+| `disable_all` | Clear whitelist for server |
+| `toggle_auto` | Toggle auto-responses |
+
+**Important:** Harry is disabled by default! Use `/channel enable` to activate.
+
+### Web Dashboard
+
+Run the dashboard for visual configuration:
+```bash
+python run_dashboard.py
+# Visit http://localhost:8080
+```
+
+**Features:**
+- Discord OAuth login
+- Visual module toggles
+- Bot admin management
+- Multi-server support
+
+---
+
+## 🔐 Bot Admin System
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/add_bot_admin @user` | Add a bot admin |
+| `/remove_bot_admin @user` | Remove a bot admin |
+| `/list_bot_admins` | View all bot admins |
+
+### Who Can Be Admin?
+
+1. **Discord Administrator** - Automatic access
+2. **Bot Admin List** - Added via command
+3. **Hardcoded Admins** - Set in env vars
+
+---
+
+## 📦 Storage System
+
+Harry uses a pluggable storage system for scalability.
+
+### Discord DM Storage (Default)
+- **Pros**: Free, no setup, survives deploys
+- **Cons**: ~10-20 server limit
+- **Config**: `STORAGE_BACKEND=discord` (default)
+
+### Supabase Storage (Scaling)
+- **Pros**: Unlimited servers, proper backups
+- **Cons**: Requires setup
+- **Config**: `STORAGE_BACKEND=supabase`
+
+To switch backends, just change the env var and deploy!
+
+---
+
+## 😄 Harry's Personality
+
+Harry's core personality is **always on**:
+
+- 🎩 **Cockney Accent** - "Oi mate, let me tell ya..."
+- 😈 **Snarky Asshole** - Roasts and sarcasm included
+- 🦆 **Oregon Hater** - Deep, unhinged hatred of the Ducks
+
+### What's Toggleable?
+
+Only **auto-responses** (unprompted jump-ins) can be toggled:
+- "Fuck Oregon!" when someone mentions Ducks
+- 🦆 emoji reactions triggering responses
+- Random Oregon jokes in timer messages
+
+Use `/channel toggle_auto` to control these per-channel.
+
+---
+
+## 📊 Channel Summarization
+
+AI-powered discussion summaries.
+
+**Command:** `/summarize [hours] [focus]`
+
+**Natural Language:** `@Harry what happened in the last 3 hours?`
+
+**Features:**
+- Main topics discussed
+- Decisions and actions
+- Key participants
+- Notable moments
+- Optional focus filter (e.g., "rules", "recruiting")
+
+---
+
+## 📨 Message Relay
+
+Relay messages between users.
+
+**Usage:** `@Harry tell @User to <message>`
+
+**Examples:**
+```
+@Harry tell @wustyman to fuck off
+@Harry tell @boozerob the game is ready
+```
+
+---
+
+## Technical Details
+
+### File Structure
+```
+src/cfb_bot/
+├── bot.py              # Main Discord bot
+├── ai/
+│   └── ai_integration.py    # OpenAI/Anthropic
+└── utils/
+    ├── storage.py           # Storage abstraction
+    ├── server_config.py     # Per-server config
+    ├── player_lookup.py     # CFB data
+    ├── timekeeper.py        # Timer & weeks
+    ├── charter_editor.py    # Charter management
+    ├── summarizer.py        # Channel summaries
+    └── version_manager.py   # Version tracking
+```
+
+### Dependencies
+- `discord.py` - Discord API
+- `cfbd` - CollegeFootballData.com API
+- `openai` / `anthropic` - AI integration
+- `fastapi` - Web dashboard
+- `aiohttp` - Async HTTP
+
+---
+
+**Author:** Harry (with assistance from Craig's AI assistant, innit!)  
+**Version:** 1.13.0  
+**Last Updated:** January 9, 2026

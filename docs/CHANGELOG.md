@@ -1,70 +1,232 @@
 # 📝 Changelog
 
-All notable changes to the CFB 26 Rules Bot will be documented in this file.
+All notable changes to the CFB 26 Rules Bot (Harry) will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.13.0] - 2026-01-09
+
+### Added
+
+- **Storage Abstraction Layer**
+  - Pluggable storage backends for future-proofing
+  - `StorageBackend` abstract base class
+  - `DiscordDMStorage` - Current free storage (good for <10 servers)
+  - `SupabaseStorage` - Placeholder for PostgreSQL scaling
+  - `STORAGE_BACKEND` environment variable to switch backends
+  - Easy migration path: set env var, deploy, done!
+
+### Changed
+- `ServerConfigManager` now uses storage abstraction
+- Storage selection via factory pattern (`get_storage()`)
+
+## [1.12.0] - 2026-01-09
+
+### Added
+
+- **Per-Channel Controls**
+  - `/channel` command to manage where Harry responds
+  - Channel whitelist system - enable specific channels only
+  - Per-channel auto-response toggles
+  - Harry stays silent in non-whitelisted channels by default
+
+- **Channel Commands**
+  - `/channel view` - See current channel settings
+  - `/channel enable` - Add channel to whitelist
+  - `/channel disable` - Remove from whitelist
+  - `/channel disable_all` - Clear whitelist
+  - `/channel toggle_auto` - Toggle auto-responses per channel
+
+### Changed
+- Harry now disabled by default in all channels
+- Must explicitly enable channels with `/channel enable`
+
+## [1.11.0] - 2026-01-09
+
+### Added
+
+- **Auto Response Toggle**
+  - Toggle automatic jump-in responses (team banter)
+  - Harry's cockney personality and Oregon hate are ALWAYS ON
+  - Only controls "Fuck Oregon!" style auto-responses
+  - Oregon player lookup snark always shows (part of personality)
+
+### Changed
+- Removed separate cockney/rivalry toggles
+- Single "Auto Responses" toggle in dashboard
+- Harry is always a cockney asshole Duck-hater 🦆
+
+## [1.10.0] - 2026-01-08
+
+### Added
+
+- **Smart Player Suggestions**
+  - "Did you mean?" suggestions for players not found
+  - FCS school detection - warns about limited data
+  - Automatic retry without team filter if search fails
+  - Shows similar players from last name / first name searches
+  - Helpful reasons explaining why a player wasn't found
+
+- **FCS Coverage**
+  - Added FCS conference and school database
+  - Detects Mercer, ETSU, and other FCS schools
+  - Warns users about limited CFBD data coverage
+
+## [1.9.1] - 2026-01-08
+
+### Fixed
+- Fixed "can only concatenate str to str" error in bulk player lookup
+- API stat values now properly converted to integers
+- Defensive stat calculations work correctly
+
+## [1.9.0] - 2026-01-08
+
+### Added
+
+- **Web Dashboard**
+  - Full web dashboard for managing Harry!
+  - Login with Discord OAuth
+  - Visual toggle for modules (CFB Data, League)
+  - Manage bot admins with clicks
+  - Beautiful dark theme UI
+  - Server selector for multi-server management
+
+### Technical
+- FastAPI backend with async support
+- Discord OAuth2 integration
+- Session-based authentication
+- RESTful API for config management
+
+## [1.8.1] - 2026-01-08
+
+### Added
+
+- **Bulk Player Lookup**
+  - Look up multiple players at once!
+  - `/players` command for slash interface
+  - Natural language: just paste a list to @Harry
+  - Supports various formats: Name (Team Pos), Name from Team, etc.
+  - Parallel lookups for speed (up to 15 players)
+  - Compact display with key stats and recruiting info
+
+## [1.8.0] - 2026-01-08
+
+### Added
+
+- **Per-Server Feature Configuration**
+  - `/config` - Enable/disable features per server
+  - Modules: Core (always on), CFB Data, League
+  - Settings persist across bot restarts
+  - Admins can customize Harry for their server
+
+## [1.7.0] - 2026-01-08
+
+### Added
+
+- **Full CFB Data Suite**
+  - `/rankings` - AP, Coaches, CFP rankings
+  - `/matchup` - All-time series history
+  - `/cfb_schedule` - Team schedules and results
+  - `/draft_picks` - NFL draft picks by school
+  - `/transfers` - Transfer portal activity
+  - `/betting` - Spreads and over/unders
+  - `/team_ratings` - SP+, SRS, Elo ratings
+  - All features work with natural @Harry questions!
+
+## [1.6.1] - 2026-01-08
+
+### Added
+
+- **Official CFBD Library**
+  - Refactored to use official `cfbd` Python library
+  - More reliable API calls with proper error handling
+  - Better type safety and cleaner code
+
+- **Transfer Portal Display**
+  - Shows transfer info for portal players
+  - Origin → destination team
+  - Eligibility status
+
+- **Enhanced Recruiting**
+  - National ranking, position rank, state rank
+  - Full recruiting class data
+  - Searches multiple years automatically
+
+## [1.6.0] - 2026-01-08
+
+### Added
+
+- **Player Lookup**
+  - `/player` command to look up any CFB player
+  - Get vitals: position, height, weight, year, hometown
+  - View season stats: tackles, TFL, sacks, yards, TDs
+  - See recruiting info: star rating, national ranking
+  - Natural language: "@Harry what do you know about X from Alabama?"
+
+## [1.5.1] - 2026-01-02
+
+### Added
+
+- **Schedule Display**
+  - Matchups now show on `/advance` and @everyone advanced
+  - User teams are **bolded** in all schedule outputs
+  - AI responses format schedules as clean lists
+
+- **Admin Notifications**
+  - Timer restore message shows version info
+  - Quick preview of latest changes on restart
+
+## [1.5.0] - 2025-12-31
+
+### Added
+
+- **Charter Persistence**
+  - Charter now saves to Discord - survives deployments!
+  - Automatic sync on any charter update
+  - `/sync_charter` command to manually push
+  - Charter stored in bot owner's DM
+
+- **Discord Poll Support**
+  - `/scan_rules` now detects Discord polls!
+  - Extracts poll questions and vote counts
+  - Shows winning answer for closed polls
+
+## [1.4.0] - 2025-12-31
+
+### Added
+
+- **Server-Wide Timer Notifications**
+  - Timer notifications always go to #general
+  - One timer for the whole server
+  - `/set_timer_channel` to change notification channel
+
+- **Ephemeral Admin Messages**
+  - Admin confirmations now only visible to the admin
 
 ## [1.3.0] - 2025-12-31
 
 ### Added
 
 - **Interactive Charter Updates**
-  - Update the charter by talking to Harry naturally
-  - `@Harry update the advance time to 10am`
-  - `@Harry add a rule: no trading during playoffs`
-  - `@Harry change quarter length to 5 minutes`
-  - Before/after preview with reaction confirmation (✅/❌)
+  - Update charter by talking to Harry naturally
+  - Before/after preview with ✅/❌ confirmation
   - Automatic backup before any change
-  - Changelog tracks who changed what and when
-  - `/charter_history` command to view recent changes
+  - `/charter_history` command
 
-- **Rule Scanning from Voting Channels**
-  - `/scan_rules #channel [hours]` - Scan for rule changes
-  - Natural language: `@Harry scan #voting for rule changes`
-  - AI identifies passed, failed, and proposed rules
-  - Shows vote counts when mentioned in messages
-  - React with 📝 to generate charter updates from passed rules
-  - Apply all updates with a single confirmation
+- **Rule Scanning**
+  - `/scan_rules` to find rule changes in voting channels
+  - AI identifies passed/failed/proposed rules
+  - Apply all passed rules with one click
 
 - **Co-Commissioner Picker**
-  - `/pick_commish [hours]` - AI-powered co-commish recommendations
-  - Analyzes chat activity and participation
-  - 🚨 **ASSHOLE DETECTOR** - rates toxic behavior!
+  - `/pick_commish` for AI-powered recommendations
+  - 🚨 ASSHOLE DETECTOR - rates toxic behavior!
   - Scores: Activity, Helpfulness, Leadership, Drama, Vibes
-  - Ranks ALL participants from best to worst
-  - Personalized roasts for each candidate
-  - Identifies biggest asshole who should NEVER be commish
 
 - **League Staff Tracking**
   - `/league_staff` - View current owner and co-commissioner
-  - `/set_league_owner @user` - Set the league owner (Admin)
-  - `/set_co_commish @user` - Set the co-commissioner (Admin)
-  - Special option: "We don't fucking have one" for co-commish
-  - Persists across bot restarts and deployments
-
-- **Schedule Integration**
-  - `/schedule [week]` - View matchups for a specific week
-  - `/matchup <team> [week]` - Find a team's opponent
-  - `/byes [week]` - Show teams with byes
-  - Ask Harry naturally: "Who does Hawaii play in week 4?"
-  - AI knows current week for "this week" questions
-
-### Changed
-- `/pick_commish` uses 2000 tokens for full roasts
-- Improved token limit parameters in AI integration
-- Better message chunking for long responses
-
-### Fixed
-- All bare `except:` blocks replaced with specific exceptions
-- Memory leak from pending charter updates (cleanup task added)
-- `processed_messages` set now trimmed to prevent unbounded growth
-- Discord interaction timeouts with proper defer handling
-
-### Security
-- Charter updates require admin permissions
-- Rule scanning requires admin permissions
-- Reaction-based confirmations prevent accidental changes
+  - `/set_league_owner` and `/set_co_commish`
 
 ## [1.2.0] - 2025-12-29
 
@@ -72,105 +234,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Dynasty Week System**
   - Full 30-week CFB 26 dynasty season structure
-  - Week 0-15: Regular Season
-  - Week 16-21: Post-Season (Bowl games, playoffs)
-  - Week 22-29: Offseason (Portal, signing day, preseason)
-  - `/week` - Show current week and actions
-  - `/weeks` - Full 30-week schedule display
-
-- **Week Actions & Notes**
-  - Each week shows available actions (staff moves, job offers, etc.)
-  - Important notes and deadline reminders
-  - Bowl weeks show hiring/firing windows
-  - Offseason weeks show portal and recruiting actions
-
-- **Automatic Season Rollover**
-  - Preseason (Week 29) advances to Week 0 of next season
-  - New season celebration announcement
-  - Season counter automatically increments
+  - Regular Season, Post-Season, Offseason phases
+  - `/week` and `/weeks` commands
+  - Week actions and notes
 
 ## [1.1.1] - 2025-11-04
 
 ### Added
+
 - **Timer Persistence**
   - Timer state persists across deployments via Discord messages
-  - Automatic restoration on bot restart/deployment
-  - Falls back to environment variable and file system
-  - Persistence status displayed in `/time_status` command
-
-- **Natural Language Features**
-  - Commissioner updates via @mention: `@Harry update commish to Wusty`
-  - Message relay: `@Harry tell @User to message`
-  - Channel summary requests: `@Harry what happened in the last 3 hours?`
-
-- **Focus Parameter for Summaries**
-  - Optional focus filter for `/summarize` command
-  - Example: `/summarize 24 rules` - filters to rules discussions
-  - Enhanced AI prompts for better filtering
-
-### Changed
-- `/ask` command now always uses general AI (no league context)
-- `/harry` command for league-specific questions
-- Improved error handling and logging
-- Better deduplication for message processing
+  - Automatic restoration on bot restart
 
 ### Fixed
-- Timer persistence across deployments
-- Duplicate message processing race condition
-- `/time_status` command interaction timeout
-- Focus parameter not working in `/summarize`
-- Summary detection for natural language requests
+- Guild-specific command sync for instant updates
+- Timezone compatibility issues
 
 ## [1.1.0] - 2025-11-04
 
 ### Added
+
 - **Advance Timer**
   - Custom countdown timers (1-336 hours)
   - Automatic reminders at 24h, 12h, 6h, 1h
   - Progress bar with color-coded urgency
-  - Commands: `/advance [hours]`, `/time_status`, `/stop_countdown`
 
 - **Channel Summarization**
   - AI-powered channel message summaries
-  - Customizable time periods (1-168 hours)
-  - Structured output with topics, decisions, participants
-  - Command: `/summarize [hours] [focus]`
+  - Customizable time periods and focus
 
 - **Charter Management**
   - Direct charter editing from Discord
-  - Add/update rules with AI formatting
-  - Automatic backups before changes
-  - View and restore backups
-  - Commands: `/add_rule`, `/update_rule`, `/view_charter_backups`, `/restore_charter_backup`
+  - Automatic backups
 
 - **Bot Admin System**
   - Manage bot admins via Discord
-  - Add/remove/list bot admins
   - Discord Administrators have automatic access
-  - Commands: `/add_bot_admin`, `/remove_bot_admin`, `/list_bot_admins`
-
-- **Channel Management**
-  - Block/unblock channels for unprompted responses
-  - @mentions work everywhere (even in blocked channels)
-  - Commands: `/block_channel`, `/unblock_channel`, `/list_blocked_channels`
-
-- **Version Control**
-  - `/version` - Show current version
-  - `/changelog [version]` - View version history
-  - `/whats_new` - Showcase latest features
-
-### Changed
-- Guild-specific command sync for instant updates
-- Improved admin permission checking
-- Better error messages and logging
-
-### Security
-- Admin-only commands for timer and charter management
-- Hardcoded admin support for permanent admins
 
 ## [1.0.0] - 2024-09-17
 
 ### Added
+
 - **Core Bot Functionality**
   - Discord.py integration with slash commands
   - AI-powered responses using OpenAI GPT-3.5-turbo
@@ -178,87 +282,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Comprehensive logging system
 
 - **Slash Commands**
-  - `/harry <question>` - Ask Harry anything about the league
-  - `/ask <question>` - AI-powered league questions
-  - `/rule <topic>` - Get specific rule information
-  - `/recruiting` - Recruiting rules and policies
-  - `/dynasty` - Dynasty management help
-  - `/charter` - Link to official league charter
-  - `/help_cfb` - Show all available commands
+  - `/harry`, `/ask`, `/rule`, `/recruiting`, `/dynasty`, `/charter`, `/help_cfb`
 
 - **Chat Interactions**
-  - Natural language processing for questions
-  - Automatic detection of league-related keywords
-  - Greeting responses and user-friendly interactions
+  - Natural language processing
   - Rivalry responses (Oregon sucks! 🦆💩)
-
-- **Emoji Reactions**
-  - Interactive responses to emoji reactions
-  - Help system via reaction commands
-  - Fun, league-specific reactions
-
-- **Deployment**
-  - Render deployment configuration
-  - Environment variable management
-  - Automatic deployment on git push
-
-### Changed
-- **Response System**
-  - Cleaned up response formatting
-  - Removed unnecessary "Responding to" fields
-  - Conditional charter links (only when asking about rules)
-  - Simplified rivalry responses
-
-- **Logging**
-  - Added comprehensive logging for debugging
-  - Server information in logs
-  - Message content debugging
-  - Better error tracking
-
-### Fixed
-- **Message Content Intent**
-  - Fixed bot not reading message content
-  - Enabled proper message content permissions
-  - Resolved empty message issues
-
-- **Database Integration**
-  - Removed fake/placeholder rules
-  - Direct users to official Google Doc charter
-  - Clean data structure for league-specific content
-
-### Security
-- Environment variable protection
-- Secure API key management
-- Proper Discord bot permissions
-
-## [0.9.0] - 2024-09-16
-
-### Added
-- Initial bot structure and basic commands
-- AI integration setup
-- Google Docs integration framework
-- Basic slash command system
-
-### Changed
-- Multiple iterations of response formatting
-- Various logging improvements
-- Bot permission configurations
-
-### Fixed
-- Interaction timeout errors
-- Command synchronization issues
-- Message content reading problems
-
-## [0.8.0] - 2024-09-15
-
-### Added
-- Project organization and structure
-- Basic Discord bot setup
-- Initial command framework
-
-### Changed
-- Repository organization
-- File structure improvements
+  - Emoji reactions
 
 ---
 

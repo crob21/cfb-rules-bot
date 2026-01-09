@@ -1,37 +1,46 @@
 # CFB Rules Bot 🏈
 
-A Discord bot for College Football 26 Online Dynasty League that provides league rule information, AI-powered responses, interactive charter management, and fun rivalry interactions.
+A Discord bot for College Football 26 Online Dynasty League that provides league rule information, AI-powered responses, player lookups, interactive charter management, and fun rivalry interactions.
+
+**Current Version:** 1.13.0  
+**Harry** - Your cockney, Oregon-hating assistant
 
 ## Features
 
-### Core Features
-- 🤖 **AI-Powered Responses** - Get intelligent answers about league rules and policies
-- 📋 **League Charter Access** - Quick access to league rules and regulations
-- ⏰ **Advance Timer** - Server-wide countdown timers with automatic reminders (persists across deployments!)
-- 📅 **Dynasty Week Tracking** - Full 30-week CFB 26 season structure with actions and notes
-- 📢 **Centralized Notifications** - All timer announcements go to a configurable channel (#general by default)
+### 🏈 CFB Data Module
+- **Player Lookup** - `/player` or bulk `/players` for recruiting info, stats, transfers
+- **Rankings** - `/rankings` for AP, Coaches, CFP polls
+- **Matchup History** - `/matchup` for all-time records between rivals
+- **Team Schedules** - `/cfb_schedule` for game results and upcoming games
+- **NFL Draft** - `/draft_picks` for draft history by school
+- **Transfer Portal** - `/transfers` for incoming/outgoing transfers
+- **Betting Lines** - `/betting` for spreads and over/unders
+- **Advanced Stats** - `/team_ratings` for SP+, SRS, Elo ratings
 
-### Charter Management
-- 📝 **Interactive Charter Updates** - Update the charter by talking to Harry naturally
-- 🔍 **Rule Scanning** - Scan voting channels for passed rules and apply to charter
-- 📜 **Charter History** - Track who changed what and when
-- 💾 **Auto-Backup** - Automatic backups before any charter change
+### ⏰ League Management
+- **Advance Timer** - Server-wide countdown with automatic reminders
+- **Dynasty Week System** - Full 30-week season tracking
+- **Charter Management** - Interactive updates via natural language
+- **League Staff** - Track commissioner and co-commissioner
+- **Schedule Integration** - Matchups, byes, user team highlighting
 
-### League Management
-- 👔 **League Staff Tracking** - Track league owner and co-commissioner
-- 👑 **Co-Commish Picker** - AI analyzes chat to recommend new co-commissioners (with asshole detector!)
-- 📊 **Channel Summarization** - AI-powered summaries of channel discussions
-- 📅 **Schedule Integration** - Ask Harry about matchups and byes
+### 🤖 AI-Powered Features
+- **Natural Language** - Ask Harry anything conversationally
+- **Channel Summaries** - AI-powered discussion recaps
+- **Co-Commish Picker** - Analyzes chat for recommendations (with asshole detector!)
+- **Rule Scanning** - Scan voting channels for passed rules
 
-### Bot Administration
-- 🔐 **Bot Admin System** - Separate admin permissions for bot-specific features
-- 🔇 **Channel Management** - Control where Harry makes unprompted responses
-- 📨 **Message Relay** - Relay messages between users
+### ⚙️ Configuration & Administration
+- **Per-Server Config** - Enable/disable modules per Discord server
+- **Per-Channel Controls** - Whitelist channels where Harry responds
+- **Web Dashboard** - Visual management at `/dashboard`
+- **Bot Admin System** - Separate admin permissions for bot features
+- **Auto-Response Toggle** - Control Harry's unprompted jump-ins
 
-### Fun Features
-- 😄 **Rivalry Responses** - Engaging interactions (Fuck Oregon! 🦆💩)
-- ⚡ **Slash Commands** - Easy-to-use Discord slash commands
-- 🔍 **Smart Filtering** - Only responds to relevant league-related questions
+### 😄 Personality
+- Cockney accent (always on)
+- Snarky asshole attitude (always on)
+- Deep, unhinged hatred of Oregon Ducks 🦆💩 (always on)
 
 ## Quick Start
 
@@ -40,37 +49,29 @@ A Discord bot for College Football 26 Online Dynasty League that provides league
 - Python 3.11+ (3.13 recommended)
 - Discord Bot Token
 - OpenAI API Key (optional, for AI features)
-- Anthropic API Key (optional, for AI features)
+- CollegeFootballData.com API Key (optional, for CFB data)
 
 ### Installation
 
-1. **Clone the repository**
    ```bash
+# Clone the repository
    git clone https://github.com/crob21/cfb-rules-bot.git
    cd cfb-rules-bot
-   ```
 
-2. **Install dependencies**
-   ```bash
+# Install dependencies
    pip install -r requirements.txt
-   ```
 
-3. **Set up environment variables**
-   ```bash
+# Set up environment variables
    cp config/env.example .env
    # Edit .env with your API keys
-   ```
 
-4. **Run the bot**
-   ```bash
+# Run the bot
    python main.py
    ```
 
 ## Configuration
 
 ### Environment Variables
-
-Create a `.env` file with the following variables:
 
 ```env
 # Required
@@ -80,225 +81,168 @@ DISCORD_BOT_TOKEN=your_discord_bot_token_here
 OPENAI_API_KEY=your_openai_api_key_here
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 
-# Optional (for Google Docs integration)
-GOOGLE_DOCS_CREDENTIALS_FILE=path/to/credentials.json
-GOOGLE_DOCS_DOCUMENT_ID=your_document_id_here
+# Optional (for CFB data)
+CFB_DATA_API_KEY=your_cfb_data_api_key_here
+
+# Storage Backend (discord or supabase)
+STORAGE_BACKEND=discord
+
+# For Supabase (when scaling beyond ~10 servers)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-supabase-anon-key
 ```
 
-### Discord Bot Setup
+### Per-Server Configuration
 
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Create a new application
-3. Go to the "Bot" section
-4. Create a bot and copy the token
-5. Enable the following intents:
-   - Message Content Intent
-   - Server Members Intent
-6. Invite the bot to your server with appropriate permissions
+Harry supports per-server feature toggling:
+
+| Module | Description | Default |
+|--------|-------------|---------|
+| **Core** | Harry's personality, AI chat, bot management | Always On |
+| **CFB Data** | Player lookup, rankings, schedules, etc. | Enabled |
+| **League** | Timer, charter, rules, dynasty features | Disabled |
+
+Use `/config` to manage modules or the web dashboard at `/dashboard`.
+
+### Per-Channel Configuration
+
+Harry is **disabled by default** in all channels. Use `/channel` to manage:
+
+```
+/channel enable     - Enable Harry in current channel
+/channel disable    - Disable Harry in current channel
+/channel view       - See current channel status
+/channel toggle_auto - Toggle auto-responses (jump-ins)
+```
 
 ## Commands
 
-### League Information
+### CFB Data
 | Command | Description |
 |---------|-------------|
-| `/harry <question>` | Ask Harry league-specific questions |
-| `/ask <question>` | Ask Harry general questions (not league-specific) |
-| `/charter` | Link to the full league charter |
-| `/rules` | Get league rules information |
-| `/help_cfb` | Show available commands |
+| `/player <name> [team]` | Look up any CFB player |
+| `/players <list>` | Bulk lookup (up to 15 players) |
+| `/rankings [poll]` | Get AP, Coaches, or CFP rankings |
+| `/matchup <team1> <team2>` | All-time series history |
+| `/cfb_schedule <team> [year]` | Team schedule and results |
+| `/draft_picks <team> [year]` | NFL draft picks by school |
+| `/transfers <team>` | Transfer portal activity |
+| `/betting <team1> <team2>` | Betting lines and odds |
+| `/team_ratings <team>` | SP+, SRS, Elo ratings |
 
-### Dynasty Week System
+### League Management
 | Command | Description |
 |---------|-------------|
-| `/week` | Show current week, phase, and actions |
-| `/weeks` | Show full 30-week dynasty schedule |
-| `/set_season_week <season> <week>` | Set current season and week (Admin) |
-
-### Advance Timer
-| Command | Description |
-|---------|-------------|
-| `/advance [hours]` | Start countdown (default 48h) - Admin only |
+| `/advance [hours]` | Start countdown (default 48h) - Admin |
 | `/time_status` | Check countdown progress |
-| `/stop_countdown` | Stop the timer - Admin only |
-| `/set_timer_channel #channel` | Set notification channel - Admin only |
-| `@everyone Advanced` | Quick restart (Admin) |
+| `/stop_countdown` | Stop the timer - Admin |
+| `/week` | Show current dynasty week |
+| `/set_season_week <s> <w>` | Set season/week - Admin |
+| `/charter` | Link to league charter |
+| `/scan_rules #channel` | Scan for rule changes - Admin |
+| `/league_staff` | View owner/co-commish |
+| `/pick_commish` | AI recommends new co-commish |
 
-**Timer Notifications:**
-- All timer announcements go to a designated channel (#general by default)
-- Includes: Advance start, 24h/12h/6h/1h warnings, TIME'S UP
-- Server-wide timer (one for the whole Discord)
-- Channel setting persists across bot restarts
-
-### Schedule
+### Configuration
 | Command | Description |
 |---------|-------------|
-| `/schedule [week]` | Show matchups for a week |
-| `/matchup <team> [week]` | Find a team's opponent |
-| `/byes [week]` | Show bye teams for a week |
-
-### League Staff
-| Command | Description |
-|---------|-------------|
-| `/league_staff` | Show current owner and co-commish |
-| `/set_league_owner @user` | Set the league owner (Admin) |
-| `/set_co_commish @user` | Set the co-commissioner (Admin) |
-| `/pick_commish [hours]` | AI picks a new co-commish! (Admin) |
-
-### Interactive Charter Updates
-| Command | Description |
-|---------|-------------|
-| `@Harry update <rule>` | Update charter via natural language |
-| `/scan_rules #channel [hours]` | Scan for rule changes (Admin) |
-| `/charter_history` | View recent charter changes |
-| `/add_rule <title> <content>` | Add new rule (Admin) |
-| `/update_rule <section> <content>` | Update existing rule (Admin) |
-
-**Examples:**
-```
-@Harry update the advance time to 10am EST
-@Harry add a rule: no trading during playoffs
-@Harry change quarter length to 5 minutes
-@Harry scan #offseason-voting for rule changes
-```
-
-### Channel Summarization
-| Command | Description |
-|---------|-------------|
-| `/summarize [hours] [focus]` | Summarize channel activity |
-| `@Harry what happened in the last 3 hours?` | Natural language summary |
-
-### Bot Administration
-| Command | Description |
-|---------|-------------|
+| `/config [module]` | View/toggle server modules |
+| `/channel <action>` | Manage per-channel settings |
 | `/add_bot_admin @user` | Add a bot admin |
-| `/remove_bot_admin @user` | Remove a bot admin |
-| `/list_bot_admins` | List all bot admins |
-| `/block_channel #channel` | Block unprompted responses |
-| `/unblock_channel #channel` | Allow unprompted responses |
-| `/list_blocked_channels` | Show blocked channels |
+| `/list_bot_admins` | List current bot admins |
+| `/set_timer_channel #ch` | Set notification channel |
 
-### Version & Info
+### General
 | Command | Description |
 |---------|-------------|
-| `/whats_new` | See latest features |
-| `/version` | Show current version |
-| `/changelog [version]` | View version history |
+| `/harry <question>` | Ask Harry (league context) |
+| `/ask <question>` | Ask Harry (general) |
+| `/help_cfb` | Show all commands |
+| `/whats_new` | Latest features |
+| `/version` | Current version |
 
-## Dynasty Week Structure
+## Storage Architecture
 
-The bot tracks a full 30-week CFB 26 dynasty season:
+Harry uses a pluggable storage system:
 
-### Regular Season (Weeks 0-15)
-- Week 0: Season Kickoff
-- Weeks 1-12: Regular Season
-- Week 13: Rivalry Week
-- Week 14: Conference Championship Prep
-- Week 15: Conference Championships
+### Discord DM Storage (Default)
+- **Pros**: Free, no setup, survives deploys
+- **Cons**: 2000 char limit (~10-20 servers max)
+- **Best for**: Small deployments
 
-### Post-Season (Weeks 16-21)
-- Week 16: Bowl Week 1 (12-team playoff begins)
-- Week 17: Bowl Week 2
-- Week 18: Bowl Week 3
-- Week 19: Bowl Week 4 (Championship)
-- Week 20: End of Season Recap
-- Week 21: Award Show
+### Supabase Storage (Scaling)
+- **Pros**: Unlimited servers, proper backups, queryable
+- **Cons**: Requires setup (free tier available)
+- **Best for**: 10+ servers
 
-### Offseason (Weeks 22-29)
-- Week 22: Portal Week 1
-- Week 23: Portal Week 2
-- Week 24: Portal Week 3
-- Week 25: Portal Week 4 (Portal closes)
-- Week 26: National Signing Day
-- Week 27: Training Results
-- Week 28: Encourage Transfers
-- Week 29: Preseason → New Season!
-
-## AI Features
-
-The bot uses AI to provide intelligent responses:
-
-- **League Questions** - `/harry` uses charter context
-- **General Questions** - `/ask` for non-league topics
-- **Channel Summaries** - AI-powered discussion summaries
-- **Charter Updates** - Natural language rule parsing
-- **Co-Commish Picker** - Analyzes chat for recommendations
-
-### The Asshole Detector 🚨
-
-The `/pick_commish` command includes Harry's famous asshole detector:
-- Activity Level
-- Helpfulness
-- Leadership
-- **Asshole Score** (Are they a dick?)
-- Drama Score
-- Vibes/Humor
-- Reliability
-- Knowledge
+To switch, set `STORAGE_BACKEND=supabase` and configure Supabase credentials.
 
 ## Project Structure
 
 ```
 cfb-rules-bot/
-├── main.py                     # Main entry point
-├── src/cfb_bot/               # Main bot package
-│   ├── bot.py                 # Discord bot logic
-│   ├── ai/                    # AI integration
-│   ├── integrations/          # External services
-│   └── utils/                 # Utility functions
-│       ├── timekeeper.py      # Timer & week tracking
-│       ├── charter_editor.py  # Charter management
-│       ├── schedule_manager.py # Schedule data
-│       └── summarizer.py      # Channel summaries
-├── config/                    # Configuration files
-├── data/                      # Data files
-│   ├── charter_content.txt    # League charter
-│   ├── schedule.json          # Season schedule
-│   └── charter_changelog.json # Update history
-├── tests/                     # Test files
-├── docs/                      # Documentation
-└── scripts/                   # Utility scripts
+├── main.py                     # Entry point
+├── run_dashboard.py            # Dashboard server
+├── src/cfb_bot/               
+│   ├── bot.py                  # Main Discord bot
+│   ├── ai/                     # AI integration
+│   └── utils/
+│       ├── storage.py          # Storage abstraction
+│       ├── server_config.py    # Per-server config
+│       ├── player_lookup.py    # CFB data lookups
+│       ├── timekeeper.py       # Timer & weeks
+│       ├── charter_editor.py   # Charter management
+│       └── version_manager.py  # Version tracking
+├── src/dashboard/              # Web dashboard
+│   ├── app.py                  # FastAPI app
+│   ├── routes.py               # API routes
+│   └── templates/              # HTML templates
+├── config/
+│   └── env.example             # Environment template
+├── data/                       # Data files
+└── docs/                       # Documentation
 ```
 
 ## Deployment
 
 ### Render (Recommended)
 
-1. Connect your GitHub repository to Render
-2. Create a new Web Service
-3. Use the following settings:
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `python main.py`
-   - **Environment Variables**: Add your API keys
+1. Connect GitHub repository to Render
+2. Create Web Service with:
+   - **Build**: `pip install -r requirements.txt`
+   - **Start**: `python main.py`
+3. Add environment variables
+4. Deploy!
 
 ### Railway
 
-1. Connect your GitHub repository to Railway
-2. Deploy automatically
-3. Add environment variables in the Railway dashboard
+1. Connect GitHub to Railway
+2. Add environment variables
+3. Deploy automatically
 
 ## Development
 
-### Running Tests
-
 ```bash
+# Run tests
 python -m pytest tests/
+
+# Run locally
+python main.py
+
+# Run dashboard separately
+python run_dashboard.py
 ```
-
-### Code Style
-
-This project follows PEP 8 style guidelines. Use a formatter like `black` for consistent formatting.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-For support or questions:
-- Create an issue on GitHub
-- Contact the league administrators
-- Check the documentation in the `docs/` folder
+MIT License - see [LICENSE](LICENSE)
 
 ## Changelog
 
-See [CHANGELOG.md](docs/CHANGELOG.md) for version history and updates.
+See [docs/CHANGELOG.md](docs/CHANGELOG.md) for version history.
+
+---
+
+**Made with 🏈 for the CFB 26 League**
+
+*Harry is always here to help - just don't mention those bloody Oregon Ducks! 🦆💩*
