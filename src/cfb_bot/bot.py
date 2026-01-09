@@ -5060,13 +5060,12 @@ async def config_command(
         await interaction.response.send_message(embed=embed)
 
 
-@bot.tree.command(name="channel", description="Manage which channels Harry can respond in")
+@bot.tree.command(name="channel", description="View/manage which channels Harry can respond in (no args = view status)")
 @app_commands.describe(
-    action="What to do: view, enable, disable, or toggle_auto",
+    action="What to do (leave empty to view current status)",
     channel="Which channel to configure (defaults to current channel)"
 )
 @app_commands.choices(action=[
-    app_commands.Choice(name="view - See channel settings", value="view"),
     app_commands.Choice(name="enable - Allow Harry in this channel", value="enable"),
     app_commands.Choice(name="disable - Remove Harry from this channel", value="disable"),
     app_commands.Choice(name="disable_all - Remove Harry from ALL channels", value="disable_all"),
@@ -5074,7 +5073,7 @@ async def config_command(
 ])
 async def channel_command(
     interaction: discord.Interaction,
-    action: str = "view",
+    action: str = None,
     channel: discord.TextChannel = None
 ):
     """
@@ -5091,7 +5090,7 @@ async def channel_command(
     target_channel = channel or interaction.channel
 
     # Check admin for enable/disable
-    if action in ["enable", "disable", "enable_all", "toggle_auto"]:
+    if action in ["enable", "disable", "disable_all", "toggle_auto"]:
         is_admin = (
             interaction.user.guild_permissions.administrator or
             (admin_manager and admin_manager.is_admin(interaction.user, interaction))
@@ -5103,7 +5102,7 @@ async def channel_command(
             )
             return
 
-    if action == "view":
+    if action is None or action == "view":
         enabled_channels = server_config.get_enabled_channels(guild_id)
         auto_responses = server_config.auto_responses_enabled(guild_id, target_channel.id)
         channel_enabled = server_config.is_channel_enabled(guild_id, target_channel.id)
