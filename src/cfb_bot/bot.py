@@ -1191,14 +1191,20 @@ async def on_message(message):
                                 result = await player_lookup.get_team_ranking(team)
                                 response = player_lookup.format_team_ranking(result)
                                 title = f"📊 {team} Rankings"
+                                await thinking_msg.delete()
+                                embed = discord.Embed(title=title, description=response, color=0x1e90ff)
+                                embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                                await message.channel.send(embed=embed)
                             else:
                                 result = await player_lookup.get_rankings()
-                                response = player_lookup.format_rankings(result)
-                                title = "📊 College Football Rankings"
-                            await thinking_msg.delete()
-                            embed = discord.Embed(title=title, description=response, color=0x1e90ff)
-                            embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
-                            await message.channel.send(embed=embed)
+                                fields, week_num = player_lookup.format_rankings(result)
+                                title = f"📊 College Football Rankings (Week {week_num})" if week_num else "📊 College Football Rankings"
+                                await thinking_msg.delete()
+                                embed = discord.Embed(title=title, color=0x1e90ff)
+                                for field in fields[:6]:
+                                    embed.add_field(name=field['name'], value=field['value'], inline=True)
+                                embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                                await message.channel.send(embed=embed)
                             return
 
                         elif query_type == 'matchup':
@@ -2864,15 +2870,17 @@ async def get_rankings(
     interaction: discord.Interaction,
     team: str = None,
     year: int = 2025,
+    week: int = None,
     poll: str = None,
     top: int = 10
 ):
     """
-    Get CFB rankings - optionally filter by team or poll
+    Get CFB rankings - optionally filter by team, week, or poll
 
     Args:
         team: Optional team to check ranking for
         year: Year to check (default: 2025)
+        week: Specific week (default: latest available)
         poll: Filter by poll name (AP, Coaches, CFP)
         top: How many teams to show per poll (default: 10, max: 25)
     """
@@ -2903,14 +2911,17 @@ async def get_rankings(
             await interaction.followup.send(embed=embed)
         else:
             # Full rankings - use fields to avoid character limit
-            result = await player_lookup.get_rankings(year)
-            fields = player_lookup.format_rankings(result, poll_filter=poll, top_n=top)
+            result = await player_lookup.get_rankings(year, week=week)
+            fields, week_num = player_lookup.format_rankings(result, poll_filter=poll, top_n=top)
             
             if not fields:
                 await interaction.followup.send("No rankings found for the specified criteria.", ephemeral=True)
                 return
             
+            # Build title with week info
             title = f"🏈 College Football Rankings ({year})"
+            if week_num:
+                title += f" - Week {week_num}"
             if poll:
                 title += f" - {poll}"
             
@@ -2932,7 +2943,7 @@ async def get_rankings(
                     inline=True
                 )
             
-            embed.set_footer(text=f"Showing Top {top} | Harry's CFB Data 🏈")
+            embed.set_footer(text=f"Week {week_num} | Top {top} | Harry's CFB Data 🏈")
             await interaction.followup.send(embed=embed)
 
     except Exception as e:

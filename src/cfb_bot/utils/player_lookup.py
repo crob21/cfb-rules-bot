@@ -877,17 +877,22 @@ class CFBDataLookup:
             logger.error(f"Error getting team info: {e}")
             return None
 
-    async def get_rankings(self, year: int = 2025, week: Optional[int] = None) -> List[Dict[str, Any]]:
+    async def get_rankings(self, year: int = 2025, week: Optional[int] = None, latest_only: bool = True) -> List[Dict[str, Any]]:
         """
         Get team rankings (AP, Coaches, CFP)
 
+        Args:
+            year: Season year
+            week: Specific week (if None and latest_only=True, gets most recent)
+            latest_only: If True, only return the most recent week's rankings
+            
         Returns list of polls with their rankings
         """
         if not self.is_available:
             return []
 
         try:
-            logger.info(f"🔍 Fetching rankings for {year}" + (f" week {week}" if week else ""))
+            logger.info(f"🔍 Fetching rankings for {year}" + (f" week {week}" if week else " (latest)"))
 
             kwargs = {'year': year}
             if week:
@@ -899,6 +904,12 @@ class CFBDataLookup:
             )
 
             if results:
+                # Find the latest week if not specified
+                if latest_only and not week:
+                    max_week = max(getattr(pw, 'week', 0) for pw in results)
+                    results = [pw for pw in results if getattr(pw, 'week', 0) == max_week]
+                    logger.info(f"📅 Using latest week: {max_week}")
+                
                 rankings = []
                 for poll_week in results:
                     week_num = getattr(poll_week, 'week', None)
@@ -1376,17 +1387,18 @@ class CFBDataLookup:
 
     # ==================== FORMATTERS ====================
 
-    def format_rankings(self, rankings: List[Dict], poll_filter: Optional[str] = None, top_n: int = 25) -> List[Dict]:
+    def format_rankings(self, rankings: List[Dict], poll_filter: Optional[str] = None, top_n: int = 25) -> tuple[List[Dict], Optional[int]]:
         """
         Format rankings for Discord as structured data for embed fields.
 
         Returns:
-            List of dicts with 'name' (poll name) and 'value' (ranked teams)
+            Tuple of (List of field dicts, week number)
         """
         if not rankings:
-            return []
+            return [], None
 
         fields = []
+        week_num = None
 
         # Priority order for polls
         poll_priority = ['AP Top 25', 'Coaches Poll', 'Playoff Committee Rankings', 'AP']
@@ -1401,6 +1413,10 @@ class CFBDataLookup:
             poll_name = poll.get('poll', 'Unknown')
             if poll_filter and poll_filter.lower() not in poll_name.lower():
                 continue
+            
+            # Track week number
+            if week_num is None:
+                week_num = poll.get('week')
 
             ranks_list = []
             for rank in poll.get('ranks', [])[:top_n]:
@@ -1414,7 +1430,7 @@ class CFBDataLookup:
                     'value': "\n".join(ranks_list)
                 })
 
-        return fields
+        return fields, week_num
 
     def format_team_ranking(self, team_ranking: Dict) -> str:
         """Format a team's ranking across polls"""
