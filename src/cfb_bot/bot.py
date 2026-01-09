@@ -33,6 +33,30 @@ from discord import app_commands
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
+
+# =============================================================================
+# CONSTANTS
+# =============================================================================
+
+class Colors:
+    """Discord embed colors for consistent theming"""
+    PRIMARY = 0x1e90ff    # Dodger blue - main bot color
+    SUCCESS = 0x00ff00    # Green - success messages
+    ERROR = 0xff0000      # Red - error messages
+    WARNING = 0xffa500    # Orange - warnings
+    ADMIN = 0xffaa00      # Golden - admin logs
+    HS_STATS = 0x2ecc71   # Emerald - HS stats module
+
+
+class Footers:
+    """Standard footer texts"""
+    CFB_DATA = Footers.CFB_DATA
+    PLAYER_LOOKUP = Footers.PLAYER_LOOKUP
+    HS_STATS = Footers.HS_STATS
+    CONFIG = Footers.CONFIG
+    DEFAULT = Footers.DEFAULT
+
+
 # Admin-only channel for bot notifications (Booze's Playground)
 ADMIN_CHANNEL_ID = 1417663211292852244
 
@@ -112,7 +136,7 @@ async def send_admin_error(error_type: str, error_msg: str, context: str = None,
     await send_admin_notification(
         title=f"❌ {error_type}",
         description=description,
-        color=0xff0000,
+        color=Colors.ERROR,
         guild_id=guild_id
     )
 
@@ -131,7 +155,7 @@ async def send_admin_log(event: str, details: str = None, guild_id: int = None):
     await send_admin_notification(
         title=f"📋 {event}",
         description=description,
-        color=0xffaa00,
+        color=Colors.ADMIN,
         guild_id=guild_id
     )
 
@@ -171,7 +195,7 @@ async def send_startup_notification(version: str):
     embed = discord.Embed(
         title="🏈 Harry is Online!",
         description=description,
-        color=0x00ff00
+        color=Colors.SUCCESS
     )
 
     embed.add_field(
@@ -225,7 +249,7 @@ async def send_week_schedule(channel, week_num):
         schedule_embed = discord.Embed(
             title=f"📅 Week {week_num} Matchups",
             description="Here's what's on the slate this week, ya muppets!",
-            color=0x00ff00
+            color=Colors.SUCCESS
         )
 
         # Bye teams (bold user teams)
@@ -688,7 +712,7 @@ async def on_message(message):
                     embed = discord.Embed(
                         title="⏰ Advance Countdown Restarted!",
                         description=f"Right then! Timer's been restarted!\n\n🏈 **48 HOUR COUNTDOWN STARTED** 🏈\n\n{season_text}You got **48 hours** to get your bleedin' games done!\n\nI'll be remindin' you lot at:\n• 24 hours remaining\n• 12 hours remaining\n• 6 hours remaining\n• 1 hour remaining\n\nAnd when time's up... well, you'll know! 😈",
-                        color=0x00ff00
+                        color=Colors.SUCCESS
                     )
                     status = timekeeper_manager.get_status(message.channel)
                     embed.add_field(
@@ -712,7 +736,7 @@ async def on_message(message):
                     embed = discord.Embed(
                         title="❌ Failed to Restart Timer",
                         description="Couldn't restart the timer, mate. Try using `/advance` instead!",
-                        color=0xff0000
+                        color=Colors.ERROR
                     )
                     await message.channel.send(embed=embed)
                     logger.error(f"❌ Failed to restart timer for {message.author}")
@@ -848,10 +872,10 @@ async def on_message(message):
         # Create a friendly response
         embed = discord.Embed(
             title="🏈 Harry's Response",
-            color=0x1e90ff
+            color=Colors.PRIMARY
         )
         embed.description = auto_response
-        embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
+        embed.set_footer(text=Footers.DEFAULT)
 
         # Send the response immediately
         await message.channel.send(embed=embed)
@@ -886,7 +910,7 @@ async def on_message(message):
         # Create a friendly response
         embed = discord.Embed(
             title="🏈 Harry's Response",
-            color=0x1e90ff
+            color=Colors.PRIMARY
         )
 
         # Handle AI responses
@@ -908,7 +932,7 @@ async def on_message(message):
                     embed = discord.Embed(
                         title=f"📨 Message from {message.author.display_name}",
                         description=f"Oi {target_user.mention}! {relay_message}",
-                        color=0xff9900
+                        color=Colors.WARNING
                     )
                     embed.set_footer(text=f"Relayed by Harry 🏈")
                     await message.channel.send(embed=embed)
@@ -940,7 +964,7 @@ async def on_message(message):
                     embed = discord.Embed(
                         title="❌ Error",
                         description="Charter editor not available",
-                        color=0xff0000
+                        color=Colors.ERROR
                     )
                     await message.channel.send(embed=embed)
                     return
@@ -968,7 +992,7 @@ async def on_message(message):
                     embed = discord.Embed(
                         title="✅ Commissioner Updated!",
                         description=f"Right then! I've updated the League Commish to **{new_commish_name}**!\n\nCharter has been updated and backed up automatically.",
-                        color=0x00ff00
+                        color=Colors.SUCCESS
                     )
                     embed.set_footer(text=f"Updated by {message.author.display_name} 🏈")
                     await message.channel.send(embed=embed)
@@ -977,7 +1001,7 @@ async def on_message(message):
                     embed = discord.Embed(
                         title="❌ Update Failed",
                         description=f"Couldn't update the commissioner, mate!\n\n**Error:** {result['message']}",
-                        color=0xff0000
+                        color=Colors.ERROR
                     )
                     await message.channel.send(embed=embed)
                     logger.error(f"❌ Failed to update commissioner: {result['message']}")
@@ -988,7 +1012,7 @@ async def on_message(message):
                 embed = discord.Embed(
                     title="❌ Permission Denied",
                     description="You need to be a bot admin to update the commissioner, ya muppet!",
-                    color=0xff0000
+                    color=Colors.ERROR
                 )
                 await message.channel.send(embed=embed)
                 return
@@ -1013,7 +1037,7 @@ async def on_message(message):
                     embed = discord.Embed(
                         title="❌ Error",
                         description="Charter editor not available",
-                        color=0xff0000
+                        color=Colors.ERROR
                     )
                     await message.channel.send(embed=embed)
                     return
@@ -1022,7 +1046,7 @@ async def on_message(message):
                     embed = discord.Embed(
                         title="❌ Error",
                         description="AI not available for charter updates",
-                        color=0xff0000
+                        color=Colors.ERROR
                     )
                     await message.channel.send(embed=embed)
                     return
@@ -1055,7 +1079,7 @@ async def on_message(message):
                     embed = discord.Embed(
                         title="📝 Charter Update Preview",
                         description=f"**{parsed.get('summary', 'Proposed change')}**",
-                        color=0xffa500
+                        color=Colors.WARNING
                     )
 
                     # Truncate long text for display
@@ -1117,7 +1141,7 @@ async def on_message(message):
                 embed = discord.Embed(
                     title="❌ Permission Denied",
                     description="You need to be a bot admin to update the charter, ya muppet!",
-                    color=0xff0000
+                    color=Colors.ERROR
                 )
                 await message.channel.send(embed=embed)
                 return
@@ -1156,7 +1180,7 @@ async def on_message(message):
                                     embed = discord.Embed(
                                         title="🏈 Player Lookup Results" + (f" (Part {i+1})" if len(chunks) > 1 else ""),
                                         description=chunk,
-                                        color=0x1e90ff
+                                        color=Colors.PRIMARY
                                     )
                                     if i == len(chunks) - 1:
                                         embed.set_footer(text="Harry's Bulk Lookup 🏈 | Data from CollegeFootballData.com")
@@ -1165,7 +1189,7 @@ async def on_message(message):
                                 embed = discord.Embed(
                                     title="🏈 Player Lookup Results",
                                     description=response,
-                                    color=0x1e90ff
+                                    color=Colors.PRIMARY
                                 )
                                 embed.set_footer(text="Harry's Bulk Lookup 🏈 | Data from CollegeFootballData.com")
                                 await message.channel.send(embed=embed)
@@ -1192,18 +1216,18 @@ async def on_message(message):
                                 response = player_lookup.format_team_ranking(result)
                                 title = f"📊 {team} Rankings"
                                 await thinking_msg.delete()
-                                embed = discord.Embed(title=title, description=response, color=0x1e90ff)
-                                embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                                embed = discord.Embed(title=title, description=response, color=Colors.PRIMARY)
+                                embed.set_footer(text=Footers.CFB_DATA)
                                 await message.channel.send(embed=embed)
                             else:
                                 result = await player_lookup.get_rankings()
                                 fields, week_num = player_lookup.format_rankings(result)
                                 title = f"📊 College Football Rankings (Week {week_num})" if week_num else "📊 College Football Rankings"
                                 await thinking_msg.delete()
-                                embed = discord.Embed(title=title, color=0x1e90ff)
+                                embed = discord.Embed(title=title, color=Colors.PRIMARY)
                                 for field in fields[:6]:
                                     embed.add_field(name=field['name'], value=field['value'], inline=True)
-                                embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                                embed.set_footer(text=Footers.CFB_DATA)
                                 await message.channel.send(embed=embed)
                             return
 
@@ -1213,8 +1237,8 @@ async def on_message(message):
                             result = await player_lookup.get_matchup_history(team1, team2)
                             response = player_lookup.format_matchup(result)
                             await thinking_msg.delete()
-                            embed = discord.Embed(title=f"🏈 {team1} vs {team2}", description=response, color=0x1e90ff)
-                            embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                            embed = discord.Embed(title=f"🏈 {team1} vs {team2}", description=response, color=Colors.PRIMARY)
+                            embed.set_footer(text=Footers.CFB_DATA)
                             await message.channel.send(embed=embed)
                             return
 
@@ -1223,8 +1247,8 @@ async def on_message(message):
                             result = await player_lookup.get_team_schedule(team)
                             response = player_lookup.format_schedule(result, team)
                             await thinking_msg.delete()
-                            embed = discord.Embed(title=f"📅 {team} Schedule", description=response, color=0x1e90ff)
-                            embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                            embed = discord.Embed(title=f"📅 {team} Schedule", description=response, color=Colors.PRIMARY)
+                            embed.set_footer(text=Footers.CFB_DATA)
                             await message.channel.send(embed=embed)
                             return
 
@@ -1233,8 +1257,8 @@ async def on_message(message):
                             result = await player_lookup.get_draft_picks(team)
                             response = player_lookup.format_draft_picks(result, team)
                             await thinking_msg.delete()
-                            embed = discord.Embed(title=f"🏈 NFL Draft Picks", description=response, color=0x1e90ff)
-                            embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                            embed = discord.Embed(title=f"🏈 NFL Draft Picks", description=response, color=Colors.PRIMARY)
+                            embed.set_footer(text=Footers.CFB_DATA)
                             await message.channel.send(embed=embed)
                             return
 
@@ -1243,8 +1267,8 @@ async def on_message(message):
                             result = await player_lookup.get_team_transfers(team)
                             response = player_lookup.format_transfers(result, team)
                             await thinking_msg.delete()
-                            embed = discord.Embed(title=f"🔄 {team} Transfers", description=response, color=0x1e90ff)
-                            embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                            embed = discord.Embed(title=f"🔄 {team} Transfers", description=response, color=Colors.PRIMARY)
+                            embed.set_footer(text=Footers.CFB_DATA)
                             await message.channel.send(embed=embed)
                             return
 
@@ -1254,8 +1278,8 @@ async def on_message(message):
                             result = await player_lookup.get_betting_lines(team=team1)
                             response = player_lookup.format_betting_lines(result)
                             await thinking_msg.delete()
-                            embed = discord.Embed(title=f"💰 Betting Lines", description=response, color=0x1e90ff)
-                            embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                            embed = discord.Embed(title=f"💰 Betting Lines", description=response, color=Colors.PRIMARY)
+                            embed.set_footer(text=Footers.CFB_DATA)
                             await message.channel.send(embed=embed)
                             return
 
@@ -1264,8 +1288,8 @@ async def on_message(message):
                             result = await player_lookup.get_team_ratings(team)
                             response = player_lookup.format_ratings(result)
                             await thinking_msg.delete()
-                            embed = discord.Embed(title=f"📈 {team} Ratings", description=response, color=0x1e90ff)
-                            embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+                            embed = discord.Embed(title=f"📈 {team} Ratings", description=response, color=Colors.PRIMARY)
+                            embed.set_footer(text=Footers.CFB_DATA)
                             await message.channel.send(embed=embed)
                             return
 
@@ -1326,9 +1350,9 @@ async def on_message(message):
                                         embed = discord.Embed(
                                             title="🏈 High School Stats",
                                             description=formatted,
-                                            color=0x2ecc71
+                                            color=Colors.HS_STATS
                                         )
-                                        embed.set_footer(text="Harry's HS Stats 🏈 | Data scraped from MaxPreps")
+                                        embed.set_footer(text=Footers.HS_STATS)
                                         await message.channel.send(embed=embed)
                                     else:
                                         embed = discord.Embed(
@@ -1340,9 +1364,9 @@ async def on_message(message):
                                                 "• Add a state (e.g., 'HS stats for John Smith (TX)')\n"
                                                 "• Use `/hs_stats` for more options"
                                             ),
-                                            color=0xffa500
+                                            color=Colors.WARNING
                                         )
-                                        embed.set_footer(text="Harry's HS Stats 🏈 | Data scraped from MaxPreps")
+                                        embed.set_footer(text=Footers.HS_STATS)
                                         await message.channel.send(embed=embed)
                                     return
                                     
@@ -1391,7 +1415,7 @@ async def on_message(message):
                                 embed = discord.Embed(
                                     title="🏈 Player Info",
                                     description=response,
-                                    color=0x1e90ff
+                                    color=Colors.PRIMARY
                                 )
 
                                 # Check if it's an Oregon player and add snark (Harry always hates Oregon)
@@ -1399,21 +1423,21 @@ async def on_message(message):
                                 if 'oregon' in player_team and 'oregon state' not in player_team:
                                     embed.set_footer(text="Harry's Player Lookup 🏈 | Though why you'd care about a Duck is beyond me...")
                                 else:
-                                    embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")
+                                    embed.set_footer(text=Footers.PLAYER_LOOKUP)
 
                                 await message.channel.send(embed=embed)
                             else:
                                 embed = discord.Embed(
                                     title="❓ Player Not Found",
                                     description=f"Couldn't find a player matching **{name}**" + (f" from **{team}**" if team else "") + ".",
-                                    color=0xff6600
+                                    color=Colors.WARNING
                                 )
                                 embed.add_field(
                                     name="💡 Tips",
                                     value="• Check the spelling\n• Use full name (First Last)\n• FCS/smaller schools may have limited data\n• Try without the team name",
                                     inline=False
                                 )
-                                embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")
+                                embed.set_footer(text=Footers.PLAYER_LOOKUP)
                                 await message.channel.send(embed=embed)
                             # Clean up lookup key
                             if hasattr(bot, '_active_player_lookups') and lookup_key in bot._active_player_lookups:
@@ -1480,7 +1504,7 @@ async def on_message(message):
                         embed = discord.Embed(
                             title=f"📜 Rule Scan: #{channel_to_scan.name}",
                             description="No rule changes or votes found in the last week.",
-                            color=0xffaa00
+                            color=Colors.ADMIN
                         )
                         await message.channel.send(embed=embed)
                         return
@@ -1489,7 +1513,7 @@ async def on_message(message):
                     embed = discord.Embed(
                         title=f"📜 Rule Changes Found in #{channel_to_scan.name}",
                         description=f"Found **{len(rule_changes)}** rule changes/votes",
-                        color=0x1e90ff
+                        color=Colors.PRIMARY
                     )
 
                     passed_rules = []
@@ -1547,7 +1571,7 @@ async def on_message(message):
                 embed = discord.Embed(
                     title="❌ Permission Denied",
                     description="You need to be a bot admin to scan for rules, ya muppet!",
-                    color=0xff0000
+                    color=Colors.ERROR
                 )
                 await message.channel.send(embed=embed)
                 return
@@ -1613,7 +1637,7 @@ async def on_message(message):
                     embed = discord.Embed(
                         title=f"📊 Channel Summary - Last {hours} {'Hour' if hours == 1 else 'Hours'}",
                         description=summary,
-                        color=0x00ff00
+                        color=Colors.SUCCESS
                     )
                     embed.add_field(
                         name="📍 Channel",
@@ -1759,7 +1783,7 @@ Please provide a helpful, accurate answer. This is a general conversation, not a
                 inline=False
             )
 
-        embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
+        embed.set_footer(text=Footers.DEFAULT)
 
         # Send the response
         await message.channel.send(embed=embed)
@@ -1778,7 +1802,7 @@ Please provide a helpful, accurate answer. This is a general conversation, not a
         # Create a friendly response redirecting to league topics
         embed = discord.Embed(
             title="🏈 Harry's Response",
-            color=0x1e90ff
+            color=Colors.PRIMARY
         )
         embed.description = "Hey there! I'm Harry, your CFB 26 league assistant! I'm here to help with league rules, recruiting, transfers, dynasty management, and all things college football. Ask me about our league charter, game settings, or anything CFB 26 related!"
         embed.add_field(
@@ -1786,7 +1810,7 @@ Please provide a helpful, accurate answer. This is a general conversation, not a
             value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
             inline=False
         )
-        embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
+        embed.set_footer(text=Footers.DEFAULT)
 
         # Send the response
         await message.channel.send(embed=embed)
@@ -1838,7 +1862,7 @@ async def on_reaction_add(reaction, user):
             await reaction.message.edit(embed=discord.Embed(
                 title="⏰ Update Expired",
                 description="This charter update request has expired. Please try again.",
-                color=0xff6600
+                color=Colors.WARNING
             ))
             return
 
@@ -1858,7 +1882,7 @@ async def on_reaction_add(reaction, user):
                     embed = discord.Embed(
                         title="✅ Charter Updated!",
                         description=f"**{pending['description']}**\n\nThe charter has been updated and backed up automatically.",
-                        color=0x00ff00
+                        color=Colors.SUCCESS
                     )
                     embed.set_footer(text=f"Updated by {pending['user_name']} 🏈")
                     await reaction.message.edit(embed=embed)
@@ -1868,7 +1892,7 @@ async def on_reaction_add(reaction, user):
                     embed = discord.Embed(
                         title="❌ Update Failed",
                         description="Failed to apply the charter update. Check the logs for details.",
-                        color=0xff0000
+                        color=Colors.ERROR
                     )
                     await reaction.message.edit(embed=embed)
                     await safe_clear_reactions(reaction.message)
@@ -1881,7 +1905,7 @@ async def on_reaction_add(reaction, user):
             embed = discord.Embed(
                 title="❌ Update Cancelled",
                 description="Charter update has been cancelled. No changes were made.",
-                color=0xff6600
+                color=Colors.WARNING
             )
             await reaction.message.edit(embed=embed)
             await safe_clear_reactions(reaction.message)
@@ -1919,7 +1943,7 @@ async def on_reaction_add(reaction, user):
             thinking_embed = discord.Embed(
                 title="🔧 Generating Charter Updates...",
                 description="Analyzing passed rules and generating charter updates...",
-                color=0xffaa00
+                color=Colors.ADMIN
             )
             await reaction.message.edit(embed=thinking_embed)
 
@@ -1933,7 +1957,7 @@ async def on_reaction_add(reaction, user):
                     embed = discord.Embed(
                         title="📜 No Updates Needed",
                         description="The passed rules are either already in the charter or couldn't be automatically applied.",
-                        color=0x00ff00
+                        color=Colors.SUCCESS
                     )
                     await reaction.message.edit(embed=embed)
                     del bot.pending_rule_scans[reaction.message.id]
@@ -1943,7 +1967,7 @@ async def on_reaction_add(reaction, user):
                 embed = discord.Embed(
                     title="📝 Suggested Charter Updates",
                     description=f"Based on passed rules in #{pending['channel_name']}",
-                    color=0x1e90ff
+                    color=Colors.PRIMARY
                 )
 
                 for i, update in enumerate(updates[:5], 1):  # Show max 5
@@ -1979,7 +2003,7 @@ async def on_reaction_add(reaction, user):
                 embed = discord.Embed(
                     title="❌ Error",
                     description=f"Failed to generate updates: {str(e)}",
-                    color=0xff0000
+                    color=Colors.ERROR
                 )
                 await reaction.message.edit(embed=embed)
                 del bot.pending_rule_scans[reaction.message.id]
@@ -1997,7 +2021,7 @@ async def on_reaction_add(reaction, user):
                 embed = discord.Embed(
                     title="❌ Error",
                     description="Could not read current charter",
-                    color=0xff0000
+                    color=Colors.ERROR
                 )
                 await reaction.message.edit(embed=embed)
                 del bot.pending_rule_scans[reaction.message.id]
@@ -2035,20 +2059,20 @@ async def on_reaction_add(reaction, user):
                     embed = discord.Embed(
                         title="✅ Charter Updated!",
                         description=f"Applied **{applied}** rule updates from #{pending['channel_name']}!\n\nBackup created automatically.",
-                        color=0x00ff00
+                        color=Colors.SUCCESS
                     )
                     embed.set_footer(text=f"Updated by {pending['user_name']} 🏈")
                 else:
                     embed = discord.Embed(
                         title="❌ Update Failed",
                         description="Failed to apply updates to the charter.",
-                        color=0xff0000
+                        color=Colors.ERROR
                     )
             else:
                 embed = discord.Embed(
                     title="⚠️ No Updates Applied",
                     description="Could not apply any updates - text may not match exactly.",
-                    color=0xffaa00
+                    color=Colors.ADMIN
                 )
 
             await reaction.message.edit(embed=embed)
@@ -2059,7 +2083,7 @@ async def on_reaction_add(reaction, user):
             embed = discord.Embed(
                 title="❌ Updates Cancelled",
                 description="Charter updates cancelled. No changes were made.",
-                color=0xff6600
+                color=Colors.WARNING
             )
             await reaction.message.edit(embed=embed)
             await safe_clear_reactions(reaction.message)
@@ -2072,7 +2096,7 @@ async def on_reaction_add(reaction, user):
         embed = discord.Embed(
             title="🏈 Harry's Help",
             description="I'm here to help with CFB 26 league questions! Here are some ways to interact with me:",
-            color=0x1e90ff
+            color=Colors.PRIMARY
         )
 
         embed.add_field(
@@ -2093,7 +2117,7 @@ async def on_reaction_add(reaction, user):
             inline=False
         )
 
-        embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
+        embed.set_footer(text=Footers.DEFAULT)
 
         await reaction.message.channel.send(embed=embed)
 
@@ -2102,7 +2126,7 @@ async def on_reaction_add(reaction, user):
         embed = discord.Embed(
             title="🏈 CFB 26 Hype!",
             description="CFB 26 is the best dynasty league! 🏆\n\nNeed help with league rules? Just ask me anything!",
-            color=0x1e90ff
+            color=Colors.PRIMARY
         )
         await reaction.message.channel.send(embed=embed)
 
@@ -2113,7 +2137,7 @@ async def on_reaction_add(reaction, user):
             embed = discord.Embed(
                 title="🦆 Oregon Sucks!",
                 description="Oregon sucks! 🦆💩\n\nBut CFB 26 rules are awesome! Ask me about them!",
-                color=0x1e90ff
+                color=Colors.PRIMARY
             )
             await reaction.message.channel.send(embed=embed)
 
@@ -2122,7 +2146,7 @@ async def on_reaction_add(reaction, user):
         embed = discord.Embed(
             title="🐕 Go Huskies!",
             description="Go Huskies! 🐕\n\nSpeaking of teams, need help with league rules?",
-            color=0x1e90ff
+            color=Colors.PRIMARY
         )
         await reaction.message.channel.send(embed=embed)
 
@@ -2131,7 +2155,7 @@ async def on_reaction_add(reaction, user):
         embed = discord.Embed(
             title="🤖 AI Assistant",
             description="I'm powered by AI to help with your CFB 26 league questions! Ask me anything about rules, recruiting, transfers, or penalties!",
-            color=0x1e90ff
+            color=Colors.PRIMARY
         )
         await reaction.message.channel.send(embed=embed)
 
@@ -2140,7 +2164,7 @@ async def on_reaction_add(reaction, user):
         embed = discord.Embed(
             title="💡 Pro Tips",
             description="Here are some pro tips for CFB 26:\n\n• Follow all league rules to avoid penalties\n• Recruit smart - quality over quantity\n• Use the right difficulty settings\n• Don't sim games without permission\n\nNeed more help? Just ask!",
-            color=0x1e90ff
+            color=Colors.PRIMARY
         )
         await reaction.message.channel.send(embed=embed)
 
@@ -2166,7 +2190,7 @@ async def rule(interaction: discord.Interaction, rule_name: str):
     rule_found = False
     embed = discord.Embed(
         title=f"CFB 26 League Rule: {rule_name.title()}",
-        color=0x1e90ff
+        color=Colors.PRIMARY
     )
 
     # Search through league rules (if any exist)
@@ -2296,7 +2320,7 @@ async def charter(interaction: discord.Interaction):
     embed = discord.Embed(
         title="📋 CFB 26 League Charter",
         description="Official league rules, policies, and guidelines",
-        color=0x1e90ff
+        color=Colors.PRIMARY
     )
 
     embed.add_field(
@@ -2421,7 +2445,7 @@ async def scan_rules(
             embed = discord.Embed(
                 title=f"📜 Rule Scan: #{channel.name}",
                 description=f"No rule changes or votes found in the last {hours} hours.",
-                color=0xffaa00
+                color=Colors.ADMIN
             )
             embed.set_footer(text=f"Scanned {len(messages)} messages ({poll_count} polls)")
             await interaction.followup.send(embed=embed)
@@ -2431,7 +2455,7 @@ async def scan_rules(
         embed = discord.Embed(
             title=f"📜 Rule Changes Found in #{channel.name}",
             description=f"Found **{len(rule_changes)}** rule changes/votes",
-            color=0x1e90ff
+            color=Colors.PRIMARY
         )
 
         passed_rules = []
@@ -2552,7 +2576,7 @@ async def charter_history(interaction: discord.Interaction):
         embed = discord.Embed(
             title="📜 Charter History",
             description="No charter changes have been recorded yet.",
-            color=0x1e90ff
+            color=Colors.PRIMARY
         )
         await interaction.response.send_message(embed=embed)
         return
@@ -2560,7 +2584,7 @@ async def charter_history(interaction: discord.Interaction):
     embed = discord.Embed(
         title="📜 Charter Update History",
         description="Recent changes to the league charter",
-        color=0x1e90ff
+        color=Colors.PRIMARY
     )
 
     for i, change in enumerate(changes[:5], 1):  # Show top 5
@@ -2591,7 +2615,7 @@ async def help_cfb(interaction: discord.Interaction):
     embed = discord.Embed(
         title="🏈 CFB 26 League Bot Commands",
         description="Oi! Here's what I can do for ya, mate! **v1.3.0**",
-        color=0x1e90ff
+        color=Colors.PRIMARY
     )
 
     # AI Commands
@@ -2748,7 +2772,7 @@ async def show_tokens(interaction: discord.Interaction):
         stats = ai_assistant.get_token_usage()
         embed = discord.Embed(
             title="🔢 AI Token Usage Statistics",
-            color=0x00ff00
+            color=Colors.SUCCESS
         )
 
         embed.add_field(
@@ -2785,7 +2809,7 @@ async def search_charter(interaction: discord.Interaction, search_term: str):
 
     embed = discord.Embed(
         title=f"🔍 Search Results: '{search_term}'",
-        color=0xffa500
+        color=Colors.WARNING
     )
 
     if GOOGLE_DOCS_AVAILABLE and google_docs:
@@ -2853,7 +2877,7 @@ async def lookup_player(
             embed = discord.Embed(
                 title="🏈 Player Info",
                 description=response,
-                color=0x1e90ff
+                color=Colors.PRIMARY
             )
 
             # Check if it's an Oregon player and add snark (Harry always hates Oregon)
@@ -2861,21 +2885,21 @@ async def lookup_player(
             if 'oregon' in player_team and 'oregon state' not in player_team:
                 embed.set_footer(text="Harry's Player Lookup 🏈 | Though why you'd care about a Duck is beyond me...")
             else:
-                embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")
+                embed.set_footer(text=Footers.PLAYER_LOOKUP)
 
             await interaction.followup.send(embed=embed)
         else:
             embed = discord.Embed(
                 title="❓ Player Not Found",
                 description=f"Couldn't find a player matching **{name}**" + (f" from **{team}**" if team else "") + ".",
-                color=0xff6600
+                color=Colors.WARNING
             )
             embed.add_field(
                 name="💡 Tips",
                 value="• Check the spelling\n• Use full name (First Last)\n• FCS/smaller schools may have limited data\n• Try without the team name",
                 inline=False
             )
-            embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")
+            embed.set_footer(text=Footers.PLAYER_LOOKUP)
             await interaction.followup.send(embed=embed)
 
     except Exception as e:
@@ -2943,7 +2967,7 @@ async def lookup_players_bulk(
                 embed = discord.Embed(
                     title="🏈 Player Lookup Results" + (f" (Part {i+1})" if len(chunks) > 1 else ""),
                     description=chunk,
-                    color=0x1e90ff
+                    color=Colors.PRIMARY
                 )
                 if i == len(chunks) - 1:
                     embed.set_footer(text="Harry's Bulk Lookup 🏈 | Data from CollegeFootballData.com")
@@ -2952,7 +2976,7 @@ async def lookup_players_bulk(
             embed = discord.Embed(
                 title="🏈 Player Lookup Results",
                 description=response,
-                color=0x1e90ff
+                color=Colors.PRIMARY
             )
             embed.set_footer(text="Harry's Bulk Lookup 🏈 | Data from CollegeFootballData.com")
             await interaction.followup.send(embed=embed)
@@ -3003,8 +3027,8 @@ async def get_rankings(
             response = player_lookup.format_team_ranking(result)
             title = f"📊 {team} Rankings ({year})"
 
-            embed = discord.Embed(title=title, description=response, color=0x1e90ff)
-            embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+            embed = discord.Embed(title=title, description=response, color=Colors.PRIMARY)
+            embed.set_footer(text=Footers.CFB_DATA)
             await interaction.followup.send(embed=embed)
         else:
             # Full rankings - use fields to avoid character limit
@@ -3022,7 +3046,7 @@ async def get_rankings(
             if poll:
                 title += f" - {poll}"
 
-            embed = discord.Embed(title=title, color=0x1e90ff)
+            embed = discord.Embed(title=title, color=Colors.PRIMARY)
 
             # Add fields (Discord limit: 25 fields, 1024 chars per field value)
             for field in fields[:6]:  # Limit to 6 polls max
@@ -3080,9 +3104,9 @@ async def get_matchup(
         embed = discord.Embed(
             title=f"🏈 {team1} vs {team2}",
             description=response,
-            color=0x1e90ff
+            color=Colors.PRIMARY
         )
-        embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+        embed.set_footer(text=Footers.CFB_DATA)
         await interaction.followup.send(embed=embed)
 
     except Exception as e:
@@ -3122,9 +3146,9 @@ async def get_cfb_schedule(
         embed = discord.Embed(
             title=f"📅 {team} Schedule ({year})",
             description=response,
-            color=0x1e90ff
+            color=Colors.PRIMARY
         )
-        embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+        embed.set_footer(text=Footers.CFB_DATA)
         await interaction.followup.send(embed=embed)
 
     except Exception as e:
@@ -3162,8 +3186,8 @@ async def get_draft_picks(
         response = player_lookup.format_draft_picks(result, team)
 
         title = f"🏈 {year} NFL Draft Picks" + (f" from {team}" if team else "")
-        embed = discord.Embed(title=title, description=response, color=0x1e90ff)
-        embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+        embed = discord.Embed(title=title, description=response, color=Colors.PRIMARY)
+        embed.set_footer(text=Footers.CFB_DATA)
         await interaction.followup.send(embed=embed)
 
     except Exception as e:
@@ -3203,9 +3227,9 @@ async def get_transfers(
         embed = discord.Embed(
             title=f"🔄 {team} Transfer Portal ({year})",
             description=response,
-            color=0x1e90ff
+            color=Colors.PRIMARY
         )
-        embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+        embed.set_footer(text=Footers.CFB_DATA)
         await interaction.followup.send(embed=embed)
 
     except Exception as e:
@@ -3258,8 +3282,8 @@ async def get_betting(
             # No week specified and none in results = postseason
             title += " (Postseason)"
 
-        embed = discord.Embed(title=title, description=response, color=0x1e90ff)
-        embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+        embed = discord.Embed(title=title, description=response, color=Colors.PRIMARY)
+        embed.set_footer(text=Footers.CFB_DATA)
         await interaction.followup.send(embed=embed)
 
     except Exception as e:
@@ -3299,9 +3323,9 @@ async def get_team_ratings(
         embed = discord.Embed(
             title=f"📈 {team} Advanced Ratings ({year})",
             description=response,
-            color=0x1e90ff
+            color=Colors.PRIMARY
         )
-        embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
+        embed.set_footer(text=Footers.CFB_DATA)
         await interaction.followup.send(embed=embed)
 
     except Exception as e:
@@ -3357,9 +3381,9 @@ async def get_hs_stats(
                     "• Add a school filter for common names\n"
                     "• MaxPreps data may be limited for some players"
                 ),
-                color=0xffa500
+                color=Colors.WARNING
             )
-            embed.set_footer(text="Harry's HS Stats 🏈 | Data scraped from MaxPreps")
+            embed.set_footer(text=Footers.HS_STATS)
             await interaction.followup.send(embed=embed)
             return
 
@@ -3369,9 +3393,9 @@ async def get_hs_stats(
         embed = discord.Embed(
             title=f"🏈 High School Stats",
             description=formatted,
-            color=0x2ecc71
+            color=Colors.HS_STATS
         )
-        embed.set_footer(text="Harry's HS Stats 🏈 | Data scraped from MaxPreps")
+        embed.set_footer(text=Footers.HS_STATS)
         await interaction.followup.send(embed=embed)
 
     except Exception as e:
@@ -3456,7 +3480,7 @@ async def get_hs_stats_bulk(
         found_count = sum(1 for r in results if r.get('found'))
         embed = discord.Embed(
             title=f"🏈 HS Stats Bulk Lookup ({found_count}/{len(results)} found)",
-            color=0x2ecc71 if found_count > 0 else 0xff6b6b
+            color=Colors.HS_STATS if found_count > 0 else 0xff6b6b
         )
 
         for result in results:
@@ -3502,7 +3526,7 @@ async def get_hs_stats_bulk(
                     inline=False
                 )
 
-        embed.set_footer(text="Harry's HS Stats 🏈 | Data scraped from MaxPreps")
+        embed.set_footer(text=Footers.HS_STATS)
         await interaction.followup.send(embed=embed)
 
     except Exception as e:
@@ -3518,7 +3542,7 @@ async def ask_harry(interaction: discord.Interaction, question: str):
     """Ask Harry (the bot) about the league charter in a conversational way"""
     embed = discord.Embed(
         title="🏈 Harry's Response",
-        color=0x1e90ff
+        color=Colors.PRIMARY
     )
 
     if AI_AVAILABLE and ai_assistant:
@@ -3587,7 +3611,7 @@ async def ask_harry(interaction: discord.Interaction, question: str):
         inline=False
     )
 
-    embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
+    embed.set_footer(text=Footers.DEFAULT)
 
     # Send the actual response
     await interaction.followup.send(embed=embed)
@@ -3765,7 +3789,7 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
         embed = discord.Embed(
             title="⏰ Advance Countdown Started!",
             description=f"Right then, listen up ya wankers!\n\n🏈 **{hours} HOUR COUNTDOWN STARTED** 🏈\n\n{season_text}You got **{hours} hours** to get your bleedin' games done!\n\nI'll be remindin' you lot at:\n• 24 hours remaining (if applicable)\n• 12 hours remaining (if applicable)\n• 6 hours remaining (if applicable)\n• 1 hour remaining\n\nAnd when time's up... well, you'll know! 😈",
-            color=0x00ff00
+            color=Colors.SUCCESS
         )
         status = timekeeper_manager.get_status(interaction.channel)
         embed.add_field(
@@ -3795,7 +3819,7 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
         embed = discord.Embed(
             title="❌ Failed to Start Countdown!",
             description="Blimey, something went wrong starting the timer, mate!",
-            color=0xff0000
+            color=Colors.ERROR
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -3940,7 +3964,7 @@ async def stop_countdown(interaction: discord.Interaction):
         embed = discord.Embed(
             title="⏹️ Countdown Stopped",
             description="Right, countdown's been cancelled then!\n\nAll timers have been stopped.",
-            color=0xff0000
+            color=Colors.ERROR
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)  # Admin-only confirmation
         logger.info(f"⏹️ Countdown stopped by {interaction.user} in {interaction.channel}")
@@ -4000,7 +4024,7 @@ async def check_week(interaction: discord.Interaction):
     embed = discord.Embed(
         title="📅 Current Week",
         description=description,
-        color=0x00ff00
+        color=Colors.SUCCESS
     )
     embed.set_footer(text="Harry's Week Tracker 🏈 | Use /set_season_week to change")
     await interaction.response.send_message(embed=embed)
@@ -4062,7 +4086,7 @@ async def view_weeks(interaction: discord.Interaction):
     embed = discord.Embed(
         title="📅 CFB 26 Dynasty Week Schedule",
         description=description,
-        color=0x00ff00
+        color=Colors.SUCCESS
     )
 
     # Build the week lists by phase
@@ -4167,7 +4191,7 @@ async def view_schedule(interaction: discord.Interaction, week: Optional[int] = 
     embed = discord.Embed(
         title=f"📅 Week {week} Schedule",
         description=f"Season {schedule_manager.season} matchups:",
-        color=0x00ff00
+        color=Colors.SUCCESS
     )
 
     # Bye teams (bold user teams)
@@ -4253,7 +4277,7 @@ async def find_game(interaction: discord.Interaction, team: str, week: Optional[
         embed = discord.Embed(
             title=f"🏈 {found_team} - Week {week}",
             description=f"**{game['matchup']}**",
-            color=0x00ff00
+            color=Colors.SUCCESS
         )
         embed.add_field(
             name="Opponent",
@@ -4307,7 +4331,7 @@ async def view_byes(interaction: discord.Interaction, week: Optional[int] = None
         embed = discord.Embed(
             title=f"🏈 Week {week} - No Byes!",
             description="Everyone's playing this week! No rest for the wicked!",
-            color=0x00ff00
+            color=Colors.SUCCESS
         )
 
     embed.set_footer(text="Harry's Schedule Tracker 🏈")
@@ -4353,7 +4377,7 @@ async def set_season_week(interaction: discord.Interaction, season: int, week: i
         embed = discord.Embed(
             title="📅 Season/Week Set!",
             description=description,
-            color=0x00ff00
+            color=Colors.SUCCESS
         )
         embed.set_footer(text="Harry's Advance Timer 🏈 | Week will increment on advance")
         await interaction.response.send_message(embed=embed, ephemeral=True)  # Admin-only confirmation
@@ -4362,7 +4386,7 @@ async def set_season_week(interaction: discord.Interaction, season: int, week: i
         embed = discord.Embed(
             title="❌ Failed to Set Season/Week",
             description="Couldn't set the season/week, mate. Check your inputs!",
-            color=0xff0000
+            color=Colors.ERROR
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -4388,7 +4412,7 @@ async def set_timer_channel(interaction: discord.Interaction, channel: discord.T
         embed = discord.Embed(
             title="📢 Timer Notification Channel Set!",
             description=f"Right then! All timer notifications will now go to:\n\n**#{channel.name}** (<#{channel.id}>)\n\nThis includes:\n• Advance countdown start\n• 24h/12h/6h/1h warnings\n• TIME'S UP announcements\n• Schedule updates\n\n✅ **Saved!** This will persist across bot restarts.",
-            color=0x00ff00
+            color=Colors.SUCCESS
         )
         embed.set_footer(text="Harry's Advance Timer 🏈")
         await interaction.response.send_message(embed=embed, ephemeral=True)  # Admin-only confirmation
@@ -4418,9 +4442,9 @@ async def set_admin_channel(interaction: discord.Interaction, channel: discord.T
     embed = discord.Embed(
         title="🔧 Admin Channel Set!",
         description=f"Right then! Admin outputs will now go to:\n\n**#{channel.name}** (<#{channel.id}>)\n\nThis includes:\n• Bot startup/restart notifications\n• Timer restore messages\n• Config change confirmations\n• Error reports\n\n✅ **Saved!** This will persist across bot restarts.",
-        color=0x00ff00
+        color=Colors.SUCCESS
     )
-    embed.set_footer(text="Harry's Server Config 🏈")
+    embed.set_footer(text=Footers.CONFIG)
     await interaction.response.send_message(embed=embed, ephemeral=True)
     logger.info(f"🔧 Admin channel set to #{channel.name} for guild {guild_id} by {interaction.user}")
 
@@ -4533,13 +4557,13 @@ async def set_co_commish(
             embed = discord.Embed(
                 title="👤 Co-Commissioner Updated!",
                 description=f"Right then, no co-commish it is!\n\n**Co-Commissioner:** 😤 {timekeeper_manager.NO_CO_COMMISH}\n\nThe owner's flying solo on this one!",
-                color=0xff6600
+                color=Colors.WARNING
             )
         else:
             embed = discord.Embed(
                 title="👤 Co-Commissioner Set!",
                 description=f"We've got ourselves a co-commish!\n\n**Co-Commissioner:** <@{user.id}>\n\nHope they're ready to help wrangle these muppets!",
-                color=0x00ff00
+                color=Colors.SUCCESS
             )
         embed.set_footer(text="Harry's League Tracker 🏈")
         await interaction.response.send_message(embed=embed, ephemeral=True)  # Admin-only confirmation
@@ -4816,7 +4840,7 @@ async def nag_owner(interaction: discord.Interaction, interval: int = 5):
                        f"**Frequency:** Every {interval} minute{'s' if interval > 1 else ''}\n\n"
                        f"They're gonna LOVE this! 🔥\n\n"
                        f"Use `/stop_nag` when they finally advance (or beg for mercy).",
-            color=0xff0000
+            color=Colors.ERROR
         )
         embed.set_footer(text="Harry's Revenge System 🏈 | May God have mercy on their soul")
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -4859,7 +4883,7 @@ async def stop_nag(interaction: discord.Interaction):
             title="😇 Nagging Stopped",
             description="Alright, I'll give 'em a break... for now.\n\n"
                        "The league owner has been spared (temporarily).",
-            color=0x00ff00
+            color=Colors.SUCCESS
         )
         embed.set_footer(text="Harry's Mercy System 🏈 | They got lucky this time")
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -4904,7 +4928,7 @@ async def summarize_channel(
         embed = discord.Embed(
             title="📊 Generating Summary...",
             description=f"Right then, let me 'ave a look through the last **{hours} hours** of messages in this channel{focus_description}...\n\nThis might take a mo', so don't get your knickers in a twist!",
-            color=0xffa500
+            color=Colors.WARNING
         )
         await interaction.followup.send(embed=embed)
 
@@ -4923,7 +4947,7 @@ async def summarize_channel(
         embed = discord.Embed(
             title=f"📊 Channel Summary - Last {hours} Hour{'s' if hours > 1 else ''}{title_focus}",
             description=summary,
-            color=0x00ff00
+            color=Colors.SUCCESS
         )
 
         embed.add_field(
@@ -4954,7 +4978,7 @@ async def summarize_channel(
         embed = discord.Embed(
             title="❌ Permission Denied",
             description="Oi! I don't 'ave permission to read message history in this channel, ya muppet!\n\n**To fix:** Give me 'Read Message History' permission in channel settings.",
-            color=0xff0000
+            color=Colors.ERROR
         )
         await interaction.followup.send(embed=embed)
     except Exception as e:
@@ -4962,7 +4986,7 @@ async def summarize_channel(
         embed = discord.Embed(
             title="❌ Summary Failed",
             description=f"Bloody hell! Somethin' went wrong while generatin' the summary:\n\n`{str(e)}`\n\nTry again later, mate!",
-            color=0xff0000
+            color=Colors.ERROR
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -5008,7 +5032,7 @@ async def add_charter_rule(
             embed = discord.Embed(
                 title="✅ Rule Added Successfully!",
                 description=f"Right then! I've added the new rule to the charter, mate!\n\n**Section**: {section_title}\n**Position**: {position}",
-                color=0x00ff00
+                color=Colors.SUCCESS
             )
             embed.add_field(
                 name="📝 Content",
@@ -5022,7 +5046,7 @@ async def add_charter_rule(
             embed = discord.Embed(
                 title="❌ Failed to Add Rule",
                 description=f"Bloody hell! Couldn't add the rule:\n\n{result['message']}",
-                color=0xff0000
+                color=Colors.ERROR
             )
             await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -5031,7 +5055,7 @@ async def add_charter_rule(
         embed = discord.Embed(
             title="❌ Error",
             description=f"Somethin' went wrong, mate:\n\n`{str(e)}`",
-            color=0xff0000
+            color=Colors.ERROR
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -5074,7 +5098,7 @@ async def update_charter_rule(
             embed = discord.Embed(
                 title="✅ Rule Updated Successfully!",
                 description=f"Sorted! I've updated that section for ya, mate!\n\n**Section**: {section_identifier}",
-                color=0x00ff00
+                color=Colors.SUCCESS
             )
             embed.add_field(
                 name="📝 New Content",
@@ -5088,7 +5112,7 @@ async def update_charter_rule(
             embed = discord.Embed(
                 title="❌ Failed to Update Rule",
                 description=f"Couldn't update the rule, mate:\n\n{result['message']}",
-                color=0xff0000
+                color=Colors.ERROR
             )
             await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -5097,7 +5121,7 @@ async def update_charter_rule(
         embed = discord.Embed(
             title="❌ Error",
             description=f"Somethin' went wrong:\n\n`{str(e)}`",
-            color=0xff0000
+            color=Colors.ERROR
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -5128,7 +5152,7 @@ async def view_backups(interaction: discord.Interaction):
         embed = discord.Embed(
             title="📋 Charter Backups",
             description=f"Found **{len(backups)}** charter backup{'s' if len(backups) > 1 else ''}!",
-            color=0x00ff00
+            color=Colors.SUCCESS
         )
 
         # Show up to 10 most recent backups
@@ -5157,7 +5181,7 @@ async def view_backups(interaction: discord.Interaction):
         embed = discord.Embed(
             title="❌ Error",
             description=f"Couldn't get the backups list:\n\n`{str(e)}`",
-            color=0xff0000
+            color=Colors.ERROR
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -5188,7 +5212,7 @@ async def restore_backup(interaction: discord.Interaction, backup_filename: str)
             embed = discord.Embed(
                 title="✅ Charter Restored!",
                 description=f"Right then! Charter has been restored from backup:\n\n**Backup**: {backup_filename}\n\nThe current charter was backed up before restorin', so don't worry!",
-                color=0x00ff00
+                color=Colors.SUCCESS
             )
             embed.set_footer(text=f"Charter restored by {interaction.user.display_name} 🏈")
             await interaction.followup.send(embed=embed)
@@ -5197,7 +5221,7 @@ async def restore_backup(interaction: discord.Interaction, backup_filename: str)
             embed = discord.Embed(
                 title="❌ Restore Failed",
                 description=f"Couldn't restore the charter from that backup, mate!\n\nMake sure the filename is correct.",
-                color=0xff0000
+                color=Colors.ERROR
             )
             await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -5206,7 +5230,7 @@ async def restore_backup(interaction: discord.Interaction, backup_filename: str)
         embed = discord.Embed(
             title="❌ Error",
             description=f"Somethin' went wrong:\n\n`{str(e)}`",
-            color=0xff0000
+            color=Colors.ERROR
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -5234,7 +5258,7 @@ async def add_bot_admin(interaction: discord.Interaction, user: discord.Member):
         embed = discord.Embed(
             title="✅ Bot Admin Added!",
             description=f"Right then! **{user.display_name}** is now a bot admin!\n\nThey can now use all admin commands.",
-            color=0x00ff00
+            color=Colors.SUCCESS
         )
         embed.set_footer(text=f"Added by {interaction.user.display_name}")
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -5243,7 +5267,7 @@ async def add_bot_admin(interaction: discord.Interaction, user: discord.Member):
         embed = discord.Embed(
             title="ℹ️ Already an Admin",
             description=f"{user.display_name} is already a bot admin, mate!",
-            color=0xffa500
+            color=Colors.WARNING
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -5271,7 +5295,7 @@ async def remove_bot_admin(interaction: discord.Interaction, user: discord.Membe
         embed = discord.Embed(
             title="✅ Bot Admin Removed",
             description=f"Right then! **{user.display_name}** is no longer a bot admin.",
-            color=0xff0000
+            color=Colors.ERROR
         )
         embed.set_footer(text=f"Removed by {interaction.user.display_name}")
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -5305,7 +5329,7 @@ async def list_bot_admins(interaction: discord.Interaction):
     embed = discord.Embed(
         title="🔐 Bot Admins",
         description=f"Found **{len(admin_ids)}** bot admin{'s' if len(admin_ids) > 1 else ''}:",
-        color=0x00ff00
+        color=Colors.SUCCESS
     )
 
     # Try to fetch user info for each admin
@@ -5355,7 +5379,7 @@ async def block_channel(interaction: discord.Interaction, channel: discord.TextC
         embed = discord.Embed(
             title="🔇 Channel Blocked!",
             description=f"Right then! I won't make unprompted responses in {channel.mention} anymore.\n\n**But:** You can still @mention me there for questions!\n\nI'll just stay quiet unless you ask, yeah?",
-            color=0xff9900
+            color=Colors.WARNING
         )
         embed.add_field(
             name="📋 How It Works",
@@ -5396,7 +5420,7 @@ async def unblock_channel(interaction: discord.Interaction, channel: discord.Tex
         embed = discord.Embed(
             title="🔊 Channel Unblocked!",
             description=f"Brilliant! I can make unprompted responses in {channel.mention} again!\n\nI'll jump in when I see league questions and interesting conversations!",
-            color=0x00ff00
+            color=Colors.SUCCESS
         )
         embed.set_footer(text=f"Unblocked by {interaction.user.display_name} 🔊")
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -5422,7 +5446,7 @@ async def list_blocked_channels(interaction: discord.Interaction):
         embed = discord.Embed(
             title="🔊 No Blocked Channels",
             description="No channels are blocked!\n\nI can make unprompted responses in all channels.\n\nUse `/block_channel #channel` to block channels (Admin only).",
-            color=0x00ff00
+            color=Colors.SUCCESS
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
@@ -5430,7 +5454,7 @@ async def list_blocked_channels(interaction: discord.Interaction):
     embed = discord.Embed(
         title="🔇 Blocked Channels",
         description=f"Found **{len(blocked_ids)}** blocked channel{'s' if len(blocked_ids) > 1 else ''}:\n\n**Note:** I can still be @mentioned in these channels!",
-        color=0xff9900
+        color=Colors.WARNING
     )
 
     # Try to fetch channel info for each blocked channel
@@ -5515,7 +5539,7 @@ async def config_command(
         embed = discord.Embed(
             title="⚙️ Harry's Configuration",
             description=f"Feature settings for **{interaction.guild.name}**",
-            color=0x1e90ff
+            color=Colors.PRIMARY
         )
 
         for mod in FeatureModule:
@@ -5603,7 +5627,7 @@ async def config_command(
             inline=False
         )
 
-        embed.set_footer(text="Harry's Server Config 🏈")
+        embed.set_footer(text=Footers.CONFIG)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     elif action == "enable":
@@ -5630,14 +5654,14 @@ async def config_command(
         embed = discord.Embed(
             title="✅ Module Enabled!",
             description=f"**{mod.value.upper()}** features are now enabled for this server!",
-            color=0x00ff00
+            color=Colors.SUCCESS
         )
         embed.add_field(
             name="Available Commands",
             value=cmd_list + (f"\n+{len(commands) - 8} more" if len(commands) > 8 else ""),
             inline=False
         )
-        embed.set_footer(text="Harry's Server Config 🏈")
+        embed.set_footer(text=Footers.CONFIG)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
         # Log to admin channel
@@ -5668,15 +5692,15 @@ async def config_command(
         embed = discord.Embed(
             title="❌ Module Disabled",
             description=f"**{mod.value.upper()}** features are now disabled for this server.",
-            color=0xff6600
+            color=Colors.WARNING
         )
         embed.add_field(
             name="Re-enable Anytime",
             value=f"`/config enable {mod.value}` to turn it back on",
             inline=False
         )
-        embed.set_footer(text="Harry's Server Config 🏈")
-        await interaction.response.send_message(embed=embed)
+        embed.set_footer(text=Footers.CONFIG)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
         # Log to admin channel
         await send_admin_log(
@@ -5736,7 +5760,7 @@ async def channel_command(
         embed = discord.Embed(
             title="📺 Channel Settings",
             description=f"Harry's channel configuration for **{interaction.guild.name}**",
-            color=0x1e90ff
+            color=Colors.PRIMARY
         )
 
         # Current channel status
@@ -5794,7 +5818,7 @@ async def channel_command(
         embed = discord.Embed(
             title="✅ Channel Enabled",
             description=f"Harry can now respond in **#{target_channel.name}**!",
-            color=0x00ff00
+            color=Colors.SUCCESS
         )
 
         embed.add_field(
@@ -5815,7 +5839,7 @@ async def channel_command(
         embed = discord.Embed(
             title="❌ Channel Disabled",
             description=f"Harry will no longer respond in **#{target_channel.name}**.",
-            color=0xff6600
+            color=Colors.WARNING
         )
 
         if enabled_channels:
@@ -5843,7 +5867,7 @@ async def channel_command(
         embed = discord.Embed(
             title="🔇 Harry Disabled Everywhere",
             description="Harry is now **disabled in all channels**.",
-            color=0xff6600
+            color=Colors.WARNING
         )
         embed.add_field(
             name="💡 To Enable Again",
@@ -5863,7 +5887,7 @@ async def channel_command(
         embed = discord.Embed(
             title="💬 Auto-Responses Toggled",
             description=f"Auto-responses in **#{target_channel.name}**: {status}",
-            color=0x00ff00 if new_value else 0xff6600
+            color=Colors.SUCCESS if new_value else 0xff6600
         )
 
         if new_value:
@@ -5889,7 +5913,7 @@ async def whats_new(interaction: discord.Interaction):
     embed = discord.Embed(
         title="🎉 What's New with Harry! 🎉",
         description="Oi! Look at all the brilliant new stuff I can do now, mate!",
-        color=0x00ff00
+        color=Colors.SUCCESS
     )
 
     # Feature 1: Advance Timer
@@ -5992,7 +6016,7 @@ async def show_version(interaction: discord.Interaction):
     embed = discord.Embed(
         title=f"🏈 Harry v{current_ver}",
         description=f"{version_info.get('emoji', '🎉')} {version_info.get('title', 'Current Version')}",
-        color=0x00ff00
+        color=Colors.SUCCESS
     )
 
     embed.add_field(
@@ -6013,7 +6037,7 @@ async def show_version(interaction: discord.Interaction):
         inline=False
     )
 
-    embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈")
+    embed.set_footer(text=Footers.DEFAULT)
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="changelog", description="View version changelog")
@@ -6033,7 +6057,7 @@ async def view_changelog(interaction: discord.Interaction, version: str = None):
         embed = discord.Embed(
             title="📜 Harry's Version History",
             description="Here's all the brilliant updates I've had, mate!",
-            color=0x00ff00
+            color=Colors.SUCCESS
         )
 
         summary = version_manager.get_version_summary()
@@ -6062,7 +6086,7 @@ async def view_changelog(interaction: discord.Interaction, version: str = None):
         embed = discord.Embed(
             title="❌ Version Not Found",
             description=f"Sorry mate, I don't have any info about version {version}!\n\nUse `/changelog` to see all available versions.",
-            color=0xff0000
+            color=Colors.ERROR
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
@@ -6071,7 +6095,7 @@ async def view_changelog(interaction: discord.Interaction, version: str = None):
     embed = discord.Embed(
         title=embed_data['title'],
         description=embed_data['description'],
-        color=0x00ff00
+        color=Colors.SUCCESS
     )
 
     for field in embed_data['fields']:
