@@ -2163,12 +2163,12 @@ async def on_reaction_add(reaction, user):
         # Duck emoji - Oregon rivalry (only if auto_responses is on)
         reaction_guild_id = reaction.message.guild.id if reaction.message.guild else 0
         if server_config.auto_responses_enabled(reaction_guild_id):
-        embed = discord.Embed(
-            title="🦆 Oregon Sucks!",
-            description="Oregon sucks! 🦆💩\n\nBut CFB 26 rules are awesome! Ask me about them!",
+            embed = discord.Embed(
+                title="🦆 Oregon Sucks!",
+                description="Oregon sucks! 🦆💩\n\nBut CFB 26 rules are awesome! Ask me about them!",
                 color=Colors.PRIMARY
-        )
-        await reaction.message.channel.send(embed=embed)
+            )
+            await reaction.message.channel.send(embed=embed)
 
     elif reaction.emoji == '🐕':
         # Dog emoji - Huskies support
