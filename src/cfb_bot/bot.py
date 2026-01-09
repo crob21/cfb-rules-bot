@@ -5082,7 +5082,7 @@ async def config_command(
         )
 
         embed.set_footer(text="Harry's Server Config 🏈")
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     elif action == "enable":
         if not module:
