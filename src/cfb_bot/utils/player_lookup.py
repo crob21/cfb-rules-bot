@@ -1775,7 +1775,7 @@ class CFBDataLookup:
                         # Flat: {'passing': {}, 'rushing': {}}
                         stats_data = all_stats
                         latest_year = 2025
-                    
+
                     stat_line = self._format_compact_stats(stats_data, latest_year)
                     if stat_line:
                         parts.append(f"   {stat_line}")
@@ -1808,15 +1808,23 @@ class CFBDataLookup:
     def _get_stat(self, stats_dict: Dict, *keys) -> int:
         """Get a stat value, trying multiple key variations (case-insensitive)"""
         for key in keys:
+            val = None
             # Try exact key
             if key in stats_dict:
-                return stats_dict[key] or 0
+                val = stats_dict[key]
             # Try lowercase
-            if key.lower() in stats_dict:
-                return stats_dict[key.lower()] or 0
+            elif key.lower() in stats_dict:
+                val = stats_dict[key.lower()]
             # Try uppercase
-            if key.upper() in stats_dict:
-                return stats_dict[key.upper()] or 0
+            elif key.upper() in stats_dict:
+                val = stats_dict[key.upper()]
+            
+            if val is not None:
+                # Ensure we always return an int - API might return strings
+                try:
+                    return int(float(val)) if val else 0
+                except (ValueError, TypeError):
+                    return 0
         return 0
 
     def _format_compact_stats(self, stats: Dict, year: int) -> str:

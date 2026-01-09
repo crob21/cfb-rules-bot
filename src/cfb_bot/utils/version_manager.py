@@ -11,10 +11,26 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.9.0"
+CURRENT_VERSION = "1.9.1"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.9.1": {
+        "date": "2026-01-08",
+        "title": "Bulk Lookup Type Fix",
+        "emoji": "🔧",
+        "features": [
+            {
+                "category": "Bug Fixes",
+                "emoji": "🐛",
+                "changes": [
+                    "Fixed 'can only concatenate str to str' error in bulk player lookup",
+                    "API sometimes returns stats as strings - now properly converted to integers",
+                    "Defensive stat calculations now work correctly across all player types"
+                ]
+            }
+        ]
+    },
     "1.9.0": {
         "date": "2026-01-08",
         "title": "Web Dashboard",
