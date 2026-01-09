@@ -152,10 +152,10 @@ class CFBDataLookup:
     async def find_similar_players(self, name: str, team: Optional[str] = None, limit: int = 3) -> List[Dict[str, Any]]:
         """
         Find players with similar names for "Did you mean?" suggestions.
-        
+
         Tries:
         1. First name only search
-        2. Last name only search  
+        2. Last name only search
         3. Partial name match across all teams
         """
         if not self.is_available:
@@ -163,12 +163,12 @@ class CFBDataLookup:
 
         suggestions = []
         seen_ids = set()
-        
+
         # Parse name into parts
         name_parts = name.strip().split()
         first_name = name_parts[0] if name_parts else name
         last_name = name_parts[-1] if len(name_parts) > 1 else name
-        
+
         try:
             # Try last name search (usually more unique)
             if len(last_name) >= 3:
@@ -188,7 +188,7 @@ class CFBDataLookup:
                             'position': getattr(p, 'position', '?'),
                             'id': pid
                         })
-            
+
             # Try first name if we don't have enough suggestions
             if len(suggestions) < limit and len(first_name) >= 3:
                 results = await asyncio.to_thread(
@@ -1038,10 +1038,15 @@ class CFBDataLookup:
             logger.error(f"Error fetching schedule: {e}")
             return []
 
-    async def get_draft_picks(self, team: Optional[str] = None, year: int = 2025) -> List[Dict[str, Any]]:
-        """Get NFL draft picks, optionally filtered by college team"""
+    async def get_draft_picks(self, team: Optional[str] = None, year: int = 2025) -> Dict[str, Any]:
+        """
+        Get NFL draft picks, optionally filtered by college team.
+        
+        Returns:
+            Dict with 'picks' list and optional 'suggestions' if no matches found
+        """
         if not self.is_available:
-            return []
+            return {'picks': [], 'suggestions': []}
 
         try:
             logger.info(f"🔍 Fetching draft picks" + (f" from {team}" if team else "") + f" ({year})")
@@ -1054,16 +1059,21 @@ class CFBDataLookup:
 
             if results:
                 picks = []
+                all_colleges = set()
                 team_lower = team.lower() if team else None
-                
+
                 for pick in results:
                     college = getattr(pick, 'college_team', None) or ''
                     
+                    # Track all colleges for suggestions
+                    if college:
+                        all_colleges.add(college)
+
                     # If team filter specified, match case-insensitively
                     if team_lower:
                         if team_lower not in college.lower():
                             continue
-                    
+
                     picks.append({
                         'round': getattr(pick, 'round', None),
                         'pick': getattr(pick, 'pick', None),
@@ -1073,17 +1083,50 @@ class CFBDataLookup:
                         'position': getattr(pick, 'position', None),
                         'college': college,
                     })
-                
+
                 logger.info(f"✅ Found {len(picks)} draft picks" + (f" from {team}" if team else ""))
-                return picks
-            
+                
+                # If no picks found but team was specified, find similar college names
+                suggestions = []
+                if not picks and team_lower and all_colleges:
+                    suggestions = self._find_similar_teams(team, list(all_colleges))
+                
+                return {'picks': picks, 'suggestions': suggestions}
+
             logger.warning(f"⚠️ No draft results returned for year {year}")
-            return []
+            return {'picks': [], 'suggestions': []}
         except ApiException as e:
             logger.error(f"❌ Draft API error: {e.status} - {e.body}")
-            return []
+            return {'picks': [], 'suggestions': []}
         except Exception as e:
             logger.error(f"Error fetching draft picks: {e}", exc_info=True)
+            return {'picks': [], 'suggestions': []}
+    
+    def _find_similar_teams(self, query: str, team_list: List[str], limit: int = 5) -> List[str]:
+        """Find teams with similar names using fuzzy matching"""
+        try:
+            from difflib import SequenceMatcher
+            
+            query_lower = query.lower()
+            scored = []
+            
+            for team in team_list:
+                team_lower = team.lower()
+                # Check for partial match first
+                if query_lower in team_lower or team_lower in query_lower:
+                    scored.append((team, 0.95))
+                else:
+                    # Use fuzzy matching
+                    ratio = SequenceMatcher(None, query_lower, team_lower).ratio()
+                    if ratio > 0.4:  # Threshold for relevance
+                        scored.append((team, ratio))
+            
+            # Sort by score descending
+            scored.sort(key=lambda x: x[1], reverse=True)
+            return [team for team, _ in scored[:limit]]
+            
+        except Exception as e:
+            logger.error(f"Error finding similar teams: {e}")
             return []
 
     async def get_team_transfers(self, team: str, year: int = 2025) -> Dict[str, List[Dict[str, Any]]]:
@@ -1261,7 +1304,7 @@ class CFBDataLookup:
     def format_rankings(self, rankings: List[Dict], poll_filter: Optional[str] = None, top_n: int = 25) -> List[Dict]:
         """
         Format rankings for Discord as structured data for embed fields.
-        
+
         Returns:
             List of dicts with 'name' (poll name) and 'value' (ranked teams)
         """
@@ -1269,10 +1312,10 @@ class CFBDataLookup:
             return []
 
         fields = []
-        
+
         # Priority order for polls
         poll_priority = ['AP Top 25', 'Coaches Poll', 'Playoff Committee Rankings', 'AP']
-        
+
         # Sort polls by priority
         sorted_rankings = sorted(rankings, key=lambda p: (
             poll_priority.index(p.get('poll', '')) if p.get('poll', '') in poll_priority else 99,
@@ -1289,7 +1332,7 @@ class CFBDataLookup:
                 r = rank.get('rank', '?')
                 school = rank.get('school', 'Unknown')
                 ranks_list.append(f"`{r:>2}.` {school}")
-            
+
             if ranks_list:
                 fields.append({
                     'name': f"📊 {poll_name}",
@@ -1377,10 +1420,22 @@ class CFBDataLookup:
 
         return "\n".join(parts)
 
-    def format_draft_picks(self, picks: List[Dict], team: Optional[str] = None) -> str:
+    def format_draft_picks(self, result: Dict[str, Any], team: Optional[str] = None) -> str:
         """Format draft picks for Discord"""
+        picks = result.get('picks', [])
+        suggestions = result.get('suggestions', [])
+        
         if not picks:
-            return f"No draft picks found" + (f" from {team}" if team else "")
+            parts = [f"No draft picks found" + (f" from **{team}**" if team else "")]
+            
+            # Add suggestions if available
+            if suggestions:
+                parts.append("")
+                parts.append("🔍 **Did you mean one of these schools?**")
+                for suggestion in suggestions[:5]:
+                    parts.append(f"• {suggestion}")
+            
+            return "\n".join(parts)
 
         parts = [f"🏈 **NFL Draft Picks**" + (f" from {team}" if team else ""), ""]
 
@@ -1851,20 +1906,20 @@ class CFBDataLookup:
             try:
                 # First, try with team specified
                 result = await self.get_full_player_info(name, team)
-                
+
                 if result:
                     return {'query': player_query, 'result': result, 'error': None}
-                
+
                 # Not found - try without team filter if team was specified
                 if team:
                     result = await self.get_full_player_info(name, None)
                     if result:
                         return {'query': player_query, 'result': result, 'error': None}
-                
+
                 # Still not found - get reason and suggestions
                 reason = self.get_not_found_reason(name, team)
                 suggestions = await self.find_similar_players(name, team, limit=3)
-                
+
                 return {
                     'query': player_query,
                     'result': None,
@@ -1872,7 +1927,7 @@ class CFBDataLookup:
                     'reason': reason,
                     'suggestions': suggestions
                 }
-                
+
             except Exception as e:
                 logger.error(f"Error looking up {name}: {e}")
                 return {'query': player_query, 'result': None, 'error': str(e)}
@@ -1989,13 +2044,13 @@ class CFBDataLookup:
                 nf_team = nf['team']
                 nf_reason = nf['reason']
                 nf_suggestions = nf['suggestions']
-                
+
                 # Player name and team
                 parts.append(f"• **{nf_name}**" + (f" ({nf_team})" if nf_team else ""))
-                
+
                 # Reason why not found
                 parts.append(f"   {nf_reason}")
-                
+
                 # Similar player suggestions
                 if nf_suggestions:
                     suggestion_strs = []
@@ -2005,7 +2060,7 @@ class CFBDataLookup:
                         s_pos = s.get('position', '?')
                         suggestion_strs.append(f"{s_name} ({s_team}, {s_pos})")
                     parts.append(f"   💡 Did you mean: {', '.join(suggestion_strs)}")
-                
+
                 parts.append("")  # Blank line between not-found entries
 
         # Summary
@@ -2026,7 +2081,7 @@ class CFBDataLookup:
             # Try uppercase
             elif key.upper() in stats_dict:
                 val = stats_dict[key.upper()]
-            
+
             if val is not None:
                 # Ensure we always return an int - API might return strings
                 try:
