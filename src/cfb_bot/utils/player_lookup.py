@@ -24,7 +24,7 @@ except ImportError:
 class CFBDataLookup:
     """
     Comprehensive CFB data lookups from CollegeFootballData.com API.
-    
+
     Features:
     - Player search and stats
     - Team rosters and info
@@ -40,7 +40,7 @@ class CFBDataLookup:
     def __init__(self):
         self.api_key = os.getenv('CFB_DATA_API_KEY')
         self._api_client = None
-        
+
         # API instances
         self._players_api = None
         self._stats_api = None
@@ -66,7 +66,7 @@ class CFBDataLookup:
                 access_token=self.api_key
             )
             self._api_client = cfbd.ApiClient(configuration)
-            
+
             # Initialize all API instances
             self._players_api = cfbd.PlayersApi(self._api_client)
             self._stats_api = cfbd.StatsApi(self._api_client)
@@ -77,7 +77,7 @@ class CFBDataLookup:
             self._betting_api = cfbd.BettingApi(self._api_client)
             self._ratings_api = cfbd.RatingsApi(self._api_client)
             self._draft_api = cfbd.DraftApi(self._api_client)
-            
+
             logger.info("✅ CFBD API configured successfully with all endpoints")
         except Exception as e:
             logger.error(f"❌ Failed to configure CFBD API: {e}")
@@ -731,11 +731,11 @@ class CFBDataLookup:
                 self._teams_api.get_teams,
                 conference=None
             )
-            
+
             if results:
                 team_lower = team.lower()
                 for t in results:
-                    if (team_lower in getattr(t, 'school', '').lower() or 
+                    if (team_lower in getattr(t, 'school', '').lower() or
                         team_lower in getattr(t, 'mascot', '').lower()):
                         return {
                             'school': getattr(t, 'school', None),
@@ -755,7 +755,7 @@ class CFBDataLookup:
     async def get_rankings(self, year: int = 2025, week: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Get team rankings (AP, Coaches, CFP)
-        
+
         Returns list of polls with their rankings
         """
         if not self.is_available:
@@ -763,16 +763,16 @@ class CFBDataLookup:
 
         try:
             logger.info(f"🔍 Fetching rankings for {year}" + (f" week {week}" if week else ""))
-            
+
             kwargs = {'year': year}
             if week:
                 kwargs['week'] = week
-            
+
             results = await asyncio.to_thread(
                 self._rankings_api.get_rankings,
                 **kwargs
             )
-            
+
             if results:
                 rankings = []
                 for poll_week in results:
@@ -806,13 +806,13 @@ class CFBDataLookup:
     async def get_team_ranking(self, team: str, year: int = 2025) -> Optional[Dict[str, Any]]:
         """Get a specific team's ranking across all polls"""
         rankings = await self.get_rankings(year)
-        
+
         if not rankings:
             return None
-        
+
         team_lower = team.lower()
         team_rankings = {}
-        
+
         for poll in rankings:
             poll_name = poll.get('poll', 'Unknown')
             for rank in poll.get('ranks', []):
@@ -823,7 +823,7 @@ class CFBDataLookup:
                         'firstPlaceVotes': rank.get('firstPlaceVotes'),
                     }
                     break
-        
+
         if team_rankings:
             return {
                 'team': team,
@@ -839,13 +839,13 @@ class CFBDataLookup:
 
         try:
             logger.info(f"🔍 Fetching matchup history: {team1} vs {team2}")
-            
+
             result = await asyncio.to_thread(
                 self._teams_api.get_matchup,
                 team1=team1,
                 team2=team2
             )
-            
+
             if result:
                 games = []
                 for game in getattr(result, 'games', []):
@@ -859,7 +859,7 @@ class CFBDataLookup:
                         'awayScore': getattr(game, 'away_score', None),
                         'winner': getattr(game, 'winner', None),
                     })
-                
+
                 return {
                     'team1': getattr(result, 'team1', team1),
                     'team2': getattr(result, 'team2', team2),
@@ -883,13 +883,13 @@ class CFBDataLookup:
 
         try:
             logger.info(f"🔍 Fetching schedule for {team} ({year})")
-            
+
             results = await asyncio.to_thread(
                 self._games_api.get_games,
                 year=year,
                 team=team
             )
-            
+
             if results:
                 games = []
                 for game in results:
@@ -920,16 +920,16 @@ class CFBDataLookup:
 
         try:
             logger.info(f"🔍 Fetching draft picks" + (f" from {team}" if team else "") + f" ({year})")
-            
+
             kwargs = {'year': year}
             if team:
                 kwargs['college'] = team
-            
+
             results = await asyncio.to_thread(
                 self._draft_api.get_draft_picks,
                 **kwargs
             )
-            
+
             if results:
                 picks = []
                 for pick in results:
@@ -959,16 +959,16 @@ class CFBDataLookup:
 
         try:
             logger.info(f"🔍 Fetching transfers for {team} ({year})")
-            
+
             results = await asyncio.to_thread(
                 self._players_api.get_transfer_portal,
                 year=year
             )
-            
+
             incoming = []
             outgoing = []
             team_lower = team.lower()
-            
+
             if results:
                 for t in results:
                     transfer = {
@@ -980,15 +980,15 @@ class CFBDataLookup:
                         'rating': getattr(t, 'rating', None),
                         'eligibility': getattr(t, 'eligibility', None),
                     }
-                    
+
                     origin = (getattr(t, 'origin', '') or '').lower()
                     dest = (getattr(t, 'destination', '') or '').lower()
-                    
+
                     if team_lower in origin:
                         outgoing.append(transfer)
                     if team_lower in dest:
                         incoming.append(transfer)
-            
+
             logger.info(f"✅ Found {len(incoming)} incoming, {len(outgoing)} outgoing transfers")
             return {'incoming': incoming, 'outgoing': outgoing}
         except ApiException as e:
@@ -1005,18 +1005,18 @@ class CFBDataLookup:
 
         try:
             logger.info(f"🔍 Fetching betting lines" + (f" for {team}" if team else "") + f" ({year})")
-            
+
             kwargs = {'year': year}
             if team:
                 kwargs['team'] = team
             if week:
                 kwargs['week'] = week
-            
+
             results = await asyncio.to_thread(
                 self._betting_api.get_lines,
                 **kwargs
             )
-            
+
             if results:
                 lines = []
                 for game in results:
@@ -1029,7 +1029,7 @@ class CFBDataLookup:
                             'homeML': getattr(line, 'home_moneyline', None),
                             'awayML': getattr(line, 'away_moneyline', None),
                         })
-                    
+
                     lines.append({
                         'homeTeam': getattr(game, 'home_team', None),
                         'homeScore': getattr(game, 'home_score', None),
@@ -1054,7 +1054,7 @@ class CFBDataLookup:
             return None
 
         ratings = {}
-        
+
         # SP+ Ratings
         try:
             sp_results = await asyncio.to_thread(
@@ -1079,7 +1079,7 @@ class CFBDataLookup:
                     break
         except Exception as e:
             logger.warning(f"Could not fetch SP+ ratings: {e}")
-        
+
         # SRS Ratings
         try:
             srs_results = await asyncio.to_thread(
@@ -1096,7 +1096,7 @@ class CFBDataLookup:
                     break
         except Exception as e:
             logger.warning(f"Could not fetch SRS ratings: {e}")
-        
+
         # Elo Ratings
         try:
             elo_results = await asyncio.to_thread(
@@ -1112,7 +1112,7 @@ class CFBDataLookup:
                     break
         except Exception as e:
             logger.warning(f"Could not fetch Elo ratings: {e}")
-        
+
         if ratings:
             logger.info(f"✅ Found ratings for {team}: {list(ratings.keys())}")
             return {
@@ -1128,60 +1128,60 @@ class CFBDataLookup:
         """Format rankings for Discord"""
         if not rankings:
             return "No rankings available"
-        
+
         response_parts = []
-        
+
         for poll in rankings:
             poll_name = poll.get('poll', 'Unknown')
             if poll_filter and poll_filter.lower() not in poll_name.lower():
                 continue
-            
+
             response_parts.append(f"**{poll_name}**")
             for rank in poll.get('ranks', [])[:25]:  # Top 25
                 r = rank.get('rank', '?')
                 school = rank.get('school', 'Unknown')
                 response_parts.append(f"{r}. {school}")
             response_parts.append("")
-        
+
         return "\n".join(response_parts) if response_parts else "No matching polls found"
 
     def format_team_ranking(self, team_ranking: Dict) -> str:
         """Format a team's ranking across polls"""
         if not team_ranking:
             return "Team not ranked"
-        
+
         team = team_ranking.get('team', 'Unknown')
         year = team_ranking.get('year', 2025)
         rankings = team_ranking.get('rankings', {})
-        
+
         if not rankings:
             return f"**{team}** is not ranked in any major poll ({year})"
-        
+
         parts = [f"📊 **{team}** Rankings ({year})"]
         for poll, data in rankings.items():
             rank = data.get('rank', '?')
             parts.append(f"• **{poll}:** #{rank}")
-        
+
         return "\n".join(parts)
 
     def format_matchup(self, matchup: Dict) -> str:
         """Format matchup history for Discord"""
         if not matchup:
             return "No matchup data found"
-        
+
         t1 = matchup.get('team1', 'Team 1')
         t2 = matchup.get('team2', 'Team 2')
         t1_wins = matchup.get('team1Wins', 0)
         t2_wins = matchup.get('team2Wins', 0)
         ties = matchup.get('ties', 0)
-        
+
         parts = [
             f"🏈 **{t1} vs {t2}**",
             f"**All-Time Record:** {t1} leads {t1_wins}-{t2_wins}" + (f"-{ties}" if ties else ""),
             "",
             "**Recent Games:**"
         ]
-        
+
         for game in matchup.get('games', [])[-5:]:  # Last 5
             season = game.get('season', '?')
             home = game.get('homeTeam', '?')
@@ -1189,18 +1189,18 @@ class CFBDataLookup:
             home_score = game.get('homeScore', '?')
             away_score = game.get('awayScore', '?')
             winner = game.get('winner', '')
-            
+
             parts.append(f"• {season}: {away} {away_score} @ {home} {home_score}")
-        
+
         return "\n".join(parts)
 
     def format_schedule(self, games: List[Dict], team: str) -> str:
         """Format team schedule for Discord"""
         if not games:
             return f"No schedule found for {team}"
-        
+
         parts = [f"📅 **{team} Schedule**", ""]
-        
+
         for game in games:
             week = game.get('week', '?')
             home = game.get('homeTeam', '?')
@@ -1208,12 +1208,12 @@ class CFBDataLookup:
             home_score = game.get('homeScore')
             away_score = game.get('awayScore')
             completed = game.get('completed', False)
-            
+
             # Determine opponent and location
             is_home = team.lower() in home.lower()
             opponent = away if is_home else home
             location = "vs" if is_home else "@"
-            
+
             if completed and home_score is not None:
                 team_score = home_score if is_home else away_score
                 opp_score = away_score if is_home else home_score
@@ -1221,16 +1221,16 @@ class CFBDataLookup:
                 parts.append(f"Wk {week}: {result} {location} {opponent} ({team_score}-{opp_score})")
             else:
                 parts.append(f"Wk {week}: {location} {opponent}")
-        
+
         return "\n".join(parts)
 
     def format_draft_picks(self, picks: List[Dict], team: Optional[str] = None) -> str:
         """Format draft picks for Discord"""
         if not picks:
             return f"No draft picks found" + (f" from {team}" if team else "")
-        
+
         parts = [f"🏈 **NFL Draft Picks**" + (f" from {team}" if team else ""), ""]
-        
+
         for pick in picks[:15]:  # Limit to 15
             rd = pick.get('round', '?')
             overall = pick.get('overall', '?')
@@ -1238,22 +1238,22 @@ class CFBDataLookup:
             pos = pick.get('position', '?')
             nfl_team = pick.get('nflTeam', '?')
             college = pick.get('college', '')
-            
+
             college_str = f" ({college})" if college and not team else ""
             parts.append(f"Rd {rd} (#{overall}): **{name}** {pos} → {nfl_team}{college_str}")
-        
+
         return "\n".join(parts)
 
     def format_transfers(self, transfers: Dict, team: str) -> str:
         """Format transfer portal activity for Discord"""
         incoming = transfers.get('incoming', [])
         outgoing = transfers.get('outgoing', [])
-        
+
         if not incoming and not outgoing:
             return f"No transfer portal activity found for {team}"
-        
+
         parts = [f"🔄 **{team} Transfer Portal**", ""]
-        
+
         if incoming:
             parts.append(f"**Incoming ({len(incoming)}):**")
             for t in incoming[:10]:
@@ -1263,7 +1263,7 @@ class CFBDataLookup:
                 stars = "⭐" * (t.get('stars') or 0)
                 parts.append(f"• {name} ({pos}) from {origin} {stars}")
             parts.append("")
-        
+
         if outgoing:
             parts.append(f"**Outgoing ({len(outgoing)}):**")
             for t in outgoing[:10]:
@@ -1271,47 +1271,47 @@ class CFBDataLookup:
                 pos = t.get('position', '?')
                 dest = t.get('destination') or 'TBD'
                 parts.append(f"• {name} ({pos}) → {dest}")
-        
+
         return "\n".join(parts)
 
     def format_betting_lines(self, lines: List[Dict]) -> str:
         """Format betting lines for Discord"""
         if not lines:
             return "No betting lines available"
-        
+
         parts = ["💰 **Betting Lines**", ""]
-        
+
         for game in lines[:10]:
             home = game.get('homeTeam', '?')
             away = game.get('awayTeam', '?')
             week = game.get('week', '?')
-            
+
             # Get first available line
             game_lines = game.get('lines', [])
             if game_lines:
                 line = game_lines[0]
                 spread = line.get('spread')
                 ou = line.get('overUnder')
-                
+
                 spread_str = f"{spread:+.1f}" if spread else "N/A"
                 ou_str = f"O/U {ou}" if ou else ""
-                
+
                 parts.append(f"**{away} @ {home}** (Wk {week})")
                 parts.append(f"   Spread: {home} {spread_str} | {ou_str}")
-        
+
         return "\n".join(parts)
 
     def format_ratings(self, ratings: Dict) -> str:
         """Format advanced ratings for Discord"""
         if not ratings:
             return "No ratings available"
-        
+
         team = ratings.get('team', 'Unknown')
         year = ratings.get('year', 2025)
         data = ratings.get('ratings', {})
-        
+
         parts = [f"📈 **{team}** Advanced Ratings ({year})", ""]
-        
+
         if 'sp' in data:
             sp = data['sp']
             parts.append(f"**SP+ Rating:** {sp.get('rating', 'N/A'):.1f}" if sp.get('rating') else "**SP+:** N/A")
@@ -1321,15 +1321,15 @@ class CFBDataLookup:
                 parts.append(f"   Offense Rank: #{sp['offense']['ranking']}")
             if sp.get('defense', {}).get('ranking'):
                 parts.append(f"   Defense Rank: #{sp['defense']['ranking']}")
-        
+
         if 'srs' in data:
             srs = data['srs']
             parts.append(f"**SRS:** {srs.get('rating', 'N/A'):.2f}" if srs.get('rating') else "")
-        
+
         if 'elo' in data:
             elo = data['elo']
             parts.append(f"**Elo:** {elo.get('rating', 'N/A'):.0f}" if elo.get('rating') else "")
-        
+
         return "\n".join(parts)
 
     def parse_player_query(self, query: str) -> Dict[str, Optional[str]]:
@@ -1451,25 +1451,25 @@ class CFBDataLookup:
     def parse_cfb_query(self, query: str) -> Dict[str, Any]:
         """
         Parse a natural language CFB query and determine the type.
-        
+
         Returns dict with:
-        - 'type': One of 'player', 'rankings', 'matchup', 'schedule', 'draft', 
+        - 'type': One of 'player', 'rankings', 'matchup', 'schedule', 'draft',
                   'transfers', 'betting', 'ratings', or None if not recognized
         - Additional fields depending on type
         """
         query = query.strip()
-        
+
         # Remove Discord mentions
         query = re.sub(r'<@!?\d+>', '', query)
         query = query.strip()
-        
+
         # Remove bot name prefix
         query_lower = query.lower()
         for prefix in ['harry', 'harry,', '@harry']:
             if query_lower.startswith(prefix):
                 query = query[len(prefix):].strip()
                 query_lower = query.lower()
-        
+
         # Rankings patterns
         ranking_patterns = [
             r'(?:where is|what.s|how is)\s+(.+?)\s+ranked',
@@ -1477,19 +1477,19 @@ class CFBDataLookup:
             r'(?:top 25|ap poll|coaches poll|cfp rankings?)',
             r'show me (?:the )?(?:top 25|rankings)',
         ]
-        
+
         for pattern in ranking_patterns:
             match = re.search(pattern, query_lower)
             if match:
                 team = match.group(1).strip() if match.lastindex else None
                 return {'type': 'rankings', 'team': team.title() if team else None}
-        
+
         # Matchup patterns (team vs team)
         matchup_patterns = [
             r'(.+?)\s+(?:vs?\.?|versus|against)\s+(.+?)(?:\s+(?:all.?time|history|record))?$',
             r'(?:history|record|matchup)\s+(?:between|of|for)\s+(.+?)\s+(?:vs?\.?|and|versus)\s+(.+?)$',
         ]
-        
+
         for pattern in matchup_patterns:
             match = re.search(pattern, query_lower)
             if match:
@@ -1498,49 +1498,49 @@ class CFBDataLookup:
                     'team1': match.group(1).strip().title(),
                     'team2': match.group(2).strip().rstrip('?.!').title()
                 }
-        
+
         # Schedule patterns
         schedule_patterns = [
             r'(?:when does|when do|when is)\s+(.+?)\s+play',
             r'(.+?)\s+(?:schedule|games?|next game)',
             r'(?:show me|get|what.s)\s+(.+?)\s+schedule',
         ]
-        
+
         for pattern in schedule_patterns:
             match = re.search(pattern, query_lower)
             if match:
                 return {'type': 'schedule', 'team': match.group(1).strip().title()}
-        
+
         # Draft patterns
         draft_patterns = [
             r'(?:who got|who was|who.s been)\s+drafted\s+from\s+(.+)',
             r'(?:nfl )?draft\s+picks?\s+(?:from\s+)?(.+)',
             r'(.+?)\s+(?:nfl )?draft\s+picks?',
         ]
-        
+
         for pattern in draft_patterns:
             match = re.search(pattern, query_lower)
             if match:
                 return {'type': 'draft', 'team': match.group(1).strip().title()}
-        
+
         # Transfer portal patterns
         transfer_patterns = [
             r'(?:who.s in|show me)\s+(?:the )?transfer portal\s+from\s+(.+)',
             r'(.+?)\s+transfer(?:s|\s+portal)',
             r'transfer portal\s+(?:for\s+)?(.+)',
         ]
-        
+
         for pattern in transfer_patterns:
             match = re.search(pattern, query_lower)
             if match:
                 return {'type': 'transfers', 'team': match.group(1).strip().title()}
-        
+
         # Betting patterns
         betting_patterns = [
             r'(?:who.s favored|odds|spread|line|betting)\s+(?:for|in|on)?\s+(.+?)\s+(?:vs?\.?|versus|@|at)\s+(.+)',
             r'(.+?)\s+(?:vs?\.?|@)\s+(.+?)\s+(?:odds|spread|line)',
         ]
-        
+
         for pattern in betting_patterns:
             match = re.search(pattern, query_lower)
             if match:
@@ -1549,30 +1549,30 @@ class CFBDataLookup:
                     'team1': match.group(1).strip().title(),
                     'team2': match.group(2).strip().rstrip('?.!').title()
                 }
-        
+
         # Ratings patterns (SP+, advanced stats)
         ratings_patterns = [
             r'(?:sp\+|srs|elo|fpi|rating)\s+(?:for\s+)?(.+)',
             r'(.+?)\s+(?:sp\+|srs|elo|advanced stats|ratings?)',
             r'how good is\s+(.+)',
         ]
-        
+
         for pattern in ratings_patterns:
             match = re.search(pattern, query_lower)
             if match:
                 return {'type': 'ratings', 'team': match.group(1).strip().title()}
-        
+
         # Roster patterns
         roster_patterns = [
             r'(?:show me|get|what.s)\s+(.+?)(?:.s)?\s+roster',
             r'(.+?)\s+roster',
         ]
-        
+
         for pattern in roster_patterns:
             match = re.search(pattern, query_lower)
             if match:
                 return {'type': 'roster', 'team': match.group(1).strip().title()}
-        
+
         # If no pattern matched but query mentions a team, might be a player query
         # Fall through to player query handling in bot.py
         return {'type': None}
@@ -1582,7 +1582,7 @@ class CFBDataLookup:
     def parse_player_list(self, text: str) -> List[Dict[str, Optional[str]]]:
         """
         Parse a list of players in various formats.
-        
+
         Supported formats:
         - James Smith (Bama DT)
         - Braden Atkinson (Mercer QB)
@@ -1590,34 +1590,34 @@ class CFBDataLookup:
         - Dre'Lon Miller (WR Colorado)
         - Isaiah Horton, Alabama, WR
         - James Smith from Alabama
-        
+
         Returns list of dicts with 'name', 'team', 'position'
         """
         players = []
-        
+
         # Split by newlines, commas at line level, or semicolons
         lines = re.split(r'[\n;]|(?:,\s*(?=[A-Z][a-z]+\s+[A-Z]))', text.strip())
-        
+
         for line in lines:
             line = line.strip()
             if not line or len(line) < 3:
                 continue
-            
+
             # Remove bullet points, numbers, dashes at start
             line = re.sub(r'^[\-\*•\d\.\)]+\s*', '', line)
-            
+
             player = {'name': None, 'team': None, 'position': None}
-            
+
             # Pattern 1: Name (Team Position) or Name (Position - Team) or Name (Position Team)
             match = re.match(r'^([A-Za-z\'\-\s]+?)\s*\(([^)]+)\)\s*$', line)
             if match:
                 player['name'] = match.group(1).strip()
                 parens = match.group(2).strip()
-                
+
                 # Parse the parenthetical - could be "Bama DT", "DT - Cocks", "WR Colorado", etc.
                 # Common positions
                 positions = ['QB', 'RB', 'WR', 'TE', 'OL', 'OT', 'OG', 'C', 'DL', 'DT', 'DE', 'LB', 'CB', 'S', 'DB', 'K', 'P', 'LS', 'ATH']
-                
+
                 # Check for "Position - Team" or "Team Position" or "Position Team"
                 for pos in positions:
                     if pos in parens.upper():
@@ -1631,10 +1631,10 @@ class CFBDataLookup:
                 else:
                     # No position found, assume it's all team
                     player['team'] = parens
-                
+
                 players.append(player)
                 continue
-            
+
             # Pattern 2: Name, Team, Position or Name from Team
             if ',' in line:
                 parts = [p.strip() for p in line.split(',')]
@@ -1645,7 +1645,7 @@ class CFBDataLookup:
                         player['position'] = parts[2].upper()
                     players.append(player)
                     continue
-            
+
             # Pattern 3: Name from Team
             match = re.match(r'^([A-Za-z\'\-\s]+?)\s+(?:from|at|@)\s+(.+)$', line, re.IGNORECASE)
             if match:
@@ -1653,85 +1653,86 @@ class CFBDataLookup:
                 player['team'] = match.group(2).strip()
                 players.append(player)
                 continue
-            
+
             # Pattern 4: Just a name
             if re.match(r'^[A-Za-z\'\-\s]+$', line) and len(line.split()) >= 2:
                 player['name'] = line.strip()
                 players.append(player)
-        
+
         # Clean up and title case
         for p in players:
             if p['name']:
                 p['name'] = p['name'].title().strip()
             if p['team']:
                 p['team'] = p['team'].title().strip()
-        
+
         logger.info(f"✅ Parsed {len(players)} players from list")
         return players
 
     async def lookup_multiple_players(self, player_list: List[Dict[str, Optional[str]]]) -> List[Dict[str, Any]]:
         """
         Look up multiple players in parallel.
-        
+
         Args:
             player_list: List of dicts with 'name' and optional 'team'
-            
+
         Returns:
             List of results, each with 'query' (original) and 'result' (player info or None)
         """
         if not self.is_available:
             return []
-        
+
         async def lookup_one(player_query: Dict) -> Dict[str, Any]:
             name = player_query.get('name')
             team = player_query.get('team')
-            
+
             if not name:
                 return {'query': player_query, 'result': None, 'error': 'No name provided'}
-            
+
             try:
                 result = await self.get_full_player_info(name, team)
                 return {'query': player_query, 'result': result, 'error': None}
             except Exception as e:
                 logger.error(f"Error looking up {name}: {e}")
                 return {'query': player_query, 'result': None, 'error': str(e)}
-        
+
         # Look up all players in parallel (but limit concurrency)
         semaphore = asyncio.Semaphore(5)  # Max 5 concurrent requests
-        
+
         async def lookup_with_limit(player_query):
             async with semaphore:
                 return await lookup_one(player_query)
-        
+
         tasks = [lookup_with_limit(p) for p in player_list]
         results = await asyncio.gather(*tasks)
-        
+
         found = sum(1 for r in results if r.get('result'))
         logger.info(f"✅ Bulk lookup complete: {found}/{len(player_list)} players found")
-        
+
         return results
 
     def format_bulk_player_response(self, results: List[Dict[str, Any]]) -> str:
         """Format bulk player lookup results for Discord"""
         if not results:
             return "No players to look up!"
-        
+
         parts = []
         found_count = 0
         not_found = []
-        
+
         for r in results:
             query = r.get('query', {})
             result = r.get('result')
             name = query.get('name', 'Unknown')
             team = query.get('team', '')
-            
+
             if result:
                 found_count += 1
                 player = result.get('player', {})
-                all_stats = result.get('all_stats', {})
+                # API returns 'stats' not 'all_stats'
+                all_stats = result.get('stats') or result.get('all_stats') or {}
                 recruiting = result.get('recruiting')
-                
+
                 # Build compact player line - API returns 'name' or 'firstName'/'lastName'
                 p_name = player.get('name') or f"{player.get('firstName', '')} {player.get('lastName', '')}".strip()
                 if not p_name:
@@ -1739,7 +1740,7 @@ class CFBDataLookup:
                 p_team = player.get('team', 'N/A')
                 p_pos = player.get('position', '?')
                 p_year = player.get('year', '')
-                
+
                 # Height/weight
                 height = player.get('height')
                 weight = player.get('weight')
@@ -1750,10 +1751,10 @@ class CFBDataLookup:
                     size = f"{feet}'{inches}\""
                 if weight:
                     size += f" {weight}lbs" if size else f"{weight}lbs"
-                
+
                 # Header line
                 parts.append(f"**{p_name}** - {p_team} ({p_pos})")
-                
+
                 # Vitals line
                 vitals = []
                 if p_year:
@@ -1762,15 +1763,23 @@ class CFBDataLookup:
                     vitals.append(size)
                 if vitals:
                     parts.append(f"   {' | '.join(vitals)}")
-                
-                # Stats summary (most recent year only for bulk)
+
+                # Stats summary
                 if all_stats:
-                    latest_year = max(all_stats.keys())
-                    stats = all_stats[latest_year]
-                    stat_line = self._format_compact_stats(stats, latest_year)
+                    # Stats might be year-keyed dict OR flat category dict
+                    if all_stats and isinstance(next(iter(all_stats.keys()), None), int):
+                        # Year-keyed: {2025: {'passing': {}}, 2024: {...}}
+                        latest_year = max(all_stats.keys())
+                        stats_data = all_stats[latest_year]
+                    else:
+                        # Flat: {'passing': {}, 'rushing': {}}
+                        stats_data = all_stats
+                        latest_year = 2025
+                    
+                    stat_line = self._format_compact_stats(stats_data, latest_year)
                     if stat_line:
                         parts.append(f"   {stat_line}")
-                
+
                 # Recruiting (compact)
                 if recruiting:
                     stars = "⭐" * (recruiting.get('stars') or 0)
@@ -1780,64 +1789,74 @@ class CFBDataLookup:
                         if rating:
                             rec_line += f" ({rating:.3f})"
                         parts.append(rec_line)
-                
+
                 parts.append("")  # Blank line between players
             else:
                 not_found.append(f"{name}" + (f" ({team})" if team else ""))
-        
+
         # Add not found section
         if not_found:
             parts.append("**❌ Not Found:**")
             for nf in not_found:
                 parts.append(f"   • {nf}")
-        
+
         # Summary
         summary = f"📊 **Found {found_count}/{len(results)} players**"
-        
+
         return summary + "\n\n" + "\n".join(parts)
+
+    def _get_stat(self, stats_dict: Dict, *keys) -> int:
+        """Get a stat value, trying multiple key variations (case-insensitive)"""
+        for key in keys:
+            # Try exact key
+            if key in stats_dict:
+                return stats_dict[key] or 0
+            # Try lowercase
+            if key.lower() in stats_dict:
+                return stats_dict[key.lower()] or 0
+            # Try uppercase
+            if key.upper() in stats_dict:
+                return stats_dict[key.upper()] or 0
+        return 0
 
     def _format_compact_stats(self, stats: Dict, year: int) -> str:
         """Format stats compactly for bulk display"""
-        stat_parts = []
-        
         # Passing
         passing = stats.get('passing', {})
         if passing:
-            yards = passing.get('YDS', passing.get('yards', 0))
-            tds = passing.get('TD', passing.get('touchdowns', 0))
+            yards = self._get_stat(passing, 'YDS', 'yards', 'YARDS')
+            tds = self._get_stat(passing, 'TD', 'touchdowns', 'TDS')
             if yards or tds:
-                stat_parts.append(f"📊 {year}: {yards} pass yds, {tds} TD")
-                return " | ".join(stat_parts)
-        
+                return f"📊 {year}: {yards} pass yds, {tds} TD"
+
         # Rushing
         rushing = stats.get('rushing', {})
         if rushing:
-            yards = rushing.get('YDS', rushing.get('yards', 0))
-            tds = rushing.get('TD', rushing.get('touchdowns', 0))
+            yards = self._get_stat(rushing, 'YDS', 'yards', 'YARDS')
+            tds = self._get_stat(rushing, 'TD', 'touchdowns', 'TDS')
             if yards or tds:
-                stat_parts.append(f"📊 {year}: {yards} rush yds, {tds} TD")
-                return " | ".join(stat_parts)
-        
+                return f"📊 {year}: {yards} rush yds, {tds} TD"
+
         # Receiving
         receiving = stats.get('receiving', {})
         if receiving:
-            rec = receiving.get('REC', receiving.get('receptions', 0))
-            yards = receiving.get('YDS', receiving.get('yards', 0))
-            tds = receiving.get('TD', receiving.get('touchdowns', 0))
+            rec = self._get_stat(receiving, 'REC', 'receptions', 'RECEPTIONS')
+            yards = self._get_stat(receiving, 'YDS', 'yards', 'YARDS')
+            tds = self._get_stat(receiving, 'TD', 'touchdowns', 'TDS')
             if rec or yards:
-                stat_parts.append(f"📊 {year}: {rec} rec, {yards} yds, {tds} TD")
-                return " | ".join(stat_parts)
-        
+                return f"📊 {year}: {rec} rec, {yards} yds, {tds} TD"
+
         # Defense
         defense = stats.get('defense', {})
         if defense:
-            tackles = defense.get('SOLO', 0) + defense.get('AST', 0)
-            tfl = defense.get('TFL', 0)
-            sacks = defense.get('SACKS', defense.get('SK', 0))
+            solo = self._get_stat(defense, 'SOLO', 'solo', 'TOT', 'total')
+            ast = self._get_stat(defense, 'AST', 'ast', 'assists')
+            tackles = solo + ast
+            tfl = self._get_stat(defense, 'TFL', 'tfl', 'tackles_for_loss')
+            sacks = self._get_stat(defense, 'SACKS', 'sacks', 'SK', 'sk')
             if tackles or tfl or sacks:
-                stat_parts.append(f"📊 {year}: {tackles} tkl, {tfl} TFL, {sacks} sacks")
-                return " | ".join(stat_parts)
-        
+                return f"📊 {year}: {tackles} tkl, {tfl} TFL, {sacks} sacks"
+
         return ""
 
 
