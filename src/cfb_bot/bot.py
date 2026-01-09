@@ -47,32 +47,6 @@ def get_notification_channel():
         channel_id = timekeeper_manager.get_notification_channel_id()
     else:
         channel_id = GENERAL_CHANNEL_ID
-
-
-async def check_module_enabled(interaction: discord.Interaction, module: FeatureModule) -> bool:
-    """
-    Check if a module is enabled for this server.
-    Returns True if enabled, False if disabled (and sends error message).
-    """
-    if not interaction.guild:
-        return True  # Allow in DMs
-
-    if server_config.is_module_enabled(interaction.guild.id, module):
-        return True
-
-    # Module is disabled - send helpful message
-    module_names = {
-        FeatureModule.CFB_DATA: "CFB Data",
-        FeatureModule.LEAGUE: "League Features",
-    }
-    name = module_names.get(module, module.value)
-
-    await interaction.response.send_message(
-        f"❌ **{name}** module is not enabled on this server.\n"
-        f"An admin can enable it with: `/config enable {module.value}`",
-        ephemeral=True
-    )
-    return False
     return bot.get_channel(channel_id)
 
 
@@ -145,6 +119,33 @@ from .utils.timekeeper import (CFB_DYNASTY_WEEKS, TOTAL_WEEKS_PER_SEASON,
 from .utils.version_manager import VersionManager
 from .utils.player_lookup import player_lookup
 from .utils.server_config import server_config, FeatureModule
+
+
+async def check_module_enabled(interaction, module) -> bool:
+    """
+    Check if a module is enabled for this server.
+    Returns True if enabled, False if disabled (and sends error message).
+    """
+    if not interaction.guild:
+        return True  # Allow in DMs
+    
+    if server_config.is_module_enabled(interaction.guild.id, module):
+        return True
+    
+    # Module is disabled - send helpful message
+    module_names = {
+        FeatureModule.CFB_DATA: "CFB Data",
+        FeatureModule.LEAGUE: "League Features",
+    }
+    name = module_names.get(module, module.value)
+    
+    await interaction.response.send_message(
+        f"❌ **{name}** module is not enabled on this server.\n"
+        f"An admin can enable it with: `/config enable {module.value}`",
+        ephemeral=True
+    )
+    return False
+
 
 # Optional Google Docs integration
 try:
@@ -2337,7 +2338,7 @@ async def help_cfb(interaction: discord.Interaction):
         name="📊 **Schedule**",
         value=(
             "• `/schedule [week]` - Week matchups\n"
-            "• `/matchup <team>` - Team's opponent\n"
+            "• `/find_game <team>` - Team's opponent\n"
             "• `/byes [week]` - Bye teams"
         ),
         inline=True
@@ -3631,16 +3632,16 @@ async def view_schedule(interaction: discord.Interaction, week: Optional[int] = 
             inline=False
         )
 
-    embed.set_footer(text="Harry's Schedule Tracker 🏈 | Use /matchup for specific team info")
+    embed.set_footer(text="Harry's Schedule Tracker 🏈 | Use /find_game for specific team info")
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="matchup", description="Find a team's game for a specific week")
+@bot.tree.command(name="find_game", description="Find a team's game for a specific week")
 @discord.app_commands.describe(
     team="Team name (e.g., Hawaii, LSU, Notre Dame)",
     week="Week number (0-13, leave empty for current week)"
 )
-async def find_matchup(interaction: discord.Interaction, team: str, week: Optional[int] = None):
-    """Find a specific team's matchup"""
+async def find_game(interaction: discord.Interaction, team: str, week: Optional[int] = None):
+    """Find a specific team's game in the dynasty schedule"""
     if not schedule_manager:
         await interaction.response.send_message("❌ Schedule manager not available", ephemeral=True)
         return
@@ -3653,13 +3654,13 @@ async def find_matchup(interaction: discord.Interaction, team: str, week: Option
                 week = season_info['week']
             else:
                 await interaction.response.send_message(
-                    "❌ No week specified and current week is not in regular season. Use `/matchup team:X week:Y`",
+                    "❌ No week specified and current week is not in regular season. Use `/find_game team:X week:Y`",
                     ephemeral=True
                 )
                 return
         else:
             await interaction.response.send_message(
-                "❌ No week specified. Use `/matchup team:X week:Y`",
+                "❌ No week specified. Use `/find_game team:X week:Y`",
                 ephemeral=True
             )
             return
