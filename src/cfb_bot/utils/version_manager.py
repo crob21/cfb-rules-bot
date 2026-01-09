@@ -11,10 +11,26 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.15.1"
+CURRENT_VERSION = "1.15.2"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.15.2": {
+        "date": "2026-01-09",
+        "title": "Timer Notification Fix",
+        "emoji": "🐛",
+        "features": [
+            {
+                "category": "Bug Fixes",
+                "emoji": "🐛",
+                "changes": [
+                    "Fixed 'Error in countdown monitoring: 24' bug",
+                    "JSON dict keys are strings - now converts to ints after load",
+                    "Improved error logging to show exception type"
+                ]
+            }
+        ]
+    },
     "1.15.1": {
         "date": "2026-01-09",
         "title": "Code Cleanup & Optimization",

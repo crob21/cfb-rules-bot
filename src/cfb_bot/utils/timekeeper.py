@@ -398,7 +398,7 @@ class AdvanceTimer:
         except asyncio.CancelledError:
             logger.info("⏹️ Countdown monitoring task cancelled")
         except Exception as e:
-            logger.error(f"❌ Error in countdown monitoring: {e}")
+            logger.error(f"❌ Error in countdown monitoring: {type(e).__name__}: {e}")
 
     async def _send_notification(self, hours: int):
         """Send a countdown notification to the notification channel (#general)"""
@@ -959,7 +959,9 @@ class TimekeeperManager:
             timer.end_time = end_time
             timer.duration_hours = state.get('duration_hours', 48)
             timer.is_active = True
-            timer.notifications_sent = state.get('notifications_sent', {24: False, 12: False, 6: False, 1: False})
+            # JSON converts int keys to strings, so convert them back to ints
+            raw_notifications = state.get('notifications_sent', {24: False, 12: False, 6: False, 1: False})
+            timer.notifications_sent = {int(k): v for k, v in raw_notifications.items()}
 
             # Start monitoring task
             timer.task = asyncio.create_task(timer._monitor_countdown())
