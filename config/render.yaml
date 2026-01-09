@@ -11,3 +11,5 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      - key: CFB_DATA_API_KEY
+        sync: false

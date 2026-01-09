@@ -11,10 +11,38 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.5.1"
+CURRENT_VERSION = "1.6.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.6.0": {
+        "date": "2026-01-08",
+        "title": "Player Lookup Feature",
+        "emoji": "🏈",
+        "features": [
+            {
+                "category": "Player Lookup",
+                "emoji": "🔍",
+                "changes": [
+                    "NEW: /player command to look up any CFB player!",
+                    "Get vitals: position, height, weight, year, hometown",
+                    "View season stats: tackles, TFL, sacks, yards, TDs",
+                    "See recruiting info: star rating, national ranking",
+                    "Natural language: '@Harry what do you know about X from Alabama?'"
+                ]
+            },
+            {
+                "category": "Integration",
+                "emoji": "🔗",
+                "changes": [
+                    "Powered by CollegeFootballData.com API",
+                    "Search by name or name + team",
+                    "Supports all positions: QB, RB, WR, DT, LB, etc.",
+                    "(And yes, I'll still mock Oregon players)"
+                ]
+            }
+        ]
+    },
     "1.5.1": {
         "date": "2026-01-02",
         "title": "Schedule Display & Admin Notifications",

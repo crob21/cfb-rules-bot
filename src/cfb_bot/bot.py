@@ -117,6 +117,7 @@ from .utils.timekeeper import (CFB_DYNASTY_WEEKS, TOTAL_WEEKS_PER_SEASON,
                                get_week_actions, get_week_info, get_week_name,
                                get_week_notes, get_week_phase)
 from .utils.version_manager import VersionManager
+from .utils.player_lookup import player_lookup
 
 # Optional Google Docs integration
 try:
@@ -901,6 +902,70 @@ async def on_message(message):
                 )
                 await message.channel.send(embed=embed)
                 return
+
+            # Check if this is a player lookup request
+            player_lookup_patterns = [
+                r'(?:what do you know about|tell me about|who is|show me|find|lookup|look up|info on|stats for|stats on)\s+(.+?)(?:\s+from\s+|\s+at\s+|\s+on\s+)?(\w+)?$',
+                r'player\s+(?:info|stats|lookup)\s+(?:for\s+)?(.+?)(?:\s+from\s+|\s+at\s+)?(\w+)?$',
+            ]
+
+            is_player_query = False
+            if bot_mentioned and player_lookup.is_available:
+                message_lower = message.content.lower()
+                player_keywords = ['from', 'player', 'stats', 'what do you know', 'tell me about', 'who is', 'info on', 'lookup']
+                # Check for player-related queries (but not league rule queries)
+                if any(kw in message_lower for kw in player_keywords) and not any(term in message_lower for term in ['rule', 'charter', 'policy', 'advance', 'schedule']):
+                    # Use the player_lookup parser
+                    parsed = player_lookup.parse_player_query(message.content)
+                    if parsed.get('name') and len(parsed['name']) > 2:
+                        is_player_query = True
+
+            if is_player_query and bot_mentioned:
+                logger.info(f"🏈 Player lookup request from {message.author}: {message.content}")
+
+                thinking_msg = await message.channel.send("🔍 Looking up that player, hang on...")
+
+                try:
+                    parsed = player_lookup.parse_player_query(message.content)
+                    name = parsed.get('name')
+                    team = parsed.get('team')
+
+                    logger.info(f"🔍 Searching for player: {name}" + (f" from {team}" if team else ""))
+
+                    player_info = await player_lookup.get_full_player_info(name, team)
+
+                    await thinking_msg.delete()
+
+                    if player_info:
+                        response = player_lookup.format_player_response(player_info)
+                        embed = discord.Embed(
+                            title="🏈 Player Info",
+                            description=response,
+                            color=0x1e90ff
+                        )
+
+                        # Check if it's an Oregon player and add snark
+                        player_team = player_info.get('player', {}).get('team', '').lower()
+                        if 'oregon' in player_team and 'oregon state' not in player_team:
+                            embed.set_footer(text="Harry's Player Lookup 🏈 | Though why you'd care about a Duck is beyond me...")
+                        else:
+                            embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")
+
+                        await message.channel.send(embed=embed)
+                    else:
+                        embed = discord.Embed(
+                            title="❓ Player Not Found",
+                            description=f"Couldn't find a player matching **{name}**" + (f" from **{team}**" if team else "") + ".\n\nTry checking the spelling or use the full name, ya muppet!",
+                            color=0xff6600
+                        )
+                        embed.set_footer(text="Harry's Player Lookup 🏈")
+                        await message.channel.send(embed=embed)
+                    return
+
+                except Exception as e:
+                    logger.error(f"❌ Error in player lookup: {e}", exc_info=True)
+                    await thinking_msg.edit(content=f"❌ Error looking up player: {str(e)}")
+                    return
 
             # Check if this is a rule scan request (e.g., "scan #channel for rules")
             rule_scan_patterns = [
@@ -2280,6 +2345,64 @@ async def search_charter(interaction: discord.Interaction, search_term: str):
     )
 
     await interaction.followup.send(embed=embed)
+
+
+@bot.tree.command(name="player", description="Look up a college football player's stats and info")
+async def lookup_player(
+    interaction: discord.Interaction,
+    name: str,
+    team: str = None
+):
+    """
+    Look up player info from CollegeFootballData.com
+
+    Args:
+        name: Player name to search for (e.g., "James Smith")
+        team: Optional team name to filter results (e.g., "Alabama")
+    """
+    if not player_lookup.is_available:
+        await interaction.response.send_message(
+            "❌ Player lookup is not configured. CFB_DATA_API_KEY is missing.",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer()
+
+    logger.info(f"🏈 /player command from {interaction.user}: {name}" + (f" from {team}" if team else ""))
+
+    try:
+        player_info = await player_lookup.get_full_player_info(name, team)
+
+        if player_info:
+            response = player_lookup.format_player_response(player_info)
+            embed = discord.Embed(
+                title="🏈 Player Info",
+                description=response,
+                color=0x1e90ff
+            )
+
+            # Check if it's an Oregon player and add snark
+            player_team = player_info.get('player', {}).get('team', '').lower()
+            if 'oregon' in player_team and 'oregon state' not in player_team:
+                embed.set_footer(text="Harry's Player Lookup 🏈 | Though why you'd care about a Duck is beyond me...")
+            else:
+                embed.set_footer(text="Harry's Player Lookup 🏈 | Data from CollegeFootballData.com")
+
+            await interaction.followup.send(embed=embed)
+        else:
+            embed = discord.Embed(
+                title="❓ Player Not Found",
+                description=f"Couldn't find a player matching **{name}**" + (f" from **{team}**" if team else "") + ".\n\nTry checking the spelling or use the full name, ya muppet!",
+                color=0xff6600
+            )
+            embed.set_footer(text="Harry's Player Lookup 🏈")
+            await interaction.followup.send(embed=embed)
+
+    except Exception as e:
+        logger.error(f"❌ Error in /player command: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error looking up player: {str(e)}", ephemeral=True)
+
 
 @bot.tree.command(name="harry", description="Ask Harry (the bot) about league rules and policies")
 async def ask_harry(interaction: discord.Interaction, question: str):
