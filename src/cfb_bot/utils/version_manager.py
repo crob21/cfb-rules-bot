@@ -11,10 +11,29 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.8.0"
+CURRENT_VERSION = "1.8.1"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.8.1": {
+        "date": "2026-01-08",
+        "title": "Bulk Player Lookup",
+        "emoji": "📋",
+        "features": [
+            {
+                "category": "Bulk Player Lookup",
+                "emoji": "📋",
+                "changes": [
+                    "NEW: Look up multiple players at once!",
+                    "/players command for slash interface",
+                    "Natural language: just paste a list to @Harry",
+                    "Supports various formats: Name (Team Pos), Name from Team, etc.",
+                    "Parallel lookups for speed (up to 15 players)",
+                    "Compact display with key stats and recruiting info"
+                ]
+            }
+        ]
+    },
     "1.8.0": {
         "date": "2026-01-08",
         "title": "Per-Server Feature Configuration",

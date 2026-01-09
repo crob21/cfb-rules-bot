@@ -1577,6 +1577,267 @@ class CFBDataLookup:
         # Fall through to player query handling in bot.py
         return {'type': None}
 
+    # ==================== BULK PLAYER LOOKUP ====================
+
+    def parse_player_list(self, text: str) -> List[Dict[str, Optional[str]]]:
+        """
+        Parse a list of players in various formats.
+        
+        Supported formats:
+        - James Smith (Bama DT)
+        - Braden Atkinson (Mercer QB)
+        - Vandrevius Jacobs (WR - Cocks)
+        - Dre'Lon Miller (WR Colorado)
+        - Isaiah Horton, Alabama, WR
+        - James Smith from Alabama
+        
+        Returns list of dicts with 'name', 'team', 'position'
+        """
+        players = []
+        
+        # Split by newlines, commas at line level, or semicolons
+        lines = re.split(r'[\n;]|(?:,\s*(?=[A-Z][a-z]+\s+[A-Z]))', text.strip())
+        
+        for line in lines:
+            line = line.strip()
+            if not line or len(line) < 3:
+                continue
+            
+            # Remove bullet points, numbers, dashes at start
+            line = re.sub(r'^[\-\*•\d\.\)]+\s*', '', line)
+            
+            player = {'name': None, 'team': None, 'position': None}
+            
+            # Pattern 1: Name (Team Position) or Name (Position - Team) or Name (Position Team)
+            match = re.match(r'^([A-Za-z\'\-\s]+?)\s*\(([^)]+)\)\s*$', line)
+            if match:
+                player['name'] = match.group(1).strip()
+                parens = match.group(2).strip()
+                
+                # Parse the parenthetical - could be "Bama DT", "DT - Cocks", "WR Colorado", etc.
+                # Common positions
+                positions = ['QB', 'RB', 'WR', 'TE', 'OL', 'OT', 'OG', 'C', 'DL', 'DT', 'DE', 'LB', 'CB', 'S', 'DB', 'K', 'P', 'LS', 'ATH']
+                
+                # Check for "Position - Team" or "Team Position" or "Position Team"
+                for pos in positions:
+                    if pos in parens.upper():
+                        player['position'] = pos
+                        # Remove position and delimiters to get team
+                        team_part = re.sub(rf'\b{pos}\b', '', parens, flags=re.IGNORECASE)
+                        team_part = re.sub(r'[\-\s]+', ' ', team_part).strip()
+                        if team_part:
+                            player['team'] = team_part
+                        break
+                else:
+                    # No position found, assume it's all team
+                    player['team'] = parens
+                
+                players.append(player)
+                continue
+            
+            # Pattern 2: Name, Team, Position or Name from Team
+            if ',' in line:
+                parts = [p.strip() for p in line.split(',')]
+                if len(parts) >= 2:
+                    player['name'] = parts[0]
+                    player['team'] = parts[1]
+                    if len(parts) >= 3:
+                        player['position'] = parts[2].upper()
+                    players.append(player)
+                    continue
+            
+            # Pattern 3: Name from Team
+            match = re.match(r'^([A-Za-z\'\-\s]+?)\s+(?:from|at|@)\s+(.+)$', line, re.IGNORECASE)
+            if match:
+                player['name'] = match.group(1).strip()
+                player['team'] = match.group(2).strip()
+                players.append(player)
+                continue
+            
+            # Pattern 4: Just a name
+            if re.match(r'^[A-Za-z\'\-\s]+$', line) and len(line.split()) >= 2:
+                player['name'] = line.strip()
+                players.append(player)
+        
+        # Clean up and title case
+        for p in players:
+            if p['name']:
+                p['name'] = p['name'].title().strip()
+            if p['team']:
+                p['team'] = p['team'].title().strip()
+        
+        logger.info(f"✅ Parsed {len(players)} players from list")
+        return players
+
+    async def lookup_multiple_players(self, player_list: List[Dict[str, Optional[str]]]) -> List[Dict[str, Any]]:
+        """
+        Look up multiple players in parallel.
+        
+        Args:
+            player_list: List of dicts with 'name' and optional 'team'
+            
+        Returns:
+            List of results, each with 'query' (original) and 'result' (player info or None)
+        """
+        if not self.is_available:
+            return []
+        
+        async def lookup_one(player_query: Dict) -> Dict[str, Any]:
+            name = player_query.get('name')
+            team = player_query.get('team')
+            
+            if not name:
+                return {'query': player_query, 'result': None, 'error': 'No name provided'}
+            
+            try:
+                result = await self.get_full_player_info(name, team)
+                return {'query': player_query, 'result': result, 'error': None}
+            except Exception as e:
+                logger.error(f"Error looking up {name}: {e}")
+                return {'query': player_query, 'result': None, 'error': str(e)}
+        
+        # Look up all players in parallel (but limit concurrency)
+        semaphore = asyncio.Semaphore(5)  # Max 5 concurrent requests
+        
+        async def lookup_with_limit(player_query):
+            async with semaphore:
+                return await lookup_one(player_query)
+        
+        tasks = [lookup_with_limit(p) for p in player_list]
+        results = await asyncio.gather(*tasks)
+        
+        found = sum(1 for r in results if r.get('result'))
+        logger.info(f"✅ Bulk lookup complete: {found}/{len(player_list)} players found")
+        
+        return results
+
+    def format_bulk_player_response(self, results: List[Dict[str, Any]]) -> str:
+        """Format bulk player lookup results for Discord"""
+        if not results:
+            return "No players to look up!"
+        
+        parts = []
+        found_count = 0
+        not_found = []
+        
+        for r in results:
+            query = r.get('query', {})
+            result = r.get('result')
+            name = query.get('name', 'Unknown')
+            team = query.get('team', '')
+            
+            if result:
+                found_count += 1
+                player = result.get('player', {})
+                all_stats = result.get('all_stats', {})
+                recruiting = result.get('recruiting')
+                
+                # Build compact player line
+                p_name = f"{player.get('first_name', '')} {player.get('last_name', '')}".strip()
+                p_team = player.get('team', 'N/A')
+                p_pos = player.get('position', '?')
+                p_year = player.get('year', '')
+                
+                # Height/weight
+                height = player.get('height')
+                weight = player.get('weight')
+                size = ""
+                if height and height > 12:
+                    feet = int(height) // 12
+                    inches = int(height) % 12
+                    size = f"{feet}'{inches}\""
+                if weight:
+                    size += f" {weight}lbs" if size else f"{weight}lbs"
+                
+                # Header line
+                parts.append(f"**{p_name}** - {p_team} ({p_pos})")
+                
+                # Vitals line
+                vitals = []
+                if p_year:
+                    vitals.append(p_year)
+                if size:
+                    vitals.append(size)
+                if vitals:
+                    parts.append(f"   {' | '.join(vitals)}")
+                
+                # Stats summary (most recent year only for bulk)
+                if all_stats:
+                    latest_year = max(all_stats.keys())
+                    stats = all_stats[latest_year]
+                    stat_line = self._format_compact_stats(stats, latest_year)
+                    if stat_line:
+                        parts.append(f"   {stat_line}")
+                
+                # Recruiting (compact)
+                if recruiting:
+                    stars = "⭐" * (recruiting.get('stars') or 0)
+                    rating = recruiting.get('rating')
+                    if stars or rating:
+                        rec_line = f"   🎯 {stars}"
+                        if rating:
+                            rec_line += f" ({rating:.3f})"
+                        parts.append(rec_line)
+                
+                parts.append("")  # Blank line between players
+            else:
+                not_found.append(f"{name}" + (f" ({team})" if team else ""))
+        
+        # Add not found section
+        if not_found:
+            parts.append("**❌ Not Found:**")
+            for nf in not_found:
+                parts.append(f"   • {nf}")
+        
+        # Summary
+        summary = f"📊 **Found {found_count}/{len(results)} players**"
+        
+        return summary + "\n\n" + "\n".join(parts)
+
+    def _format_compact_stats(self, stats: Dict, year: int) -> str:
+        """Format stats compactly for bulk display"""
+        stat_parts = []
+        
+        # Passing
+        passing = stats.get('passing', {})
+        if passing:
+            yards = passing.get('YDS', passing.get('yards', 0))
+            tds = passing.get('TD', passing.get('touchdowns', 0))
+            if yards or tds:
+                stat_parts.append(f"📊 {year}: {yards} pass yds, {tds} TD")
+                return " | ".join(stat_parts)
+        
+        # Rushing
+        rushing = stats.get('rushing', {})
+        if rushing:
+            yards = rushing.get('YDS', rushing.get('yards', 0))
+            tds = rushing.get('TD', rushing.get('touchdowns', 0))
+            if yards or tds:
+                stat_parts.append(f"📊 {year}: {yards} rush yds, {tds} TD")
+                return " | ".join(stat_parts)
+        
+        # Receiving
+        receiving = stats.get('receiving', {})
+        if receiving:
+            rec = receiving.get('REC', receiving.get('receptions', 0))
+            yards = receiving.get('YDS', receiving.get('yards', 0))
+            tds = receiving.get('TD', receiving.get('touchdowns', 0))
+            if rec or yards:
+                stat_parts.append(f"📊 {year}: {rec} rec, {yards} yds, {tds} TD")
+                return " | ".join(stat_parts)
+        
+        # Defense
+        defense = stats.get('defense', {})
+        if defense:
+            tackles = defense.get('SOLO', 0) + defense.get('AST', 0)
+            tfl = defense.get('TFL', 0)
+            sacks = defense.get('SACKS', defense.get('SK', 0))
+            if tackles or tfl or sacks:
+                stat_parts.append(f"📊 {year}: {tackles} tkl, {tfl} TFL, {sacks} sacks")
+                return " | ".join(stat_parts)
+        
+        return ""
+
 
 # Backward compatibility alias
 PlayerLookup = CFBDataLookup

@@ -56,17 +56,17 @@ async def check_module_enabled(interaction: discord.Interaction, module: Feature
     """
     if not interaction.guild:
         return True  # Allow in DMs
-    
+
     if server_config.is_module_enabled(interaction.guild.id, module):
         return True
-    
+
     # Module is disabled - send helpful message
     module_names = {
         FeatureModule.CFB_DATA: "CFB Data",
         FeatureModule.LEAGUE: "League Features",
     }
     name = module_names.get(module, module.value)
-    
+
     await interaction.response.send_message(
         f"❌ **{name}** module is not enabled on this server.\n"
         f"An admin can enable it with: `/config enable {module.value}`",
@@ -938,15 +938,65 @@ async def on_message(message):
             # Check if this is a CFB data query (player, rankings, matchup, etc.)
             if bot_mentioned and player_lookup.is_available:
                 message_lower = message.content.lower()
+
+                # Check for bulk player lookup (multiple lines with player names)
+                bulk_indicators = ['look up these', 'lookup these', 'find these', 'check these', 'these players', 'player list']
+                content_lines = message.content.strip().split('\n')
                 
+                # Detect bulk lookup: either explicit request or multiple lines with player-like content
+                is_bulk_request = any(ind in message_lower for ind in bulk_indicators)
+                has_multiple_players = len(content_lines) >= 3 and any('(' in line for line in content_lines)
+                
+                if is_bulk_request or has_multiple_players:
+                    # Try to parse as player list
+                    player_list = player_lookup.parse_player_list(message.content)
+                    
+                    if len(player_list) >= 2:
+                        logger.info(f"🏈 Bulk player lookup: {len(player_list)} players detected")
+                        thinking_msg = await message.channel.send(f"🔍 Looking up {len(player_list)} players, hang on...")
+                        
+                        try:
+                            results = await player_lookup.lookup_multiple_players(player_list)
+                            response = player_lookup.format_bulk_player_response(results)
+                            
+                            await thinking_msg.delete()
+                            
+                            # Split into multiple messages if too long
+                            if len(response) > 4000:
+                                # Send as multiple embeds
+                                chunks = [response[i:i+4000] for i in range(0, len(response), 4000)]
+                                for i, chunk in enumerate(chunks):
+                                    embed = discord.Embed(
+                                        title="🏈 Player Lookup Results" + (f" (Part {i+1})" if len(chunks) > 1 else ""),
+                                        description=chunk,
+                                        color=0x1e90ff
+                                    )
+                                    if i == len(chunks) - 1:
+                                        embed.set_footer(text="Harry's Bulk Lookup 🏈 | Data from CollegeFootballData.com")
+                                    await message.channel.send(embed=embed)
+                            else:
+                                embed = discord.Embed(
+                                    title="🏈 Player Lookup Results",
+                                    description=response,
+                                    color=0x1e90ff
+                                )
+                                embed.set_footer(text="Harry's Bulk Lookup 🏈 | Data from CollegeFootballData.com")
+                                await message.channel.send(embed=embed)
+                            return
+                            
+                        except Exception as e:
+                            logger.error(f"❌ Error in bulk player lookup: {e}", exc_info=True)
+                            await thinking_msg.edit(content=f"❌ Error looking up players: {str(e)}")
+                            return
+
                 # First check if it's a CFB data query using our comprehensive parser
                 cfb_query = player_lookup.parse_cfb_query(message.content)
                 query_type = cfb_query.get('type')
-                
+
                 if query_type:
                     logger.info(f"🏈 CFB query detected - type: {query_type}, data: {cfb_query}")
                     thinking_msg = await message.channel.send(f"🔍 Looking that up, hang on...")
-                    
+
                     try:
                         if query_type == 'rankings':
                             team = cfb_query.get('team')
@@ -963,7 +1013,7 @@ async def on_message(message):
                             embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
                             await message.channel.send(embed=embed)
                             return
-                        
+
                         elif query_type == 'matchup':
                             team1 = cfb_query.get('team1')
                             team2 = cfb_query.get('team2')
@@ -974,7 +1024,7 @@ async def on_message(message):
                             embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
                             await message.channel.send(embed=embed)
                             return
-                        
+
                         elif query_type == 'schedule':
                             team = cfb_query.get('team')
                             result = await player_lookup.get_team_schedule(team)
@@ -984,7 +1034,7 @@ async def on_message(message):
                             embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
                             await message.channel.send(embed=embed)
                             return
-                        
+
                         elif query_type == 'draft':
                             team = cfb_query.get('team')
                             result = await player_lookup.get_draft_picks(team)
@@ -994,7 +1044,7 @@ async def on_message(message):
                             embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
                             await message.channel.send(embed=embed)
                             return
-                        
+
                         elif query_type == 'transfers':
                             team = cfb_query.get('team')
                             result = await player_lookup.get_team_transfers(team)
@@ -1004,7 +1054,7 @@ async def on_message(message):
                             embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
                             await message.channel.send(embed=embed)
                             return
-                        
+
                         elif query_type == 'betting':
                             team1 = cfb_query.get('team1')
                             team2 = cfb_query.get('team2')
@@ -1015,7 +1065,7 @@ async def on_message(message):
                             embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
                             await message.channel.send(embed=embed)
                             return
-                        
+
                         elif query_type == 'ratings':
                             team = cfb_query.get('team')
                             result = await player_lookup.get_team_ratings(team)
@@ -1025,12 +1075,12 @@ async def on_message(message):
                             embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
                             await message.channel.send(embed=embed)
                             return
-                        
+
                     except Exception as e:
                         logger.error(f"❌ Error in CFB query: {e}", exc_info=True)
                         await thinking_msg.edit(content=f"❌ Error looking that up: {str(e)}")
                         return
-                
+
                 # Fall back to player lookup if no other query type matched
                 player_keywords = ['from', 'player', 'stats', 'what do you know', 'tell me about', 'who is', 'info on', 'lookup']
                 # Check for player-related queries (but not league rule queries)
@@ -1946,7 +1996,7 @@ async def charter(interaction: discord.Interaction):
     # Check if league module is enabled
     if not await check_module_enabled(interaction, FeatureModule.LEAGUE):
         return
-    
+
     embed = discord.Embed(
         title="📋 CFB 26 League Charter",
         description="Official league rules, policies, and guidelines",
@@ -2487,7 +2537,7 @@ async def lookup_player(
     """
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
-    
+
     if not player_lookup.is_available:
         await interaction.response.send_message(
             "❌ Player lookup is not configured. CFB_DATA_API_KEY is missing.",
@@ -2537,18 +2587,18 @@ async def lookup_player(
         await interaction.followup.send(f"❌ Error looking up player: {str(e)}", ephemeral=True)
 
 
-@bot.tree.command(name="rankings", description="Get college football rankings (AP, Coaches, CFP)")
-async def get_rankings(
+@bot.tree.command(name="players", description="Look up multiple players at once")
+async def lookup_players_bulk(
     interaction: discord.Interaction,
-    team: str = None,
-    year: int = 2025
+    player_list: str
 ):
     """
-    Get CFB rankings - optionally filter by team
+    Look up multiple players at once.
     
     Args:
-        team: Optional team to check ranking for
-        year: Year to check (default: 2025)
+        player_list: List of players separated by commas or semicolons.
+                     Format: "Name (Team Position)" or "Name, Team"
+                     Example: "James Smith (Bama DT); Isaiah Horton (Bama WR)"
     """
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
@@ -2560,8 +2610,87 @@ async def get_rankings(
         )
         return
 
+    # Parse the player list
+    players = player_lookup.parse_player_list(player_list)
+    
+    if not players:
+        await interaction.response.send_message(
+            "❌ Couldn't parse any players from that list, mate!\n\n"
+            "**Supported formats:**\n"
+            "• `James Smith (Bama DT)`\n"
+            "• `Isaiah Horton, Alabama, WR`\n"
+            "• `Dre'Lon Miller (WR Colorado)`\n\n"
+            "Separate multiple players with `;` or put each on a new line.",
+            ephemeral=True
+        )
+        return
+    
+    if len(players) > 15:
+        await interaction.response.send_message(
+            f"❌ That's {len(players)} players - max is 15 at a time to avoid rate limits!",
+            ephemeral=True
+        )
+        return
+
     await interaction.response.defer()
     
+    logger.info(f"🏈 /players bulk lookup from {interaction.user}: {len(players)} players")
+
+    try:
+        results = await player_lookup.lookup_multiple_players(players)
+        response = player_lookup.format_bulk_player_response(results)
+        
+        # Split into multiple messages if too long
+        if len(response) > 4000:
+            chunks = [response[i:i+4000] for i in range(0, len(response), 4000)]
+            for i, chunk in enumerate(chunks):
+                embed = discord.Embed(
+                    title="🏈 Player Lookup Results" + (f" (Part {i+1})" if len(chunks) > 1 else ""),
+                    description=chunk,
+                    color=0x1e90ff
+                )
+                if i == len(chunks) - 1:
+                    embed.set_footer(text="Harry's Bulk Lookup 🏈 | Data from CollegeFootballData.com")
+                await interaction.followup.send(embed=embed)
+        else:
+            embed = discord.Embed(
+                title="🏈 Player Lookup Results",
+                description=response,
+                color=0x1e90ff
+            )
+            embed.set_footer(text="Harry's Bulk Lookup 🏈 | Data from CollegeFootballData.com")
+            await interaction.followup.send(embed=embed)
+
+    except Exception as e:
+        logger.error(f"❌ Error in /players command: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error looking up players: {str(e)}", ephemeral=True)
+
+
+@bot.tree.command(name="rankings", description="Get college football rankings (AP, Coaches, CFP)")
+async def get_rankings(
+    interaction: discord.Interaction,
+    team: str = None,
+    year: int = 2025
+):
+    """
+    Get CFB rankings - optionally filter by team
+
+    Args:
+        team: Optional team to check ranking for
+        year: Year to check (default: 2025)
+    """
+    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+        return
+
+    if not player_lookup.is_available:
+        await interaction.response.send_message(
+            "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer()
+
     try:
         if team:
             result = await player_lookup.get_team_ranking(team, year)
@@ -2571,11 +2700,11 @@ async def get_rankings(
             result = await player_lookup.get_rankings(year)
             response = player_lookup.format_rankings(result)
             title = f"📊 College Football Rankings ({year})"
-        
+
         embed = discord.Embed(title=title, description=response, color=0x1e90ff)
         embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
         await interaction.followup.send(embed=embed)
-        
+
     except Exception as e:
         logger.error(f"❌ Error in /rankings: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
@@ -2589,14 +2718,14 @@ async def get_matchup(
 ):
     """
     Get all-time matchup history between two teams
-    
+
     Args:
         team1: First team (e.g., "Alabama")
         team2: Second team (e.g., "Auburn")
     """
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
-    
+
     if not player_lookup.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
@@ -2605,11 +2734,11 @@ async def get_matchup(
         return
 
     await interaction.response.defer()
-    
+
     try:
         result = await player_lookup.get_matchup_history(team1, team2)
         response = player_lookup.format_matchup(result)
-        
+
         embed = discord.Embed(
             title=f"🏈 {team1} vs {team2}",
             description=response,
@@ -2617,7 +2746,7 @@ async def get_matchup(
         )
         embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
         await interaction.followup.send(embed=embed)
-        
+
     except Exception as e:
         logger.error(f"❌ Error in /matchup: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
@@ -2631,14 +2760,14 @@ async def get_cfb_schedule(
 ):
     """
     Get a team's full schedule for a season
-    
+
     Args:
         team: Team name (e.g., "Nebraska")
         year: Season year (default: 2025)
     """
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
-    
+
     if not player_lookup.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
@@ -2647,11 +2776,11 @@ async def get_cfb_schedule(
         return
 
     await interaction.response.defer()
-    
+
     try:
         result = await player_lookup.get_team_schedule(team, year)
         response = player_lookup.format_schedule(result, team)
-        
+
         embed = discord.Embed(
             title=f"📅 {team} Schedule ({year})",
             description=response,
@@ -2659,7 +2788,7 @@ async def get_cfb_schedule(
         )
         embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
         await interaction.followup.send(embed=embed)
-        
+
     except Exception as e:
         logger.error(f"❌ Error in /cfb_schedule: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
@@ -2673,14 +2802,14 @@ async def get_draft_picks(
 ):
     """
     Get NFL draft picks, optionally filtered by college
-    
+
     Args:
         team: Optional college team to filter by
         year: Draft year (default: 2025)
     """
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
-    
+
     if not player_lookup.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
@@ -2689,16 +2818,16 @@ async def get_draft_picks(
         return
 
     await interaction.response.defer()
-    
+
     try:
         result = await player_lookup.get_draft_picks(team, year)
         response = player_lookup.format_draft_picks(result, team)
-        
+
         title = f"🏈 {year} NFL Draft Picks" + (f" from {team}" if team else "")
         embed = discord.Embed(title=title, description=response, color=0x1e90ff)
         embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
         await interaction.followup.send(embed=embed)
-        
+
     except Exception as e:
         logger.error(f"❌ Error in /draft_picks: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
@@ -2712,14 +2841,14 @@ async def get_transfers(
 ):
     """
     Get transfer portal incoming and outgoing for a team
-    
+
     Args:
         team: Team name (e.g., "USC")
         year: Year to check (default: 2025)
     """
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
-    
+
     if not player_lookup.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
@@ -2728,11 +2857,11 @@ async def get_transfers(
         return
 
     await interaction.response.defer()
-    
+
     try:
         result = await player_lookup.get_team_transfers(team, year)
         response = player_lookup.format_transfers(result, team)
-        
+
         embed = discord.Embed(
             title=f"🔄 {team} Transfer Portal ({year})",
             description=response,
@@ -2740,7 +2869,7 @@ async def get_transfers(
         )
         embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
         await interaction.followup.send(embed=embed)
-        
+
     except Exception as e:
         logger.error(f"❌ Error in /transfers: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
@@ -2755,7 +2884,7 @@ async def get_betting(
 ):
     """
     Get betting lines for games
-    
+
     Args:
         team: Optional team to filter by
         year: Season year (default: 2025)
@@ -2763,7 +2892,7 @@ async def get_betting(
     """
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
-    
+
     if not player_lookup.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
@@ -2772,21 +2901,21 @@ async def get_betting(
         return
 
     await interaction.response.defer()
-    
+
     try:
         result = await player_lookup.get_betting_lines(team, year, week)
         response = player_lookup.format_betting_lines(result)
-        
+
         title = "💰 Betting Lines"
         if team:
             title += f" - {team}"
         if week:
             title += f" (Week {week})"
-            
+
         embed = discord.Embed(title=title, description=response, color=0x1e90ff)
         embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
         await interaction.followup.send(embed=embed)
-        
+
     except Exception as e:
         logger.error(f"❌ Error in /betting: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
@@ -2800,14 +2929,14 @@ async def get_team_ratings(
 ):
     """
     Get advanced analytics ratings for a team
-    
+
     Args:
         team: Team name (e.g., "Ohio State")
         year: Season year (default: 2025)
     """
     if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
         return
-    
+
     if not player_lookup.is_available:
         await interaction.response.send_message(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
@@ -2816,11 +2945,11 @@ async def get_team_ratings(
         return
 
     await interaction.response.defer()
-    
+
     try:
         result = await player_lookup.get_team_ratings(team, year)
         response = player_lookup.format_ratings(result)
-        
+
         embed = discord.Embed(
             title=f"📈 {team} Advanced Ratings ({year})",
             description=response,
@@ -2828,7 +2957,7 @@ async def get_team_ratings(
         )
         embed.set_footer(text="Harry's CFB Data 🏈 | Data from CollegeFootballData.com")
         await interaction.followup.send(embed=embed)
-        
+
     except Exception as e:
         logger.error(f"❌ Error in /team_ratings: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
@@ -3018,7 +3147,7 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
     # Check if league module is enabled
     if not await check_module_enabled(interaction, FeatureModule.LEAGUE):
         return
-    
+
     # Check if user is admin
     if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
         await interaction.response.send_message("❌ You need to be a bot admin to start countdowns, ya muppet!", ephemeral=True)
@@ -3118,7 +3247,7 @@ async def check_time_status(interaction: discord.Interaction):
     # Check if league module is enabled
     if not await check_module_enabled(interaction, FeatureModule.LEAGUE):
         return
-    
+
     # Defer immediately to prevent timeout
     try:
         await interaction.response.defer()
@@ -3436,7 +3565,7 @@ async def view_schedule(interaction: discord.Interaction, week: Optional[int] = 
     # Check if league module is enabled
     if not await check_module_enabled(interaction, FeatureModule.LEAGUE):
         return
-    
+
     if not schedule_manager:
         await interaction.response.send_message("❌ Schedule manager not available", ephemeral=True)
         return
@@ -4766,7 +4895,7 @@ async def config_command(
 ):
     """
     Configure which features Harry has enabled on this server.
-    
+
     Modules:
     - core: Always enabled - Harry's personality, general AI chat
     - cfb_data: Player lookup, rankings, matchups, schedules, draft, transfers
@@ -4775,9 +4904,9 @@ async def config_command(
     if not interaction.guild:
         await interaction.response.send_message("❌ This command only works in servers, not DMs!", ephemeral=True)
         return
-    
+
     guild_id = interaction.guild.id
-    
+
     # Check admin for enable/disable
     if action in ["enable", "disable"]:
         is_admin = (
@@ -4790,65 +4919,65 @@ async def config_command(
                 ephemeral=True
             )
             return
-    
+
     if action == "view":
         # Show current configuration
         enabled = server_config.get_enabled_modules(guild_id)
-        
+
         embed = discord.Embed(
             title="⚙️ Harry's Configuration",
             description=f"Feature settings for **{interaction.guild.name}**",
             color=0x1e90ff
         )
-        
+
         for mod in FeatureModule:
             is_enabled = mod.value in enabled
             status = "✅ Enabled" if is_enabled else "❌ Disabled"
             if mod == FeatureModule.CORE:
                 status = "✅ Always On"
-            
+
             desc = server_config.get_module_description(mod)
             commands = server_config.get_module_commands(mod)
             cmd_list = ", ".join([f"`/{c}`" for c in commands[:5]])
             if len(commands) > 5:
                 cmd_list += f" +{len(commands) - 5} more"
-            
+
             embed.add_field(
                 name=f"{desc}",
                 value=f"**Status:** {status}\n**Commands:** {cmd_list}",
                 inline=False
             )
-        
+
         embed.add_field(
             name="💡 How to Change",
             value="`/config enable cfb_data` - Enable CFB data features\n`/config disable league` - Disable dynasty features",
             inline=False
         )
-        
+
         embed.set_footer(text="Harry's Server Config 🏈")
         await interaction.response.send_message(embed=embed)
-    
+
     elif action == "enable":
         if not module:
             await interaction.response.send_message("❌ Please specify a module to enable!", ephemeral=True)
             return
-        
+
         try:
             mod = FeatureModule(module)
         except ValueError:
             await interaction.response.send_message(f"❌ Unknown module: {module}", ephemeral=True)
             return
-        
+
         if mod == FeatureModule.CORE:
             await interaction.response.send_message("Core features are always enabled, mate! Can't turn off my personality! 😎", ephemeral=True)
             return
-        
+
         server_config.enable_module(guild_id, mod)
         await server_config.save_to_discord()
-        
+
         commands = server_config.get_module_commands(mod)
         cmd_list = ", ".join([f"`/{c}`" for c in commands[:8]])
-        
+
         embed = discord.Embed(
             title="✅ Module Enabled!",
             description=f"**{mod.value.upper()}** features are now enabled for this server!",
@@ -4861,25 +4990,25 @@ async def config_command(
         )
         embed.set_footer(text="Harry's Server Config 🏈")
         await interaction.response.send_message(embed=embed)
-    
+
     elif action == "disable":
         if not module:
             await interaction.response.send_message("❌ Please specify a module to disable!", ephemeral=True)
             return
-        
+
         try:
             mod = FeatureModule(module)
         except ValueError:
             await interaction.response.send_message(f"❌ Unknown module: {module}", ephemeral=True)
             return
-        
+
         if mod == FeatureModule.CORE:
             await interaction.response.send_message("Nice try, but you can't turn off my personality! I'm always here, mate! 😏", ephemeral=True)
             return
-        
+
         server_config.disable_module(guild_id, mod)
         await server_config.save_to_discord()
-        
+
         embed = discord.Embed(
             title="❌ Module Disabled",
             description=f"**{mod.value.upper()}** features are now disabled for this server.",
