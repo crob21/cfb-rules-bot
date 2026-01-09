@@ -11,10 +11,27 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.15.2"
+CURRENT_VERSION = "1.15.3"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.15.3": {
+        "date": "2026-01-09",
+        "title": "Interaction Timeout Fix",
+        "emoji": "⚡",
+        "features": [
+            {
+                "category": "Bug Fixes",
+                "emoji": "⚡",
+                "changes": [
+                    "Fixed 'Unknown interaction' timeout errors on CFB data commands",
+                    "All API commands now defer() FIRST before module checks",
+                    "Added check_module_enabled_deferred() for post-defer validation",
+                    "Prevents Discord's 3-second response window from expiring"
+                ]
+            }
+        ]
+    },
     "1.15.2": {
         "date": "2026-01-09",
         "title": "Timer Notification Fix",

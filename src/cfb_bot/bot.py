@@ -301,6 +301,7 @@ async def check_module_enabled(interaction, module) -> bool:
     """
     Check if a module is enabled for this server.
     Returns True if enabled, False if disabled (and sends error message).
+    Use this BEFORE defer() - uses interaction.response
     """
     if not interaction.guild:
         return True  # Allow in DMs
@@ -317,6 +318,34 @@ async def check_module_enabled(interaction, module) -> bool:
     name = module_names.get(module, module.value)
 
     await interaction.response.send_message(
+        f"❌ **{name}** module is not enabled on this server.\n"
+        f"An admin can enable it with: `/config enable {module.value}`",
+        ephemeral=True
+    )
+    return False
+
+
+async def check_module_enabled_deferred(interaction, module) -> bool:
+    """
+    Check if a module is enabled for this server (for use AFTER defer()).
+    Returns True if enabled, False if disabled (and sends error message).
+    Use this AFTER defer() - uses interaction.followup
+    """
+    if not interaction.guild:
+        return True  # Allow in DMs
+
+    if server_config.is_module_enabled(interaction.guild.id, module):
+        return True
+
+    # Module is disabled - send helpful message
+    module_names = {
+        FeatureModule.CFB_DATA: "CFB Data",
+        FeatureModule.LEAGUE: "League Features",
+        FeatureModule.HS_STATS: "High School Stats",
+    }
+    name = module_names.get(module, module.value)
+
+    await interaction.followup.send(
         f"❌ **{name}** module is not enabled on this server.\n"
         f"An admin can enable it with: `/config enable {module.value}`",
         ephemeral=True
@@ -2134,12 +2163,12 @@ async def on_reaction_add(reaction, user):
         # Duck emoji - Oregon rivalry (only if auto_responses is on)
         reaction_guild_id = reaction.message.guild.id if reaction.message.guild else 0
         if server_config.auto_responses_enabled(reaction_guild_id):
-            embed = discord.Embed(
-                title="🦆 Oregon Sucks!",
-                description="Oregon sucks! 🦆💩\n\nBut CFB 26 rules are awesome! Ask me about them!",
+        embed = discord.Embed(
+            title="🦆 Oregon Sucks!",
+            description="Oregon sucks! 🦆💩\n\nBut CFB 26 rules are awesome! Ask me about them!",
                 color=Colors.PRIMARY
-            )
-            await reaction.message.channel.send(embed=embed)
+        )
+        await reaction.message.channel.send(embed=embed)
 
     elif reaction.emoji == '🐕':
         # Dog emoji - Huskies support
@@ -2855,17 +2884,18 @@ async def lookup_player(
         name: Player name to search for (e.g., "James Smith")
         team: Optional team name to filter results (e.g., "Alabama")
     """
-    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+    # Defer FIRST to avoid interaction timeout (3 sec limit)
+    await interaction.response.defer()
+
+    if not await check_module_enabled_deferred(interaction, FeatureModule.CFB_DATA):
         return
 
     if not cfb_data.is_available:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ Player lookup is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
         )
         return
-
-    await interaction.response.defer()
 
     logger.info(f"🏈 /player command from {interaction.user}: {name}" + (f" from {team}" if team else ""))
 
@@ -2920,11 +2950,14 @@ async def lookup_players_bulk(
                      Format: "Name (Team Position)" or "Name, Team"
                      Example: "James Smith (Bama DT); Isaiah Horton (Bama WR)"
     """
-    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+    # Defer FIRST to avoid interaction timeout (3 sec limit)
+    await interaction.response.defer()
+
+    if not await check_module_enabled_deferred(interaction, FeatureModule.CFB_DATA):
         return
 
     if not cfb_data.is_available:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
         )
@@ -2934,7 +2967,7 @@ async def lookup_players_bulk(
     players = cfb_data.parse_player_list(player_list)
 
     if not players:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ Couldn't parse any players from that list, mate!\n\n"
             "**Supported formats:**\n"
             "• `James Smith (Bama DT)`\n"
@@ -2946,13 +2979,11 @@ async def lookup_players_bulk(
         return
 
     if len(players) > 15:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"❌ That's {len(players)} players - max is 15 at a time to avoid rate limits!",
             ephemeral=True
         )
         return
-
-    await interaction.response.defer()
 
     logger.info(f"🏈 /players bulk lookup from {interaction.user}: {len(players)} players")
 
@@ -3005,17 +3036,18 @@ async def get_rankings(
         poll: Filter by poll name (AP, Coaches, CFP)
         top: How many teams to show per poll (default: 10, max: 25)
     """
-    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+    # Defer FIRST to avoid interaction timeout (3 sec limit)
+    await interaction.response.defer()
+
+    if not await check_module_enabled_deferred(interaction, FeatureModule.CFB_DATA):
         return
 
     if not cfb_data.is_available:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
         )
         return
-
-    await interaction.response.defer()
 
     # Clamp top to reasonable range
     top = max(1, min(25, top))
@@ -3085,17 +3117,18 @@ async def get_matchup(
         team1: First team (e.g., "Alabama")
         team2: Second team (e.g., "Auburn")
     """
-    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+    # Defer FIRST to avoid interaction timeout (3 sec limit)
+    await interaction.response.defer()
+
+    if not await check_module_enabled_deferred(interaction, FeatureModule.CFB_DATA):
         return
 
     if not cfb_data.is_available:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
         )
         return
-
-    await interaction.response.defer()
 
     try:
         result = await cfb_data.get_matchup_history(team1, team2)
@@ -3127,17 +3160,18 @@ async def get_cfb_schedule(
         team: Team name (e.g., "Nebraska")
         year: Season year (default: current season)
     """
-    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+    # Defer FIRST to avoid interaction timeout (3 sec limit)
+    await interaction.response.defer()
+
+    if not await check_module_enabled_deferred(interaction, FeatureModule.CFB_DATA):
         return
 
     if not cfb_data.is_available:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
         )
         return
-
-    await interaction.response.defer()
 
     try:
         result = await cfb_data.get_team_schedule(team, year)
@@ -3169,17 +3203,18 @@ async def get_draft_picks(
         team: Optional college team to filter by
         year: Draft year (default: current year)
     """
-    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+    # Defer FIRST to avoid interaction timeout (3 sec limit)
+    await interaction.response.defer()
+
+    if not await check_module_enabled_deferred(interaction, FeatureModule.CFB_DATA):
         return
 
     if not cfb_data.is_available:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
         )
         return
-
-    await interaction.response.defer()
 
     try:
         result = await cfb_data.get_draft_picks(team, year)
@@ -3208,17 +3243,18 @@ async def get_transfers(
         team: Team name (e.g., "USC")
         year: Year to check (default: current year)
     """
-    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+    # Defer FIRST to avoid interaction timeout (3 sec limit)
+    await interaction.response.defer()
+
+    if not await check_module_enabled_deferred(interaction, FeatureModule.CFB_DATA):
         return
 
     if not cfb_data.is_available:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
         )
         return
-
-    await interaction.response.defer()
 
     try:
         result = await cfb_data.get_team_transfers(team, year)
@@ -3252,17 +3288,18 @@ async def get_betting(
         year: Season year (default: current season)
         week: Optional week number
     """
-    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+    # Defer FIRST to avoid interaction timeout (3 sec limit)
+    await interaction.response.defer()
+
+    if not await check_module_enabled_deferred(interaction, FeatureModule.CFB_DATA):
         return
 
     if not cfb_data.is_available:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
         )
         return
-
-    await interaction.response.defer()
 
     try:
         result, query_info = await cfb_data.get_betting_lines(team, year, week)
@@ -3307,17 +3344,18 @@ async def get_team_ratings(
         team: Team name (e.g., "Ohio State")
         year: Season year (default: current season)
     """
-    if not await check_module_enabled(interaction, FeatureModule.CFB_DATA):
+    # Defer FIRST to avoid interaction timeout (3 sec limit)
+    await interaction.response.defer()
+
+    if not await check_module_enabled_deferred(interaction, FeatureModule.CFB_DATA):
         return
 
     if not cfb_data.is_available:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ CFB data is not configured. CFB_DATA_API_KEY is missing.",
             ephemeral=True
         )
         return
-
-    await interaction.response.defer()
 
     try:
         result = await cfb_data.get_team_ratings(team, year)
@@ -3356,18 +3394,19 @@ async def get_hs_stats(
         state: Optional state to narrow search (e.g., "Louisiana", "TX")
         school: Optional high school name to narrow search
     """
-    if not await check_module_enabled(interaction, FeatureModule.HS_STATS):
+    # Defer FIRST to avoid interaction timeout (3 sec limit)
+    await interaction.response.defer()
+
+    if not await check_module_enabled_deferred(interaction, FeatureModule.HS_STATS):
         return
 
     if not hs_stats_scraper.is_available:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ High school stats scraper is not available.\n"
             "Missing dependencies: `pip install httpx beautifulsoup4`",
             ephemeral=True
         )
         return
-
-    await interaction.response.defer()
 
     try:
         player_data = await hs_stats_scraper.lookup_player(name, state, school)
@@ -3422,18 +3461,19 @@ async def get_hs_stats_bulk(
                  Format: "Name (State/School), Name (State/School)"
                  Example: "Arch Manning (LA), Dylan Raiola (AZ)"
     """
-    if not await check_module_enabled(interaction, FeatureModule.HS_STATS):
+    # Defer FIRST to avoid interaction timeout (3 sec limit)
+    await interaction.response.defer()
+
+    if not await check_module_enabled_deferred(interaction, FeatureModule.HS_STATS):
         return
 
     if not hs_stats_scraper.is_available:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ High school stats scraper is not available.\n"
             "Missing dependencies: `pip install httpx beautifulsoup4`",
             ephemeral=True
         )
         return
-
-    await interaction.response.defer()
 
     try:
         import re
