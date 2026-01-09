@@ -5068,8 +5068,8 @@ async def config_command(
 @app_commands.choices(action=[
     app_commands.Choice(name="view - See channel settings", value="view"),
     app_commands.Choice(name="enable - Allow Harry in this channel", value="enable"),
-    app_commands.Choice(name="disable - Block Harry from this channel", value="disable"),
-    app_commands.Choice(name="enable_all - Allow Harry in ALL channels", value="enable_all"),
+    app_commands.Choice(name="disable - Remove Harry from this channel", value="disable"),
+    app_commands.Choice(name="disable_all - Remove Harry from ALL channels", value="disable_all"),
     app_commands.Choice(name="toggle_auto - Toggle auto-responses for this channel", value="toggle_auto"),
 ])
 async def channel_command(
@@ -5080,8 +5080,8 @@ async def channel_command(
     """
     Manage which channels Harry can respond in.
     
-    By default, Harry is enabled in ALL channels. Once you enable specific channels,
-    he'll ONLY respond in those channels (whitelist mode).
+    By default, Harry is DISABLED everywhere. You must explicitly enable
+    channels for him to respond in using /channel enable.
     """
     if not interaction.guild:
         await interaction.response.send_message("❌ This command only works in servers!", ephemeral=True)
@@ -5124,7 +5124,7 @@ async def channel_command(
             inline=False
         )
 
-        # Whitelist mode status
+        # Show enabled channels
         if enabled_channels:
             channel_mentions = []
             for ch_id in enabled_channels[:10]:
@@ -5135,23 +5135,23 @@ async def channel_command(
             if len(enabled_channels) > 10:
                 channels_text += f" +{len(enabled_channels) - 10} more"
             embed.add_field(
-                name="📋 Whitelist Mode",
-                value=f"Harry only responds in:\n{channels_text}",
+                name="📋 Enabled Channels",
+                value=f"Harry responds in:\n{channels_text}",
                 inline=False
             )
         else:
             embed.add_field(
-                name="🌐 All Channels Mode",
-                value="Harry responds in **all channels** (no whitelist set)",
+                name="🔇 No Channels Enabled",
+                value="Harry is **disabled everywhere**.\nUse `/channel enable` to enable him in specific channels.",
                 inline=False
             )
 
         embed.add_field(
             name="💡 Commands",
             value=(
-                "`/channel enable` - Add this channel to whitelist\n"
-                "`/channel disable` - Remove from whitelist\n"
-                "`/channel enable_all` - Clear whitelist (allow all)\n"
+                "`/channel enable` - Enable Harry in this channel\n"
+                "`/channel disable` - Disable Harry in this channel\n"
+                "`/channel disable_all` - Disable Harry everywhere\n"
                 "`/channel toggle_auto` - Toggle auto-responses here"
             ),
             inline=False
@@ -5164,19 +5164,19 @@ async def channel_command(
         server_config.enable_channel(guild_id, target_channel.id)
         await server_config.save_to_discord()
 
+        enabled_channels = server_config.get_enabled_channels(guild_id)
+
         embed = discord.Embed(
             title="✅ Channel Enabled",
             description=f"Harry can now respond in **#{target_channel.name}**!",
             color=0x00ff00
         )
         
-        enabled_channels = server_config.get_enabled_channels(guild_id)
-        if len(enabled_channels) == 1:
-            embed.add_field(
-                name="⚠️ Whitelist Mode Active",
-                value="Harry will **only** respond in whitelisted channels now.\nUse `/channel enable` in other channels to add them.",
-                inline=False
-            )
+        embed.add_field(
+            name="📋 Enabled Channels",
+            value=f"Harry is now active in **{len(enabled_channels)}** channel(s).",
+            inline=False
+        )
         
         embed.set_footer(text="Harry's Channel Config 🏈")
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -5193,30 +5193,36 @@ async def channel_command(
             color=0xff6600
         )
         
-        if not enabled_channels:
+        if enabled_channels:
             embed.add_field(
-                name="🌐 All Channels Mode",
-                value="Whitelist is now empty - Harry responds in **all channels** again.",
+                name="📋 Remaining Channels",
+                value=f"Harry is still active in **{len(enabled_channels)}** channel(s).",
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="🔇 Harry Disabled",
+                value="No channels enabled - Harry is now disabled everywhere.",
                 inline=False
             )
         
         embed.set_footer(text="Harry's Channel Config 🏈")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    elif action == "enable_all":
-        # Clear the whitelist to allow all channels
+    elif action == "disable_all":
+        # Clear the enabled channels list (disables Harry everywhere)
         config = server_config.get_config(guild_id)
         config["enabled_channels"] = []
         await server_config.save_to_discord()
 
         embed = discord.Embed(
-            title="🌐 All Channels Enabled",
-            description="Whitelist cleared! Harry can now respond in **all channels**.",
-            color=0x00ff00
+            title="🔇 Harry Disabled Everywhere",
+            description="Harry is now **disabled in all channels**.",
+            color=0xff6600
         )
         embed.add_field(
-            name="💡 To Restrict Again",
-            value="Use `/channel enable` in specific channels to start a whitelist.",
+            name="💡 To Enable Again",
+            value="Use `/channel enable` in the channels where you want Harry to respond.",
             inline=False
         )
         embed.set_footer(text="Harry's Channel Config 🏈")

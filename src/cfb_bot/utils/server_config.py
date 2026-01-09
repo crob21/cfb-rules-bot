@@ -266,9 +266,9 @@ class ServerConfigManager:
         config = self.get_config(guild_id)
         enabled_channels = config.get("enabled_channels", [])
         
-        # Empty list = all channels allowed
+        # Empty list = Harry is DISABLED everywhere (must explicitly enable channels)
         if not enabled_channels:
-            return True
+            return False
         
         return channel_id in enabled_channels
 
