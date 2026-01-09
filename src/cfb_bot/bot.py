@@ -3875,6 +3875,35 @@ async def set_timer_channel(interaction: discord.Interaction, channel: discord.T
     else:
         await interaction.response.send_message("❌ Failed to save the timer channel setting!", ephemeral=True)
 
+
+@bot.tree.command(name="set_admin_channel", description="Set the channel for admin outputs and bot updates (Admin only)")
+async def set_admin_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    """Set the channel where admin messages and bot updates will be sent"""
+    # Check if user is admin
+    if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
+        await interaction.response.send_message("❌ You need to be a bot admin to set the admin channel, ya muppet!", ephemeral=True)
+        return
+
+    if not interaction.guild:
+        await interaction.response.send_message("❌ This command only works in servers!", ephemeral=True)
+        return
+
+    guild_id = interaction.guild.id
+    
+    # Update the channel ID and persist it
+    server_config.set_admin_channel(guild_id, channel.id)
+    await server_config.save_to_discord()
+
+    embed = discord.Embed(
+        title="🔧 Admin Channel Set!",
+        description=f"Right then! Admin outputs will now go to:\n\n**#{channel.name}** (<#{channel.id}>)\n\nThis includes:\n• Bot startup/restart notifications\n• Timer restore messages\n• Config change confirmations\n• Error reports\n\n✅ **Saved!** This will persist across bot restarts.",
+        color=0x00ff00
+    )
+    embed.set_footer(text="Harry's Server Config 🏈")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+    logger.info(f"🔧 Admin channel set to #{channel.name} for guild {guild_id} by {interaction.user}")
+
+
 # ==================== League Staff Commands ====================
 
 @bot.tree.command(name="league_staff", description="View the current league owner and co-commissioner")
@@ -4985,31 +5014,67 @@ async def config_command(
                 inline=False
             )
 
+        # Show admin channel
+        admin_channel_id = server_config.get_admin_channel(guild_id)
+        if admin_channel_id:
+            admin_ch = interaction.guild.get_channel(admin_channel_id)
+            admin_channel_text = f"#{admin_ch.name}" if admin_ch else f"ID: {admin_channel_id}"
+        else:
+            admin_channel_text = "❌ Not Set"
+        
         # Show channel/auto-response status
         enabled_channels = server_config.get_enabled_channels(guild_id)
         current_channel_enabled = server_config.is_channel_enabled(guild_id, interaction.channel.id)
         auto_responses = server_config.auto_responses_enabled(guild_id, interaction.channel.id)
-        
-        channel_status = f"**This Channel:** {'✅ Enabled' if current_channel_enabled else '❌ Disabled'}"
+
+        channel_status = f"**Admin Channel:** {admin_channel_text}"
+        channel_status += f"\n**This Channel:** {'✅ Enabled' if current_channel_enabled else '❌ Disabled'}"
         if enabled_channels:
             channel_status += f"\n**Enabled Channels:** {len(enabled_channels)} channel(s)"
         else:
             channel_status += "\n**Enabled Channels:** None (Harry disabled everywhere)"
-        
+
         auto_status = "✅ On" if auto_responses else "❌ Off"
         channel_status += f"\n**Auto-Responses (Rivalry):** {auto_status}"
-        
+
         embed.add_field(
             name="📺 Channel Settings",
             value=channel_status,
             inline=False
         )
 
+        # Show League-specific settings only if League module is enabled
+        league_enabled = FeatureModule.LEAGUE.value in enabled
+        if league_enabled:
+            timer_channel_id = server_config.get_timer_channel(guild_id)
+            if timer_channel_id:
+                timer_ch = interaction.guild.get_channel(timer_channel_id)
+                timer_text = f"#{timer_ch.name}" if timer_ch else f"ID: {timer_channel_id}"
+            else:
+                timer_text = "#general (default)"
+            
+            league_status = f"**Timer Channel:** {timer_text}"
+            
+            # Get league staff if timekeeper is available
+            if timekeeper_manager:
+                staff = timekeeper_manager.get_league_staff()
+                owner_name = staff.get('owner_name', 'Not Set')
+                co_commish_name = staff.get('co_commish_name', 'Not Set')
+                league_status += f"\n**League Owner:** {owner_name}"
+                league_status += f"\n**Co-Commissioner:** {co_commish_name}"
+            
+            embed.add_field(
+                name="🏆 League Settings",
+                value=league_status,
+                inline=False
+            )
+
         embed.add_field(
             name="💡 How to Change",
             value=(
                 "`/config enable cfb_data` - Enable CFB data features\n"
                 "`/config disable league` - Disable dynasty features\n"
+                "`/set_admin_channel #channel` - Set admin output channel\n"
                 "`/channel enable` - Enable Harry in this channel\n"
                 "`/channel toggle_auto` - Toggle rivalry auto-responses"
             ),

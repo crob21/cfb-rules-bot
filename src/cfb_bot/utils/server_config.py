@@ -178,6 +178,26 @@ class ServerConfigManager:
         """Get list of commands belonging to a module"""
         return [cmd for cmd, mod in COMMAND_MODULES.items() if mod == module]
 
+    # ==================== CHANNEL SETTINGS ====================
+    
+    def get_admin_channel(self, guild_id: int) -> Optional[int]:
+        """Get the admin channel ID for a guild"""
+        return self.get_setting(guild_id, "admin_channel_id")
+    
+    def set_admin_channel(self, guild_id: int, channel_id: int):
+        """Set the admin channel for a guild"""
+        self.set_setting(guild_id, "admin_channel_id", channel_id)
+        logger.info(f"✅ Set admin channel to {channel_id} for guild {guild_id}")
+    
+    def get_timer_channel(self, guild_id: int) -> Optional[int]:
+        """Get the timer notification channel ID for a guild"""
+        return self.get_setting(guild_id, "timer_channel_id")
+    
+    def set_timer_channel(self, guild_id: int, channel_id: int):
+        """Set the timer notification channel for a guild"""
+        self.set_setting(guild_id, "timer_channel_id", channel_id)
+        logger.info(f"✅ Set timer channel to {channel_id} for guild {guild_id}")
+
     # ==================== STORAGE ====================
     
     async def save_to_discord(self):
