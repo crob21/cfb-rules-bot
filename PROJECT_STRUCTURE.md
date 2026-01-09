@@ -4,7 +4,7 @@
 
 A Discord bot for College Football 26 Online Dynasty League that provides league rule information, AI-powered responses, CFB data lookups, and fun rivalry interactions.
 
-**Current Version:** 1.13.0  
+**Current Version:** 1.14.0  
 **Codename:** Harry
 
 ## Directory Structure

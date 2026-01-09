@@ -2,7 +2,7 @@
 
 This guide explains how to manage versions and maintain the changelog for Harry (CFB Rules Bot).
 
-**Current Version:** 1.13.0  
+**Current Version:** 1.14.0  
 **Version File:** `src/cfb_bot/utils/version_manager.py`
 
 ---
@@ -157,6 +157,7 @@ When releasing a new version:
 
 | Version | Date | Title |
 |---------|------|-------|
+| 1.14.0 | 2026-01-09 | Admin Channel & Notifications |
 | 1.13.0 | 2026-01-09 | Storage Abstraction Layer |
 | 1.12.0 | 2026-01-09 | Per-Channel Controls |
 | 1.11.0 | 2026-01-09 | Auto Response Toggle |

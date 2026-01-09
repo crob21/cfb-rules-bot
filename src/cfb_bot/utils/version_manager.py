@@ -11,10 +11,46 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.13.0"
+CURRENT_VERSION = "1.14.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.14.0": {
+        "date": "2026-01-09",
+        "title": "Admin Channel & Notifications",
+        "emoji": "🔧",
+        "features": [
+            {
+                "category": "Admin Channel",
+                "emoji": "🔧",
+                "changes": [
+                    "NEW: /set_admin_channel to configure admin output channel",
+                    "Bot startup notifications sent to admin channel",
+                    "Timer restore messages use configured admin channel",
+                    "Error reports sent to admin channel",
+                    "Config change logs (module enable/disable)"
+                ]
+            },
+            {
+                "category": "Ephemeral Responses",
+                "emoji": "👁️",
+                "changes": [
+                    "All admin/config commands now user-only (ephemeral)",
+                    "/config, /channel, /list_bot_admins - only you see them",
+                    "Keeps admin clutter out of public channels"
+                ]
+            },
+            {
+                "category": "Config Improvements",
+                "emoji": "⚙️",
+                "changes": [
+                    "/config now shows admin channel, enabled channels, rivalry status",
+                    "League settings only shown when League module is enabled",
+                    "Renamed toggle_auto to toggle_rivalry for clarity"
+                ]
+            }
+        ]
+    },
     "1.13.0": {
         "date": "2026-01-09",
         "title": "Storage Abstraction Layer",

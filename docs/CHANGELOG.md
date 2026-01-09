@@ -5,6 +5,26 @@ All notable changes to the CFB 26 Rules Bot (Harry) will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2026-01-09
+
+### Added
+
+- **Admin Channel Notifications**
+  - `/set_admin_channel` to configure where admin messages go
+  - Bot startup notifications to admin channel
+  - Timer restore messages to configured admin channel
+  - Error reports and config change logs
+
+- **Ephemeral Admin Responses**
+  - All admin/config commands now only visible to the user
+  - `/config`, `/channel`, `/list_bot_admins` - private responses
+  - Keeps admin clutter out of public channels
+
+### Changed
+- `/config` now shows admin channel, enabled channels, rivalry status
+- League settings section only appears when League module is enabled
+- Renamed `toggle_auto` to `toggle_rivalry` for clarity
+
 ## [1.13.0] - 2026-01-09
 
 ### Added

@@ -2,7 +2,7 @@
 
 Complete setup guide for Harry, the CFB 26 Rules Bot.
 
-**Current Version:** 1.13.0
+**Current Version:** 1.14.0
 
 ## 📋 Prerequisites
 

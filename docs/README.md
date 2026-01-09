@@ -2,7 +2,7 @@
 
 > **Harry** - Your cockney, Oregon-hating CFB assistant
 
-[![Version](https://img.shields.io/badge/Version-1.13.0-blue.svg)](../src/cfb_bot/utils/version_manager.py)
+[![Version](https://img.shields.io/badge/Version-1.14.0-blue.svg)](../src/cfb_bot/utils/version_manager.py)
 [![Python](https://img.shields.io/badge/Python-3.11+-green.svg)](https://python.org)
 [![Discord.py](https://img.shields.io/badge/Discord.py-2.3+-purple.svg)](https://discordpy.readthedocs.io)
 
