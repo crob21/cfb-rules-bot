@@ -1347,7 +1347,6 @@ async def on_message(message):
                     if server_config.is_module_enabled(message.guild.id, FeatureModule.HS_STATS):
                         if hs_stats_scraper.is_available:
                             # Parse the HS player query
-                            import re
                             # Look for patterns like "HS stats for John Smith (TX)" or "recruit John Smith from Texas"
                             hs_patterns = [
                                 r'(?:hs\s+(?:stats|player)|high\s+school(?:er)?\s+(?:stats)?|recruit|maxpreps)\s+(?:for\s+)?(.+?)(?:\s+from\s+|\s*\()([\w\s]+)\)?',
