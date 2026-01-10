@@ -266,7 +266,7 @@ class RecruitingScraper:
 
     async def _search_composite_rankings(self, name: str, year: int) -> tuple[Optional[str], Optional[str]]:
         """
-        Search composite rankings page for a player (fallback when direct search fails)
+        Search composite rankings pages for a player (fallback when direct search fails)
 
         Args:
             name: Player name to search
@@ -275,54 +275,61 @@ class RecruitingScraper:
         Returns:
             Tuple of (profile_url, player_name) or (None, None)
         """
-        # Try composite rankings page
-        url = self.PLAYER_RANKINGS_URL.format(year=year)
-        html = await self._fetch_page(url)
+        name_lower = name.lower()
+        name_parts = name_lower.split()
 
-        if not html:
-            return None, None
+        # Try multiple pages of rankings (top 50, 51-100, 101-150, etc.)
+        pages_to_try = [
+            self.PLAYER_RANKINGS_URL.format(year=year),  # Top 50
+            self.PLAYER_RANKINGS_URL.format(year=year) + "?Page=2",  # 51-100
+            self.PLAYER_RANKINGS_URL.format(year=year) + "?Page=3",  # 101-150
+        ]
 
-        try:
-            soup = BeautifulSoup(html, 'html.parser')
-            name_lower = name.lower()
-            name_parts = name_lower.split()
+        for url in pages_to_try:
+            html = await self._fetch_page(url)
 
-            # Find all player links
-            player_links = soup.select('a[href*="/player/"]')
+            if not html:
+                continue
 
-            for link in player_links:
-                link_text = link.get_text(strip=True)
-                href = link.get('href', '')
+            try:
+                soup = BeautifulSoup(html, 'html.parser')
 
-                # Skip non-player links
-                if 'cbssports.com' in href or '/stats/player/' in href:
-                    continue
+                # Find all player links
+                player_links = soup.select('a[href*="/player/"]')
 
-                link_text_lower = link_text.lower()
+                for link in player_links:
+                    link_text = link.get_text(strip=True)
+                    href = link.get('href', '')
 
-                # Check for match - flexible matching for spelling variations
-                # Match if all parts are found (allows "Green" to match "Greene")
-                matches = all(
-                    any(part in word or word.startswith(part) for word in link_text_lower.split())
-                    for part in name_parts
-                )
-                if matches:
-                    profile_url = href
+                    # Skip non-player links
+                    if 'cbssports.com' in href or '/stats/player/' in href:
+                        continue
 
-                    # Fix URL format
-                    if profile_url.startswith('//'):
-                        profile_url = 'https:' + profile_url
-                    elif profile_url.startswith('/'):
-                        profile_url = self.BASE_URL + profile_url
+                    link_text_lower = link_text.lower()
 
-                    logger.info(f"✅ Found via rankings: {link_text} -> {profile_url}")
-                    return profile_url, link_text
+                    # Check for match - flexible matching for spelling variations
+                    # Match if all parts are found (allows "Green" to match "Greene")
+                    matches = all(
+                        any(part in word or word.startswith(part) for word in link_text_lower.split())
+                        for part in name_parts
+                    )
+                    if matches:
+                        profile_url = href
 
-            return None, None
+                        # Fix URL format
+                        if profile_url.startswith('//'):
+                            profile_url = 'https:' + profile_url
+                        elif profile_url.startswith('/'):
+                            profile_url = self.BASE_URL + profile_url
 
-        except Exception as e:
-            logger.error(f"❌ Error searching composite rankings: {e}")
-            return None, None
+                        logger.info(f"✅ Found via rankings: {link_text} -> {profile_url}")
+                        return profile_url, link_text
+
+            except Exception as e:
+                logger.error(f"❌ Error searching composite rankings: {e}")
+                continue
+
+        return None, None
 
     async def _scrape_player_profile(self, profile_url: str, year: int) -> Optional[Dict[str, Any]]:
         """
