@@ -287,20 +287,34 @@ class HSStatsScraper:
                             profile_url = link.get('href')
                     
                     # Validate the URL looks like a real player profile
-                    # Should contain /athletes/ and a player name slug
                     if profile_url:
                         if not profile_url.startswith('http'):
                             profile_url = self.BASE_URL + profile_url
                         
-                        # Skip generic/malformed URLs
-                        if '/athletes/' in profile_url and profile_url.count('/') >= 5:
-                            # Looks like a valid URL: /state/city/school/athletes/player-name/
-                            pass
-                        elif '/athletes/' in profile_url and re.search(r'/athletes/[a-z0-9-]+/?$', profile_url.lower()):
-                            # Simpler format: /athletes/player-name/
-                            pass
+                        # Skip generic navigation URLs (e.g., /football/athletes/, /athletes/)
+                        # Real player URLs have format: /state/city/school/athletes/player-name/
+                        # or /athletes/player-name/?careerid=xxx
+                        url_path = profile_url.split('?')[0].rstrip('/')  # Remove query params and trailing slash
+                        path_parts = url_path.split('/')
+                        
+                        # Find where /athletes/ is in the path
+                        if '/athletes' in url_path:
+                            athletes_idx = None
+                            for i, part in enumerate(path_parts):
+                                if part == 'athletes':
+                                    athletes_idx = i
+                                    break
+                            
+                            if athletes_idx is not None:
+                                # Check if there's a player name AFTER /athletes/
+                                parts_after_athletes = path_parts[athletes_idx + 1:]
+                                has_player_name = any(part and part not in ['football', 'stats', ''] for part in parts_after_athletes)
+                                
+                                if not has_player_name:
+                                    logger.debug(f"Skipping generic URL (no player name): {profile_url}")
+                                    profile_url = None
                         else:
-                            logger.debug(f"Skipping malformed URL: {profile_url}")
+                            logger.debug(f"Skipping non-athlete URL: {profile_url}")
                             profile_url = None
                     
                     # Extract school/location info
@@ -351,6 +365,13 @@ class HSStatsScraper:
                 logger.error(f"❌ Invalid profile URL: {profile_url}")
                 return None
             
+            # Handle query parameters (e.g., ?careerid=xxx)
+            # Need to insert /football/stats/ before the query string
+            query_string = ''
+            if '?' in profile_url:
+                profile_url, query_string = profile_url.split('?', 1)
+                query_string = '?' + query_string
+            
             # Make sure we're hitting the stats page
             # URL should be like: /state/city/school/athletes/player-name/football/stats/
             if '/stats/' not in profile_url and '/stats' not in profile_url:
@@ -359,6 +380,9 @@ class HSStatsScraper:
                 if '/football' not in profile_url:
                     profile_url += '/football'
                 profile_url += '/stats/'
+            
+            # Re-add query string
+            profile_url += query_string
             
             logger.info(f"🔍 Fetching stats from: {profile_url}")
             
