@@ -1,0 +1,1049 @@
+#!/usr/bin/env python3
+"""
+On3/Rivals Recruiting Scraper
+
+Scrapes recruiting data from On3/Rivals including:
+- Player rankings and ratings
+- Team recruiting class rankings
+- Commitment tracking
+
+Note: This uses web scraping since On3 has no public API.
+Site structure changes may require updates to this module.
+
+On3 data is server-side rendered, making it reliable to scrape.
+"""
+
+import asyncio
+import logging
+import re
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+from urllib.parse import quote_plus
+
+import httpx
+from bs4 import BeautifulSoup
+
+logger = logging.getLogger('CFB26Bot.On3Recruiting')
+
+
+class On3Scraper:
+    """Scraper for On3/Rivals recruiting data"""
+
+    BASE_URL = "https://www.on3.com"
+
+    # Search URL - searches by name with class year filter
+    SEARCH_URL = "https://www.on3.com/rivals/search/?searchText={name}&minClassYear={year}"
+
+    # Rankings pages
+    PLAYER_RANKINGS_URL = "https://www.on3.com/rivals/rankings/player/football/{year}/"
+    TEAM_RANKINGS_URL = "https://www.on3.com/rivals/rankings/industry-team/football/{year}/"
+    POSITION_RANKINGS_URL = "https://www.on3.com/rivals/rankings/player/football/{year}/?position={position}"
+    STATE_RANKINGS_URL = "https://www.on3.com/rivals/rankings/player/football/{year}/?state={state}"
+
+    # Player profile URL pattern
+    PLAYER_PROFILE_URL = "https://www.on3.com/rivals/{slug}/"
+
+    # Position mapping
+    POSITIONS = {
+        'QB': 'qb', 'RB': 'rb', 'WR': 'wr', 'TE': 'te',
+        'OT': 'ot', 'OG': 'iOL', 'C': 'iOL', 'OL': 'ot', 'IOL': 'iOL',
+        'EDGE': 'edge', 'DT': 'dl', 'DE': 'edge', 'DL': 'dl',
+        'LB': 'lb', 'CB': 'cb', 'S': 's', 'ATH': 'ath'
+    }
+
+    # State abbreviations
+    STATES = {
+        'AL': 'alabama', 'AK': 'alaska', 'AZ': 'arizona', 'AR': 'arkansas',
+        'CA': 'california', 'CO': 'colorado', 'CT': 'connecticut', 'DE': 'delaware',
+        'FL': 'florida', 'GA': 'georgia', 'HI': 'hawaii', 'ID': 'idaho',
+        'IL': 'illinois', 'IN': 'indiana', 'IA': 'iowa', 'KS': 'kansas',
+        'KY': 'kentucky', 'LA': 'louisiana', 'ME': 'maine', 'MD': 'maryland',
+        'MA': 'massachusetts', 'MI': 'michigan', 'MN': 'minnesota', 'MS': 'mississippi',
+        'MO': 'missouri', 'MT': 'montana', 'NE': 'nebraska', 'NV': 'nevada',
+        'NH': 'new-hampshire', 'NJ': 'new-jersey', 'NM': 'new-mexico', 'NY': 'new-york',
+        'NC': 'north-carolina', 'ND': 'north-dakota', 'OH': 'ohio', 'OK': 'oklahoma',
+        'OR': 'oregon', 'PA': 'pennsylvania', 'RI': 'rhode-island', 'SC': 'south-carolina',
+        'SD': 'south-dakota', 'TN': 'tennessee', 'TX': 'texas', 'UT': 'utah',
+        'VT': 'vermont', 'VA': 'virginia', 'WA': 'washington', 'WV': 'west-virginia',
+        'WI': 'wisconsin', 'WY': 'wyoming', 'DC': 'district-of-columbia'
+    }
+
+    def __init__(self):
+        self._cache: Dict[str, Any] = {}
+        self._cache_ttl = timedelta(hours=1)  # Cache for 1 hour
+        self._cache_max_size = 500  # Max cache entries before cleanup
+        self._last_request = datetime.min
+        self._rate_limit_delay = 0.5  # 0.5 seconds between requests
+
+        # HTTP client with browser-like headers
+        # Note: Simpler headers work better with On3 - complex headers can cause issues
+        self._headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+        }
+
+    def _get_current_recruiting_year(self) -> int:
+        """Get the current recruiting class year"""
+        now = datetime.now()
+        # Recruiting classes are for the following year until February
+        if now.month >= 2:
+            return now.year + 1
+        return now.year
+
+    def _rating_to_stars(self, rating: float) -> int:
+        """Convert On3 rating to star value (consistent thresholds)"""
+        if rating >= 98:
+            return 5
+        elif rating >= 90:
+            return 4
+        elif rating >= 80:
+            return 3
+        elif rating >= 70:
+            return 2
+        else:
+            return 1
+
+    async def _rate_limit(self):
+        """Enforce rate limiting between requests"""
+        now = datetime.now()
+        elapsed = (now - self._last_request).total_seconds()
+        if elapsed < self._rate_limit_delay:
+            await asyncio.sleep(self._rate_limit_delay - elapsed)
+        self._last_request = datetime.now()
+
+    def _get_cached(self, key: str) -> Optional[Any]:
+        """Get cached data if still valid"""
+        if key in self._cache:
+            data, timestamp = self._cache[key]
+            if datetime.now() - timestamp < self._cache_ttl:
+                logger.debug(f"Cache hit for {key}")
+                return data
+        return None
+
+    def _set_cached(self, key: str, data: Any):
+        """Cache data with timestamp, with automatic cleanup"""
+        # Cleanup old entries if cache is getting large
+        if len(self._cache) >= self._cache_max_size:
+            self._cleanup_cache()
+        self._cache[key] = (data, datetime.now())
+
+    def _cleanup_cache(self):
+        """Remove expired cache entries"""
+        now = datetime.now()
+        expired_keys = [
+            key for key, (_, timestamp) in self._cache.items()
+            if now - timestamp >= self._cache_ttl
+        ]
+        for key in expired_keys:
+            del self._cache[key]
+        if expired_keys:
+            logger.debug(f"🧹 Cleaned up {len(expired_keys)} expired cache entries")
+
+    async def _fetch_page(self, url: str) -> Optional[str]:
+        """Fetch a page with rate limiting and error handling"""
+        await self._rate_limit()
+
+        try:
+            logger.info(f"🔍 Fetching: {url}")
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+                response = await client.get(url, headers=self._headers)
+
+                if response.status_code == 200:
+                    return response.text
+                elif response.status_code == 404:
+                    logger.warning(f"⚠️ Page not found: {url}")
+                    return None
+                else:
+                    logger.error(f"❌ HTTP {response.status_code} for {url}")
+                    return None
+
+        except httpx.TimeoutException:
+            logger.error(f"❌ Timeout fetching {url}")
+            return None
+        except Exception as e:
+            logger.error(f"❌ Error fetching {url}: {e}")
+            return None
+
+    async def search_recruit(
+        self,
+        name: str,
+        year: Optional[int] = None,
+        max_pages: int = 20  # Kept for API compatibility, not used in On3
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Search for a recruit by name
+
+        Args:
+            name: Player name to search
+            year: Recruiting class year (defaults to current)
+            max_pages: Ignored for On3 (kept for API compatibility)
+
+        Returns:
+            Recruit info dictionary with profile data or None
+        """
+        if not year:
+            year = self._get_current_recruiting_year()
+
+        cache_key = f"on3:recruit:{name.lower()}:{year}"
+        cached = self._get_cached(cache_key)
+        if cached:
+            return cached
+
+        # Search directly using On3's search
+        search_url = self.SEARCH_URL.format(name=quote_plus(name), year=year)
+        html = await self._fetch_page(search_url)
+
+        if not html:
+            return None
+
+        try:
+            soup = BeautifulSoup(html, 'html.parser')
+
+            # Find player links in search results
+            # On3 uses links like /rivals/gavin-day-248989/
+            # Use broader selector and filter manually (BeautifulSoup $= can be unreliable)
+            all_links = soup.select('a[href*="/rivals/"]')
+            player_links = [link for link in all_links if link.get('href', '').endswith('/')]
+            logger.debug(f"Found {len(player_links)} player links in search results")
+
+            profile_url = None
+            player_name = None
+            name_lower = name.lower()
+            name_parts = name_lower.split()
+
+            for link in player_links:
+                link_text = link.get_text(strip=True)
+                href = link.get('href', '')
+
+                # Skip non-player links
+                if '/rivals/search' in href or '/rivals/rankings' in href or '/rivals/join' in href:
+                    continue
+
+                # Match if the link contains a player-like slug pattern
+                if not re.search(r'/rivals/[\w-]+-\d+/', href):
+                    continue
+
+                link_text_lower = link_text.lower()
+
+                # Check for match - flexible matching
+                matches = all(
+                    any(part in word or word.startswith(part) for word in link_text_lower.split())
+                    for part in name_parts
+                )
+
+                if matches:
+                    profile_url = href
+                    player_name = link_text
+
+                    # Make sure it's a full URL
+                    if not profile_url.startswith('http'):
+                        profile_url = self.BASE_URL + profile_url
+
+                    logger.info(f"✅ Found profile: {player_name} -> {profile_url}")
+                    break
+
+            if not profile_url:
+                logger.info(f"❌ No profile found for {name} ({year})")
+                return None
+
+            # Scrape the profile page for full details
+            recruit = await self._scrape_player_profile(profile_url, year)
+
+            if recruit:
+                self._set_cached(cache_key, recruit)
+
+            return recruit
+
+        except Exception as e:
+            logger.error(f"❌ Error parsing search results: {e}", exc_info=True)
+            return None
+
+    async def _scrape_player_profile(self, profile_url: str, year: int) -> Optional[Dict[str, Any]]:
+        """
+        Scrape a player's full On3/Rivals profile page
+
+        Args:
+            profile_url: Full URL to player profile
+            year: Recruiting class year
+
+        Returns:
+            Detailed recruit data dictionary
+        """
+        html = await self._fetch_page(profile_url)
+        if not html:
+            return None
+
+        try:
+            soup = BeautifulSoup(html, 'html.parser')
+            page_text = soup.get_text()
+
+            recruit = {
+                'name': None,
+                'year': year,
+                'stars': None,
+                'rating': None,
+                'rating_on3': None,
+                'national_rank': None,
+                'position_rank': None,
+                'state_rank': None,
+                'position': None,
+                'height': None,
+                'weight': None,
+                'city': None,
+                'state': None,
+                'high_school': None,
+                'committed_to': None,
+                'commitment_date': None,
+                'status': 'Uncommitted',
+                'nil_value': None,
+                'offers': [],           # List of schools that offered
+                'top_predictions': [],  # Top predictions with percentages
+                'visits': [],           # Official/unofficial visits
+                'image_url': None,      # Player profile photo
+                'profile_url': profile_url,
+                'source': 'On3/Rivals'
+            }
+
+            # Player name - from h1 or title (get this first for image fallback)
+            name_elem = soup.select_one('h1')
+            if name_elem:
+                recruit['name'] = name_elem.get_text(strip=True)
+
+            # Try to get player image from og:image meta tag (most reliable)
+            og_image = soup.select_one('meta[property="og:image"]')
+            if og_image and og_image.get('content'):
+                recruit['image_url'] = og_image.get('content')
+            elif recruit.get('name'):
+                # Fallback: look for player photo in gallery using first name
+                first_name = recruit['name'].split()[0] if recruit['name'] else ''
+                if first_name:
+                    player_imgs = soup.select(f'img[alt*="{first_name}"]')
+                    for img in player_imgs:
+                        src = img.get('src', '')
+                        # Skip small thumbnails and avatars
+                        if 'on3static' in src and 'avatar' not in src.lower() and 'logo' not in src.lower():
+                            recruit['image_url'] = src
+                            break
+
+            # Try to extract data from structured elements
+            # On3 uses definition lists and compact text (no spaces)
+
+            # Height - On3 format: "Ht6-3" or "Height6-3"
+            height_match = re.search(r'(?:Ht|Height)\s*[:\s]?([\d]+-[\d.]+)', page_text)
+            if height_match:
+                recruit['height'] = height_match.group(1)
+
+            # Weight - On3 format: "Wt190" or "Weight190"
+            weight_match = re.search(r'(?:Wt|Weight)\s*[:\s]?(\d{2,3})', page_text)
+            if weight_match:
+                recruit['weight'] = weight_match.group(1)
+
+            # Position - On3 format: "PosS" or "PosCB"
+            pos_match = re.search(r'(?:Pos|Position)\s*[:\s]?(QB|RB|WR|TE|OT|OG|C|DL|DT|DE|EDGE|LB|CB|S|ATH|IOL|OL)', page_text)
+            if pos_match:
+                recruit['position'] = pos_match.group(1)
+
+            # High School - look for high school name
+            hs_match = re.search(r'High School([A-Za-z\s\-\.\']+?)(?:\s*\(|Hometown|$)', page_text)
+            if hs_match:
+                recruit['high_school'] = hs_match.group(1).strip()
+
+            # Hometown - format: (City, ST)
+            hometown_match = re.search(r'\(([A-Za-z\s\-\.\']+),\s*([A-Z]{2})\)', page_text)
+            if hometown_match:
+                recruit['city'] = hometown_match.group(1).strip()
+                recruit['state'] = hometown_match.group(2)
+
+            # Class year - On3 format: "Class2026" or just "2026"
+            class_match = re.search(r'(?:Class|H\.S\.)\s*[:\s]?(\d{4})', page_text)
+            if class_match:
+                recruit['year'] = int(class_match.group(1))
+
+            # Rating - On3 format: numbers like "91.84" (no word boundaries needed)
+            # Pattern matches after state code like "NV91.84" followed by rank digits
+            rating_match = re.search(r'[A-Z]{2}(\d{2}\.\d{2})\d{1,4}', page_text)
+            if rating_match:
+                recruit['rating'] = float(rating_match.group(1))
+                recruit['rating_on3'] = recruit['rating']
+            else:
+                # Fallback: simple decimal pattern
+                rating_match = re.search(r'(\d{2}\.\d{2})', page_text)
+                if rating_match:
+                    recruit['rating'] = float(rating_match.group(1))
+                    recruit['rating_on3'] = recruit['rating']
+
+            # Stars - derive from rating or look for "X Stars" link text
+            stars_link = soup.select_one('a[href*="rankings"][href*="industry"]')
+            if stars_link:
+                stars_text = stars_link.get_text(strip=True)
+                stars_match = re.search(r'(\d)\s*[Ss]tars?', stars_text)
+                if stars_match:
+                    recruit['stars'] = int(stars_match.group(1))
+
+            # If no stars found, estimate from rating
+            if not recruit['stars'] and recruit['rating']:
+                recruit['stars'] = self._rating_to_stars(recruit['rating'])
+
+            # National rank - On3 format: "Natl189" (the number right after state)
+            # Better: look for the link to rankings page with the rank number
+            rank_links = soup.select('a[href*="/rivals/rankings/"]')
+            for link in rank_links:
+                link_text = link.get_text(strip=True)
+                href = link.get('href', '')
+                # National rank link usually just has a number
+                if link_text.isdigit() and 'industry-player' in href and 'position' not in href and 'state' not in href:
+                    recruit['national_rank'] = int(link_text)
+                    break
+
+            # Position rank
+            if recruit['position']:
+                pos_rank_match = re.search(rf"(?:Pos|{recruit['position']})\s*[:\s#]*(\d+)", page_text)
+                if pos_rank_match:
+                    recruit['position_rank'] = int(pos_rank_match.group(1))
+
+            # State rank
+            if recruit['state']:
+                state_rank_match = re.search(rf"(?:St|{recruit['state']})\s*[:\s#]*(\d+)", page_text)
+                if state_rank_match:
+                    recruit['state_rank'] = int(state_rank_match.group(1))
+
+            # NIL value - On3 shows this as $X.XM or $XXXk
+            nil_match = re.search(r'\$(\d+(?:\.\d+)?[MKmk])', page_text)
+            if nil_match:
+                recruit['nil_value'] = nil_match.group(0)
+
+            # Commitment status - look for school images/links or status text
+            if 'Signed' in page_text:
+                recruit['status'] = 'Signed'
+            elif 'Committed' in page_text:
+                recruit['status'] = 'Committed'
+            elif 'Enrolled' in page_text:
+                recruit['status'] = 'Enrolled'
+
+            # Try to find committed school from college links
+            # Look for the first college link that's part of status/commitment info
+            college_links = soup.select('a[href*="/college/"]')
+            for link in college_links:
+                href = link.get('href', '')
+                # Skip generic college links, look for specific team pages
+                if '/football/' in href or href.endswith('/'):
+                    # Get school name from link text or image alt
+                    school_name = link.get_text(strip=True)
+                    img = link.select_one('img')
+                    if img and img.get('alt'):
+                        alt_text = img.get('alt', '')
+                        # Clean up alt text - remove "Avatar", "logo", etc.
+                        school_name = alt_text.replace(' Avatar', '').replace(' logo', '').replace('Visit ', '').strip()
+
+                    # Filter out generic names
+                    if school_name and len(school_name) > 2 and school_name not in ['College', 'NCAA', 'Avatar', 'Teams', 'All Teams']:
+                        recruit['committed_to'] = school_name
+                        if recruit['status'] == 'Uncommitted':
+                            recruit['status'] = 'Committed'
+                        break
+
+            # Parse commitment date
+            commit_date_match = re.search(r'Commitment Date\s*(\d{1,2}/\d{1,2}/\d{2,4})', page_text)
+            if commit_date_match:
+                recruit['commitment_date'] = commit_date_match.group(1)
+
+            # ==================== PARSE TOP TEAMS (OFFERS & PREDICTIONS) ====================
+            # On3 doesn't use standard tables for Top Teams - extract from page text
+            # Pattern: "SchoolNameSigned/Offered[Date]Percentage%"
+
+            # First, get list of college links to know which schools are mentioned
+            college_names = []
+            college_links = soup.select('a[href*="/college/"]')
+            for link in college_links:
+                name = link.get_text(strip=True)
+                # Also check image alt text
+                img = link.select_one('img')
+                if img and img.get('alt'):
+                    alt_name = img.get('alt', '').replace(' Avatar', '').replace(' logo', '').strip()
+                    if alt_name and alt_name not in college_names and len(alt_name) > 2:
+                        college_names.append(alt_name)
+                if name and name not in college_names and len(name) > 2 and name not in ['Teams', 'All Teams', 'Avatar']:
+                    college_names.append(name)
+
+            # Now find offers and predictions from page text
+            # Pattern: "SchoolName(Signed|Offered|Committed)[Date]Percentage%"
+            for school in college_names:
+                # Look for this school in the page text with status
+                school_pattern = re.compile(
+                    rf'{re.escape(school)}(Signed|Offered|Committed)(\d{{1,2}}/\d{{1,2}}/\d{{2,4}})?(\d{{1,3}}\.?\d*%|<1%)?',
+                    re.IGNORECASE
+                )
+                match = school_pattern.search(page_text)
+                if match:
+                    status = match.group(1)
+                    # date = match.group(2)  # Not used currently
+                    prediction = match.group(3)
+
+                    # Add to offers
+                    if school not in recruit['offers']:
+                        recruit['offers'].append(school)
+
+                    # Add to predictions (top 5)
+                    if prediction and len(recruit['top_predictions']) < 5:
+                        recruit['top_predictions'].append({
+                            'team': school,
+                            'prediction': prediction,
+                            'status': status.title()
+                        })
+
+            # ==================== PARSE VISITS ====================
+            # Look for Visit Center section
+            visit_section = soup.find(text=re.compile(r'Visit Center', re.I))
+            if visit_section:
+                # Find the parent container and look for visit table
+                visit_container = visit_section.find_parent(['div', 'section', 'generic'])
+                if visit_container:
+                    visit_rows = visit_container.select('tr, [role="row"]')
+
+                    for row in visit_rows:
+                        row_text = row.get_text()
+
+                        # Skip header rows
+                        if 'School' in row_text and 'Date' in row_text and 'Visit Type' in row_text:
+                            continue
+
+                        cells = row.select('td, [role="cell"]')
+                        if len(cells) >= 3:
+                            # Get school name
+                            school_cell = cells[0]
+                            school_name = school_cell.get_text(strip=True)
+
+                            # Clean up school name (remove "Avatar" prefix if present)
+                            school_name = re.sub(r'^.*Avatar\s*', '', school_name).strip()
+
+                            # Get date
+                            date_cell = cells[1]
+                            visit_date = date_cell.get_text(strip=True)
+
+                            # Get visit type
+                            type_cell = cells[2]
+                            visit_type = type_cell.get_text(strip=True)
+
+                            if school_name and visit_date:
+                                recruit['visits'].append({
+                                    'school': school_name,
+                                    'date': visit_date,
+                                    'type': visit_type
+                                })
+
+            # Fallback: try to parse visits from page text patterns
+            if not recruit['visits']:
+                # Pattern: "SCHOOL DATE Official/Unofficial"
+                visit_pattern = re.compile(
+                    r'([A-Z]{2,5})\s+(\d{1,2}/\d{1,2}/\d{2,4})\s+(Official|Unofficial)',
+                    re.IGNORECASE
+                )
+                for match in visit_pattern.finditer(page_text):
+                    recruit['visits'].append({
+                        'school': match.group(1),
+                        'date': match.group(2),
+                        'type': match.group(3)
+                    })
+
+            logger.info(f"✅ Scraped profile: {recruit['name']} ({recruit['position']}) - {recruit['stars']}⭐ | {len(recruit['offers'])} offers, {len(recruit['visits'])} visits")
+            return recruit
+
+        except Exception as e:
+            logger.error(f"❌ Error parsing player profile: {e}", exc_info=True)
+            return None
+
+    async def get_top_recruits(
+        self,
+        year: Optional[int] = None,
+        position: Optional[str] = None,
+        state: Optional[str] = None,
+        limit: int = 25
+    ) -> List[Dict[str, Any]]:
+        """
+        Get top recruits with optional filters
+
+        Args:
+            year: Recruiting class year
+            position: Filter by position (QB, WR, etc.)
+            state: Filter by state (TX, CA, etc.)
+            limit: Number of recruits to return
+
+        Returns:
+            List of recruit dictionaries
+        """
+        if not year:
+            year = self._get_current_recruiting_year()
+
+        # Determine which URL to use
+        if position:
+            pos_mapped = self.POSITIONS.get(position.upper(), position.lower())
+            url = self.POSITION_RANKINGS_URL.format(year=year, position=pos_mapped)
+            cache_key = f"on3:top_recruits:{year}:pos:{pos_mapped}"
+        elif state:
+            state_mapped = self.STATES.get(state.upper(), state.lower())
+            url = self.STATE_RANKINGS_URL.format(year=year, state=state_mapped)
+            cache_key = f"on3:top_recruits:{year}:state:{state_mapped}"
+        else:
+            url = self.PLAYER_RANKINGS_URL.format(year=year)
+            cache_key = f"on3:top_recruits:{year}:all"
+
+        cached = self._get_cached(cache_key)
+        if cached:
+            return cached[:limit]
+
+        html = await self._fetch_page(url)
+        if not html:
+            return []
+
+        try:
+            soup = BeautifulSoup(html, 'html.parser')
+            recruits = []
+
+            # On3 rankings use table rows
+            rows = soup.select('tr, [role="row"]')
+
+            for row in rows:
+                if len(recruits) >= limit:
+                    break
+
+                # Find player link
+                player_link = row.select_one('a[href*="/rivals/"][href$="/"]')
+                if not player_link:
+                    continue
+
+                href = player_link.get('href', '')
+                if '/rivals/rankings' in href or '/rivals/search' in href:
+                    continue
+
+                player_name = player_link.get_text(strip=True)
+                if not player_name:
+                    continue
+
+                row_text = row.get_text()
+
+                recruit = {
+                    'name': player_name,
+                    'year': year,
+                    'stars': None,
+                    'rating': None,
+                    'national_rank': len(recruits) + 1,
+                    'position_rank': None,
+                    'state_rank': None,
+                    'position': None,
+                    'height': None,
+                    'weight': None,
+                    'city': None,
+                    'state': None,
+                    'high_school': None,
+                    'committed_to': None,
+                    'status': 'Uncommitted',
+                    'profile_url': self.BASE_URL + href if not href.startswith('http') else href,
+                    'source': 'On3/Rivals'
+                }
+
+                # Extract position
+                pos_match = re.search(r'\b(QB|RB|WR|TE|OT|OG|C|DL|DT|DE|EDGE|LB|CB|S|ATH|IOL|OL)\b', row_text)
+                if pos_match:
+                    recruit['position'] = pos_match.group(1)
+
+                # Extract rating
+                rating_match = re.search(r'\b(\d{2}\.\d{2})\b', row_text)
+                if rating_match:
+                    recruit['rating'] = float(rating_match.group(1))
+
+                # Extract stars
+                stars_match = re.search(r'(\d)\s*[Ss]tars?', row_text)
+                if stars_match:
+                    recruit['stars'] = int(stars_match.group(1))
+                elif recruit['rating']:
+                    # Use consistent star thresholds across all methods
+                    recruit['stars'] = self._rating_to_stars(recruit['rating'])
+
+                # Extract height/weight
+                height_match = re.search(r'(\d-\d+(?:\.\d)?)', row_text)
+                if height_match:
+                    recruit['height'] = height_match.group(1)
+
+                weight_match = re.search(r'/\s*(\d{2,3})\b', row_text)
+                if weight_match:
+                    recruit['weight'] = weight_match.group(1)
+
+                # Extract hometown
+                hometown_match = re.search(r'\(([A-Za-z\s\-\.\']+),\s*([A-Z]{2})\)', row_text)
+                if hometown_match:
+                    recruit['city'] = hometown_match.group(1).strip()
+                    recruit['state'] = hometown_match.group(2)
+
+                # Check commitment
+                if 'Signed' in row_text:
+                    recruit['status'] = 'Signed'
+                elif 'Committed' in row_text:
+                    recruit['status'] = 'Committed'
+
+                # Find committed school
+                school_img = row.select_one('img[alt*="Avatar"], img[alt*="logo"]')
+                if school_img:
+                    alt = school_img.get('alt', '')
+                    if alt and 'Avatar' in alt:
+                        school = alt.replace(' Avatar', '').replace(' logo', '')
+                        if school:
+                            recruit['committed_to'] = school
+
+                recruits.append(recruit)
+
+            self._set_cached(cache_key, recruits)
+            logger.info(f"✅ Found {len(recruits)} top recruits from On3")
+            return recruits[:limit]
+
+        except Exception as e:
+            logger.error(f"❌ Error parsing top recruits: {e}", exc_info=True)
+            return []
+
+    async def get_team_recruiting_class(
+        self,
+        team: str,
+        year: Optional[int] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get a team's recruiting class
+
+        Args:
+            team: Team name
+            year: Recruiting class year
+
+        Returns:
+            Team recruiting class info
+        """
+        if not year:
+            year = self._get_current_recruiting_year()
+
+        cache_key = f"on3:team_class:{team.lower()}:{year}"
+        cached = self._get_cached(cache_key)
+        if cached:
+            return cached
+
+        url = self.TEAM_RANKINGS_URL.format(year=year)
+        html = await self._fetch_page(url)
+
+        if not html:
+            return None
+
+        try:
+            soup = BeautifulSoup(html, 'html.parser')
+            page_text = soup.get_text()
+
+            # Find team in rankings
+            team_lower = team.lower()
+
+            # Look for team rows
+            rows = soup.select('tr, [role="row"]')
+
+            for row in rows:
+                row_text = row.get_text()
+
+                if team_lower not in row_text.lower():
+                    continue
+
+                team_data = {
+                    'team': team,
+                    'year': year,
+                    'rank': None,
+                    'total_commits': None,
+                    'avg_rating': None,
+                    '5_stars': 0,
+                    '4_stars': 0,
+                    '3_stars': 0,
+                    'points': None,
+                    'source': 'On3/Rivals'
+                }
+
+                # Try to extract team name properly
+                team_link = row.select_one('a[href*="/college/"]')
+                if team_link:
+                    team_data['team'] = team_link.get_text(strip=True)
+
+                # Rank
+                rank_match = re.search(r'^(\d+)\b', row_text.strip())
+                if rank_match:
+                    team_data['rank'] = int(rank_match.group(1))
+
+                # Total commits
+                commits_match = re.search(r'(\d+)\s*(?:commits?|players?)', row_text.lower())
+                if commits_match:
+                    team_data['total_commits'] = int(commits_match.group(1))
+
+                # Average rating
+                avg_match = re.search(r'(\d{2}\.\d{2})', row_text)
+                if avg_match:
+                    team_data['avg_rating'] = float(avg_match.group(1))
+
+                # Points
+                points_match = re.search(r'([\d,]+(?:\.\d+)?)\s*(?:pts?|points?)', row_text.lower())
+                if points_match:
+                    team_data['points'] = float(points_match.group(1).replace(',', ''))
+
+                self._set_cached(cache_key, team_data)
+                logger.info(f"✅ Found team class: {team_data['team']} (Rank #{team_data['rank']})")
+                return team_data
+
+            logger.info(f"❌ Team not found: {team}")
+            return None
+
+        except Exception as e:
+            logger.error(f"❌ Error parsing team class: {e}", exc_info=True)
+            return None
+
+    async def get_team_rankings(self, year: Optional[int] = None, limit: int = 25) -> List[Dict[str, Any]]:
+        """
+        Get top team recruiting class rankings
+
+        Args:
+            year: Recruiting class year
+            limit: Number of teams to return
+
+        Returns:
+            List of team recruiting class data
+        """
+        if not year:
+            year = self._get_current_recruiting_year()
+
+        cache_key = f"on3:team_rankings:{year}"
+        cached = self._get_cached(cache_key)
+        if cached:
+            return cached[:limit]
+
+        url = self.TEAM_RANKINGS_URL.format(year=year)
+        html = await self._fetch_page(url)
+
+        if not html:
+            return []
+
+        try:
+            soup = BeautifulSoup(html, 'html.parser')
+            teams = []
+
+            rows = soup.select('tr, [role="row"]')
+
+            for row in rows:
+                if len(teams) >= limit:
+                    break
+
+                team_link = row.select_one('a[href*="/college/"]')
+                if not team_link:
+                    continue
+
+                team_name = team_link.get_text(strip=True)
+                if not team_name:
+                    continue
+
+                row_text = row.get_text()
+
+                team_data = {
+                    'team': team_name,
+                    'year': year,
+                    'rank': len(teams) + 1,
+                    'total_commits': None,
+                    'avg_rating': None,
+                    'points': None,
+                    'source': 'On3/Rivals'
+                }
+
+                # Average rating
+                avg_match = re.search(r'(\d{2}\.\d{2})', row_text)
+                if avg_match:
+                    team_data['avg_rating'] = float(avg_match.group(1))
+
+                teams.append(team_data)
+
+            self._set_cached(cache_key, teams)
+            logger.info(f"✅ Found {len(teams)} team rankings from On3")
+            return teams[:limit]
+
+        except Exception as e:
+            logger.error(f"❌ Error parsing team rankings: {e}", exc_info=True)
+            return []
+
+    def format_recruit(self, recruit: Dict[str, Any]) -> str:
+        """Format a single recruit for display"""
+        if not recruit:
+            return "❌ Recruit not found"
+
+        lines = []
+
+        # Name and basic info
+        name = recruit.get('name', 'Unknown')
+        stars = recruit.get('stars')
+        star_display = '⭐' * stars if stars else ''
+        position = recruit.get('position', '')
+        year = recruit.get('year', '')
+
+        lines.append(f"**{name}** {star_display}")
+        if position:
+            lines.append(f"📍 **{position}** | Class of **{year}**")
+        lines.append("")
+
+        # Ratings section
+        lines.append("**📊 Ratings**")
+        if recruit.get('rating'):
+            lines.append(f"• On3/Rivals: **{recruit['rating']}**")
+        lines.append("")
+
+        # Rankings section
+        lines.append("**🏆 Rankings**")
+        rank_lines = []
+
+        natl = recruit.get('national_rank')
+        if natl:
+            rank_lines.append(f"• National: **#{natl}**")
+
+        pos_rank = recruit.get('position_rank')
+        if pos_rank:
+            rank_lines.append(f"• {position}: **#{pos_rank}**")
+
+        state = recruit.get('state', '')
+        state_rank = recruit.get('state_rank')
+        if state_rank:
+            rank_lines.append(f"• {state}: **#{state_rank}**")
+
+        if rank_lines:
+            lines.extend(rank_lines)
+        else:
+            lines.append("• _Rankings not available_")
+        lines.append("")
+
+        # Physical & Location
+        lines.append("**📏 Profile**")
+        physical = []
+        if recruit.get('height'):
+            physical.append(f"**{recruit['height']}**")
+        if recruit.get('weight'):
+            physical.append(f"**{recruit['weight']} lbs**")
+        if physical:
+            lines.append(f"• Size: {' / '.join(physical)}")
+
+        if recruit.get('city') and recruit.get('state'):
+            lines.append(f"• Hometown: {recruit['city']}, {recruit['state']}")
+        if recruit.get('high_school'):
+            lines.append(f"• High School: {recruit['high_school']}")
+
+        # NIL value if available
+        if recruit.get('nil_value'):
+            lines.append(f"• NIL Value: **{recruit['nil_value']}**")
+        lines.append("")
+
+        # Commitment status
+        if recruit.get('committed_to'):
+            status = recruit.get('status', 'Committed')
+            commit_date = recruit.get('commitment_date')
+            if commit_date:
+                lines.append(f"✅ **{status} to {recruit['committed_to']}** ({commit_date})")
+            else:
+                lines.append(f"✅ **{status} to {recruit['committed_to']}**")
+        else:
+            lines.append("🔮 **Uncommitted**")
+
+        # Predictions (if uncommitted or has predictions)
+        predictions = recruit.get('top_predictions', [])
+        if predictions:
+            lines.append("")
+            lines.append("**🔮 Predictions**")
+            for pred in predictions[:5]:  # Top 5
+                team = pred.get('team', 'Unknown')
+                pct = pred.get('prediction', '?')
+                status = pred.get('status', '')
+                status_emoji = "✅" if status == 'Signed' else "📝" if status == 'Committed' else ""
+                lines.append(f"• {team}: **{pct}** {status_emoji}")
+
+        # Offers
+        offers = recruit.get('offers', [])
+        if offers:
+            lines.append("")
+            offer_count = len(offers)
+            lines.append(f"**📋 Offers ({offer_count})**")
+            # Show first 8 offers, truncate if more
+            display_offers = offers[:8]
+            lines.append(f"• {', '.join(display_offers)}")
+            if offer_count > 8:
+                lines.append(f"• _...and {offer_count - 8} more_")
+
+        # Visits
+        visits = recruit.get('visits', [])
+        if visits:
+            lines.append("")
+            lines.append("**✈️ Visits**")
+            for visit in visits[:5]:  # Top 5 visits
+                school = visit.get('school', 'Unknown')
+                date = visit.get('date', '?')
+                vtype = visit.get('type', '')
+                type_emoji = "🏛️" if vtype == 'Official' else "👀"
+                lines.append(f"• {type_emoji} {school} - {date} ({vtype})")
+
+        # Profile URL
+        if recruit.get('profile_url'):
+            lines.append("")
+            lines.append(f"[View Full Profile on On3/Rivals]({recruit['profile_url']})")
+
+        return '\n'.join(lines)
+
+    def format_team_class(self, team_data: Dict[str, Any]) -> str:
+        """Format team recruiting class for display"""
+        if not team_data:
+            return "❌ Team not found"
+
+        lines = []
+
+        team = team_data.get('team', 'Unknown')
+        rank = team_data.get('rank', '?')
+        year = team_data.get('year', '')
+
+        lines.append(f"**{team}** - #{rank} Nationally ({year})")
+        lines.append("")
+
+        if team_data.get('total_commits'):
+            lines.append(f"👥 **{team_data['total_commits']}** Commits")
+
+        if team_data.get('avg_rating'):
+            lines.append(f"📊 Avg Rating: **{team_data['avg_rating']:.2f}**")
+
+        if team_data.get('points'):
+            lines.append(f"🏆 Points: **{team_data['points']:.2f}**")
+
+        stars = []
+        if team_data.get('5_stars'):
+            stars.append(f"⭐⭐⭐⭐⭐ {team_data['5_stars']}")
+        if team_data.get('4_stars'):
+            stars.append(f"⭐⭐⭐⭐ {team_data['4_stars']}")
+        if team_data.get('3_stars'):
+            stars.append(f"⭐⭐⭐ {team_data['3_stars']}")
+
+        if stars:
+            lines.append("")
+            lines.append("**Star Breakdown:**")
+            lines.extend(stars)
+
+        return '\n'.join(lines)
+
+    def format_top_recruits(self, recruits: List[Dict[str, Any]], title: str = "Top Recruits") -> str:
+        """Format list of top recruits"""
+        if not recruits:
+            return "❌ No recruits found"
+
+        lines = [f"**{title}**", ""]
+
+        for i, r in enumerate(recruits, 1):
+            stars = '⭐' * r.get('stars', 0) if r.get('stars') else ''
+            name = r.get('name', 'Unknown')
+            pos = r.get('position', '')
+            commit = r.get('committed_to', '')
+
+            if commit:
+                lines.append(f"`{i:2d}.` {stars} **{name}** ({pos}) → {commit}")
+            else:
+                lines.append(f"`{i:2d}.` {stars} **{name}** ({pos})")
+
+        return '\n'.join(lines)
+
+
+# Global instance
+on3_scraper = On3Scraper()

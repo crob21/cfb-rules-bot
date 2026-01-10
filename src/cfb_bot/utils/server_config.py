@@ -25,6 +25,13 @@ class FeatureModule(Enum):
     RECRUITING = "recruiting"  # 247Sports recruiting data (web scraping)
 
 
+# Recruiting data sources
+class RecruitingSource:
+    """Available recruiting data sources"""
+    ON3 = "on3"          # On3/Rivals (default) - server-side rendered, reliable
+    SPORTS247 = "247"    # 247Sports Composite - legacy, more complex scraping
+
+
 # Default settings for new servers
 DEFAULT_CONFIG = {
     "modules": {
@@ -38,6 +45,7 @@ DEFAULT_CONFIG = {
         "timer_channel_id": None,
         "admin_channel_id": None,
         "auto_responses": True,   # Enable automatic jump-in responses (team banter, "Fuck Oregon!", etc.)
+        "recruiting_source": RecruitingSource.ON3,  # Default to On3/Rivals
     },
     # Channel controls - empty means ALL channels allowed
     "enabled_channels": [],  # Whitelist: [channel_id1, channel_id2] - empty = all allowed
@@ -212,6 +220,21 @@ class ServerConfigManager:
         self.set_setting(guild_id, "timer_channel_id", channel_id)
         logger.info(f"✅ Set timer channel to {channel_id} for guild {guild_id}")
 
+    # ==================== RECRUITING SOURCE ====================
+
+    def get_recruiting_source(self, guild_id: int) -> str:
+        """Get the recruiting data source for a guild (on3 or 247)"""
+        return self.get_setting(guild_id, "recruiting_source", RecruitingSource.ON3)
+
+    def set_recruiting_source(self, guild_id: int, source: str) -> bool:
+        """Set the recruiting data source for a guild"""
+        if source not in [RecruitingSource.ON3, RecruitingSource.SPORTS247]:
+            logger.warning(f"Invalid recruiting source: {source}")
+            return False
+        self.set_setting(guild_id, "recruiting_source", source)
+        logger.info(f"✅ Set recruiting source to {source} for guild {guild_id}")
+        return True
+
     # ==================== STORAGE ====================
 
     async def save_to_discord(self):
@@ -290,7 +313,7 @@ class ServerConfigManager:
             FeatureModule.CFB_DATA: "🏈 **CFB Data** - Player lookup, rankings, matchups, schedules, draft, transfers, betting, ratings",
             FeatureModule.LEAGUE: "🏆 **League** - Timer, advance, charter, rules, league staff, dynasty features",
             FeatureModule.HS_STATS: "🏫 **HS Stats** - High school football stats from MaxPreps (web scraping)",
-            FeatureModule.RECRUITING: "⭐ **Recruiting** - 247Sports composite rankings, team classes, top recruits (web scraping)",
+            FeatureModule.RECRUITING: "⭐ **Recruiting** - On3/Rivals or 247Sports rankings, team classes, top recruits",
         }
         return descriptions.get(module, str(module))
 

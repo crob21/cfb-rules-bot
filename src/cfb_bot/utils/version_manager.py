@@ -11,10 +11,42 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.17.3"
+CURRENT_VERSION = "1.17.4"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.17.4": {
+        "date": "2026-01-10",
+        "title": "On3/Rivals Recruiting Data - Offers, Predictions, Visits & Photos",
+        "emoji": "🏈",
+        "features": [
+            {
+                "category": "On3/Rivals Integration",
+                "emoji": "⭐",
+                "changes": [
+                    "NEW: On3/Rivals recruiting scraper as alternative to 247Sports",
+                    "Offers list - shows all schools that have offered",
+                    "Predictions - shows RPM percentages for each school",
+                    "Visits - shows official and unofficial visit history",
+                    "Commitment status with signing dates",
+                    "Industry composite ratings",
+                    "Server-side rendered pages = reliable scraping"
+                ]
+            },
+            {
+                "category": "Recruit Data Enhancements",
+                "emoji": "📊",
+                "changes": [
+                    "Player photos now displayed in Discord embed thumbnail!",
+                    "Full profile data: stars, rating, national/position/state rank",
+                    "Physical info: height, weight, hometown, high school",
+                    "Top 5 predictions with percentages",
+                    "Up to 8 offers displayed",
+                    "Visit history with dates and types (Official/Unofficial)"
+                ]
+            }
+        ]
+    },
     "1.17.3": {
         "date": "2026-01-10",
         "title": "Private Admin Channel Support",

@@ -306,7 +306,8 @@ from .utils.version_manager import VersionManager
 from .utils.cfb_data import cfb_data
 from .utils.hs_stats_scraper import hs_stats_scraper
 from .utils.recruiting_scraper import recruiting_scraper
-from .utils.server_config import server_config, FeatureModule
+from .utils.on3_scraper import on3_scraper
+from .utils.server_config import server_config, FeatureModule, RecruitingSource
 
 
 async def check_module_enabled(interaction, module) -> bool:
@@ -3699,13 +3700,22 @@ async def get_hs_stats_bulk(
         )
 
 
-# ==================== RECRUITING COMMANDS (247Sports) ====================
+# ==================== RECRUITING COMMANDS ====================
 
-@bot.tree.command(name="recruit", description="Look up a recruit's 247Sports composite ranking")
+def get_recruiting_scraper(guild_id: int):
+    """Get the appropriate recruiting scraper based on server config"""
+    source = server_config.get_recruiting_source(guild_id)
+    if source == RecruitingSource.SPORTS247:
+        return recruiting_scraper, "247Sports Composite"
+    else:
+        return on3_scraper, "On3/Rivals"
+
+
+@bot.tree.command(name="recruit", description="Look up a recruit's ranking")
 @app_commands.describe(
     name="Recruit name (e.g., 'Arch Manning')",
     year="Recruiting class year (default: current)",
-    deep_search="Search ALL ranked recruits (~3000+) instead of top 1000 - slower but thorough"
+    deep_search="(247Sports only) Search ALL ranked recruits (~3000+) instead of top 1000"
 )
 async def get_recruit(
     interaction: discord.Interaction,
@@ -3713,7 +3723,7 @@ async def get_recruit(
     year: Optional[int] = None,
     deep_search: bool = False
 ):
-    """Look up a recruit from 247Sports composite rankings"""
+    """Look up a recruit from configured recruiting source (On3/Rivals or 247Sports)"""
     try:
         await interaction.response.defer()
     except discord.errors.NotFound:
@@ -3725,21 +3735,29 @@ async def get_recruit(
         return
 
     try:
-        search_depth = "deep (all ~3000)" if deep_search else "standard (top 1000)"
-        logger.info(f"🔍 /recruit lookup: {name} ({year or 'current'}) - {search_depth}")
+        guild_id = interaction.guild.id if interaction.guild else 0
+        scraper, source_name = get_recruiting_scraper(guild_id)
 
-        # Use more pages for deep search
-        max_pages = 65 if deep_search else 20  # 65 pages = all ~3100 recruits
-        recruit = await recruiting_scraper.search_recruit(name, year, max_pages=max_pages)
+        search_depth = "deep (all ~3000)" if deep_search else "standard"
+        logger.info(f"🔍 /recruit lookup: {name} ({year or 'current'}) via {source_name} - {search_depth}")
+
+        # Use more pages for deep search (only affects 247Sports)
+        max_pages = 65 if deep_search else 20
+        recruit = await scraper.search_recruit(name, year, max_pages=max_pages)
 
         if recruit:
             embed = discord.Embed(
                 title=f"⭐ Recruit: {recruit.get('name', name)}",
-                description=recruiting_scraper.format_recruit(recruit),
+                description=scraper.format_recruit(recruit),
                 color=Colors.RECRUITING if hasattr(Colors, 'RECRUITING') else 0xffd700
             )
-            footer = "Harry's Recruiting 🏈 | Data from 247Sports Composite"
-            if deep_search:
+
+            # Add player photo as thumbnail if available
+            if recruit.get('image_url'):
+                embed.set_thumbnail(url=recruit['image_url'])
+
+            footer = f"Harry's Recruiting 🏈 | Data from {source_name}"
+            if deep_search and source_name == "247Sports Composite":
                 footer += " | Deep Search"
             embed.set_footer(text=footer)
             await interaction.followup.send(embed=embed)
@@ -3749,16 +3767,16 @@ async def get_recruit(
                 "• Try the full name",
                 "• Specify the year if not current class",
             ]
-            if not deep_search:
+            if not deep_search and source_name == "247Sports Composite":
                 tips.append("• Try `deep_search:True` to search all ~3000 ranked recruits")
 
             embed = discord.Embed(
                 title="❓ Recruit Not Found",
-                description=f"Couldn't find **{name}** in the 247Sports database.\n\n"
+                description=f"Couldn't find **{name}** in {source_name}.\n\n"
                            f"💡 **Tips:**\n" + '\n'.join(tips),
                 color=Colors.WARNING
             )
-            embed.set_footer(text="Harry's Recruiting 🏈 | Data from 247Sports Composite")
+            embed.set_footer(text=f"Harry's Recruiting 🏈 | Data from {source_name}")
             await interaction.followup.send(embed=embed)
 
     except Exception as e:
@@ -3808,10 +3826,13 @@ async def get_top_recruits(
             await interaction.followup.send("❌ 'top' must be between 1 and 50", ephemeral=True)
             return
 
-        actual_year = year or recruiting_scraper._get_current_recruiting_year()
-        logger.info(f"🔍 /top_recruits: pos={position}, state={state}, year={actual_year}, top={top}")
+        guild_id = interaction.guild.id if interaction.guild else 0
+        scraper, source_name = get_recruiting_scraper(guild_id)
 
-        recruits = await recruiting_scraper.get_top_recruits(
+        actual_year = year or scraper._get_current_recruiting_year()
+        logger.info(f"🔍 /top_recruits via {source_name}: pos={position}, state={state}, year={actual_year}, top={top}")
+
+        recruits = await scraper.get_top_recruits(
             year=actual_year,
             position=position,
             state=state,
@@ -3832,10 +3853,10 @@ async def get_top_recruits(
 
             embed = discord.Embed(
                 title=' '.join(title_parts),
-                description=recruiting_scraper.format_top_recruits(recruits, ""),
+                description=scraper.format_top_recruits(recruits, ""),
                 color=Colors.RECRUITING if hasattr(Colors, 'RECRUITING') else 0xffd700
             )
-            embed.set_footer(text="Harry's Recruiting 🏈 | Data from 247Sports Composite")
+            embed.set_footer(text=f"Harry's Recruiting 🏈 | Data from {source_name}")
             await interaction.followup.send(embed=embed)
         else:
             await interaction.followup.send(
@@ -3869,18 +3890,21 @@ async def get_recruiting_class(
         return
 
     try:
-        actual_year = year or recruiting_scraper._get_current_recruiting_year()
-        logger.info(f"🔍 /recruiting_class: {team} ({actual_year})")
+        guild_id = interaction.guild.id if interaction.guild else 0
+        scraper, source_name = get_recruiting_scraper(guild_id)
 
-        team_data = await recruiting_scraper.get_team_recruiting_class(team, actual_year)
+        actual_year = year or scraper._get_current_recruiting_year()
+        logger.info(f"🔍 /recruiting_class via {source_name}: {team} ({actual_year})")
+
+        team_data = await scraper.get_team_recruiting_class(team, actual_year)
 
         if team_data:
             embed = discord.Embed(
                 title=f"📋 {team_data.get('team', team)} Recruiting Class",
-                description=recruiting_scraper.format_team_class(team_data),
+                description=scraper.format_team_class(team_data),
                 color=Colors.RECRUITING if hasattr(Colors, 'RECRUITING') else 0xffd700
             )
-            embed.set_footer(text="Harry's Recruiting 🏈 | Data from 247Sports Composite")
+            embed.set_footer(text=f"Harry's Recruiting 🏈 | Data from {source_name}")
             await interaction.followup.send(embed=embed)
         else:
             await interaction.followup.send(
@@ -3919,10 +3943,13 @@ async def get_recruiting_rankings(
             await interaction.followup.send("❌ 'top' must be between 1 and 50", ephemeral=True)
             return
 
-        actual_year = year or recruiting_scraper._get_current_recruiting_year()
-        logger.info(f"🔍 /recruiting_rankings: year={actual_year}, top={top}")
+        guild_id = interaction.guild.id if interaction.guild else 0
+        scraper, source_name = get_recruiting_scraper(guild_id)
 
-        teams = await recruiting_scraper.get_team_rankings(actual_year, top or 25)
+        actual_year = year or scraper._get_current_recruiting_year()
+        logger.info(f"🔍 /recruiting_rankings via {source_name}: year={actual_year}, top={top}")
+
+        teams = await scraper.get_team_rankings(actual_year, top or 25)
 
         if teams:
             # Format rankings
@@ -3940,7 +3967,7 @@ async def get_recruiting_rankings(
                 description='\n'.join(lines),
                 color=Colors.RECRUITING if hasattr(Colors, 'RECRUITING') else 0xffd700
             )
-            embed.set_footer(text="Harry's Recruiting 🏈 | Data from 247Sports Composite")
+            embed.set_footer(text=f"Harry's Recruiting 🏈 | Data from {source_name}")
             await interaction.followup.send(embed=embed)
         else:
             await interaction.followup.send(
@@ -5960,7 +5987,7 @@ async def list_blocked_channels(interaction: discord.Interaction):
     app_commands.Choice(name="cfb_data - Player lookup, rankings, matchups, etc.", value="cfb_data"),
     app_commands.Choice(name="league - Timer, charter, rules, dynasty features", value="league"),
     app_commands.Choice(name="hs_stats - High school stats from MaxPreps (scraping)", value="hs_stats"),
-    app_commands.Choice(name="recruiting - 247Sports composite rankings (scraping)", value="recruiting"),
+    app_commands.Choice(name="recruiting - On3/Rivals or 247Sports rankings", value="recruiting"),
 ])
 async def config_command(
     interaction: discord.Interaction,
@@ -6170,6 +6197,100 @@ async def config_command(
             f"**{mod.value.upper()}** disabled by {interaction.user.display_name}",
             guild_id=guild_id
         )
+
+
+@bot.tree.command(name="recruit_source", description="Set the recruiting data source (On3/Rivals or 247Sports)")
+@app_commands.describe(
+    source="Which recruiting data source to use"
+)
+@app_commands.choices(source=[
+    app_commands.Choice(name="On3/Rivals (default) - Server-side rendered, reliable", value="on3"),
+    app_commands.Choice(name="247Sports Composite - Legacy, more data but slower", value="247"),
+])
+async def recruit_source_command(
+    interaction: discord.Interaction,
+    source: str = None
+):
+    """
+    Set or view the recruiting data source for this server.
+
+    On3/Rivals (default): Server-side rendered, fast and reliable
+    247Sports: Legacy source with more detailed data but slower scraping
+    """
+    if not interaction.guild:
+        await interaction.response.send_message("❌ This command only works in servers!", ephemeral=True)
+        return
+
+    guild_id = interaction.guild.id
+
+    # View current source if no argument
+    if source is None:
+        current_source = server_config.get_recruiting_source(guild_id)
+        source_name = "On3/Rivals" if current_source == RecruitingSource.ON3 else "247Sports Composite"
+
+        embed = discord.Embed(
+            title="⭐ Recruiting Data Source",
+            description=f"Current source: **{source_name}**",
+            color=Colors.PRIMARY
+        )
+        embed.add_field(
+            name="Available Sources",
+            value=(
+                "• **On3/Rivals** (`on3`) - Default, server-side rendered, fast\n"
+                "• **247Sports** (`247`) - Composite rankings, more data, slower"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="Change Source",
+            value="`/recruit_source on3` or `/recruit_source 247`",
+            inline=False
+        )
+        embed.set_footer(text=Footers.CONFIG)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+
+    # Check admin for changing
+    is_admin = (
+        interaction.user.guild_permissions.administrator or
+        (admin_manager and admin_manager.is_admin(interaction.user, interaction))
+    )
+    if not is_admin:
+        await interaction.response.send_message(
+            "❌ Only server admins can change the recruiting source!",
+            ephemeral=True
+        )
+        return
+
+    # Set the source
+    if source not in [RecruitingSource.ON3, RecruitingSource.SPORTS247]:
+        await interaction.response.send_message(f"❌ Invalid source: {source}", ephemeral=True)
+        return
+
+    server_config.set_recruiting_source(guild_id, source)
+    await server_config.save_to_discord()
+
+    source_name = "On3/Rivals" if source == RecruitingSource.ON3 else "247Sports Composite"
+
+    embed = discord.Embed(
+        title="✅ Recruiting Source Updated!",
+        description=f"Now using **{source_name}** for recruiting data.",
+        color=Colors.SUCCESS
+    )
+    embed.add_field(
+        name="What Changed",
+        value=f"Commands like `/recruit`, `/top_recruits`, etc. will now pull data from {source_name}.",
+        inline=False
+    )
+    embed.set_footer(text=Footers.CONFIG)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    # Log to admin channel
+    await send_admin_log(
+        "Recruiting Source Changed",
+        f"Recruiting source set to **{source_name}** by {interaction.user.display_name}",
+        guild_id=guild_id
+    )
 
 
 @bot.tree.command(name="channel", description="View/manage which channels Harry can respond in (no args = view status)")

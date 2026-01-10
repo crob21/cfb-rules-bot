@@ -2,9 +2,70 @@
 
 This document outlines all features of Harry, the CFB 26 League Bot.
 
-**Current Version:** 1.16.2  
+**Current Version:** 1.17.4  
 **Last Updated:** January 10, 2026  
 **Status:** ✅ Production Ready
+
+---
+
+## ⭐ Recruiting Module
+
+Look up recruit profiles with rankings, offers, predictions, visits, and photos!
+
+> **Data Sources:** On3/Rivals (default) or 247Sports Composite. Switch with `/recruit_source`
+
+### Single Recruit Lookup
+
+**Command:** `/recruit <name> [year]`
+
+**Natural Language:** `@Harry recruit Arch Manning`
+
+**Shows:**
+- Player photo (thumbnail in embed)
+- ⭐ Star rating and composite rating
+- 🏆 National, position, and state rankings
+- 📏 Height, weight, hometown, high school
+- ✅ Commitment status with signing date
+- 🔮 Predictions (top 5 schools with percentages)
+- 📋 Offers list (all schools that offered)
+- ✈️ Visit history (official/unofficial with dates)
+- 🔗 Link to full On3/Rivals profile
+
+### Top Recruits
+
+**Command:** `/top_recruits [position] [state] [year] [top]`
+
+**Examples:**
+- `/top_recruits position:QB` - Top QBs nationally
+- `/top_recruits state:TX` - Top recruits from Texas
+- `/top_recruits top:50` - Top 50 overall
+
+### Recruiting Class Rankings
+
+**Command:** `/recruiting_class <team> [year]`
+
+**Shows:**
+- Team's national ranking
+- Total commits
+- Average rating
+- Star breakdown
+
+### Team Rankings
+
+**Command:** `/recruiting_rankings [year] [top]`
+
+**Shows:**
+- Top 25 (or custom) team recruiting rankings
+- Points, average rating per team
+
+### Data Source Selection
+
+**Command:** `/recruit_source [on3|247]`
+
+| Source | Description |
+|--------|-------------|
+| **On3/Rivals** | Default. Server-side rendered, fast & reliable. Includes predictions, offers, visits. |
+| **247Sports** | Legacy. Deep search option for ~3000 recruits. |
 
 ---
 
@@ -287,6 +348,7 @@ Includes personalized roasts for each candidate!
 |--------|-------------|---------|
 | **Core** | Harry's personality, AI chat | Always On |
 | **CFB Data** | Player lookup, rankings, etc. | Enabled |
+| **Recruiting** | Recruit lookup (On3/247Sports) | Enabled |
 | **League** | Timer, charter, dynasty | Disabled |
 | **HS Stats** | High school stats (MaxPreps) | Disabled |
 
@@ -418,6 +480,8 @@ src/cfb_bot/
     ├── storage.py           # Storage abstraction
     ├── server_config.py     # Per-server config
     ├── cfb_data.py          # CFB data (CFBD API)
+    ├── recruiting_scraper.py # 247Sports scraper
+    ├── on3_scraper.py       # On3/Rivals scraper
     ├── hs_stats_scraper.py  # High school stats (MaxPreps)
     ├── timekeeper.py        # Timer & weeks
     ├── charter_editor.py    # Charter management
@@ -435,5 +499,5 @@ src/cfb_bot/
 ---
 
 **Author:** Harry (with assistance from Craig's AI assistant, innit!)  
-**Version:** 1.16.2  
+**Version:** 1.17.4  
 **Last Updated:** January 10, 2026
