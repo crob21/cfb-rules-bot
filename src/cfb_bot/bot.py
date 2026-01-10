@@ -3538,7 +3538,7 @@ async def get_hs_stats(
                     f"Couldn't find a player matching **{name}**.\n\n"
                     "**Tips:**\n"
                     "• Check the spelling of the name\n"
-                    "• Add a state filter (e.g., `/hs_stats name:Arch Manning state:Louisiana`)\n"
+                    "• Add a state filter: `/hs_stats name:Arch Manning state:LA` or `state:Louisiana`\n"
                     "• Add a school filter for common names\n"
                     "• MaxPreps data may be limited for some players"
                 ),

@@ -68,6 +68,26 @@ class HSStatsScraper:
     # Cache settings
     CACHE_TTL = 24 * 60 * 60  # 24 hours in seconds
     
+    # State code mapping (two-letter to full name and vice versa)
+    STATE_CODES = {
+        'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas',
+        'CA': 'California', 'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware',
+        'FL': 'Florida', 'GA': 'Georgia', 'HI': 'Hawaii', 'ID': 'Idaho',
+        'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa', 'KS': 'Kansas',
+        'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland',
+        'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi',
+        'MO': 'Missouri', 'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada',
+        'NH': 'New Hampshire', 'NJ': 'New Jersey', 'NM': 'New Mexico', 'NY': 'New York',
+        'NC': 'North Carolina', 'ND': 'North Dakota', 'OH': 'Ohio', 'OK': 'Oklahoma',
+        'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
+        'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah',
+        'VT': 'Vermont', 'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia',
+        'WI': 'Wisconsin', 'WY': 'Wyoming', 'DC': 'District of Columbia'
+    }
+    
+    # Reverse mapping (full name to code)
+    STATE_NAMES = {v.lower(): k for k, v in STATE_CODES.items()}
+    
     def __init__(self):
         self.is_available = HS_SCRAPER_AVAILABLE
         self._cache: Dict[str, Dict[str, Any]] = {}
@@ -76,6 +96,40 @@ class HSStatsScraper:
         
         if not self.is_available:
             logger.warning("⚠️ HS Stats scraper not available - missing dependencies")
+    
+    def _normalize_state(self, state: str) -> tuple[str, str]:
+        """
+        Normalize state input to both code and full name.
+        
+        Args:
+            state: State code (TN) or full name (Tennessee)
+            
+        Returns:
+            Tuple of (state_code, state_name) or (None, None) if invalid
+        """
+        if not state:
+            return None, None
+        
+        state = state.strip()
+        state_upper = state.upper()
+        state_lower = state.lower()
+        
+        # Check if it's a state code
+        if state_upper in self.STATE_CODES:
+            return state_upper, self.STATE_CODES[state_upper]
+        
+        # Check if it's a state name
+        if state_lower in self.STATE_NAMES:
+            return self.STATE_NAMES[state_lower], state.title()
+        
+        # Try partial match for state name
+        for name, code in self.STATE_NAMES.items():
+            if state_lower in name or name in state_lower:
+                return code, name.title()
+        
+        # Return as-is if not recognized (user might have typo)
+        logger.warning(f"⚠️ Unrecognized state: {state}")
+        return None, state
     
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create async HTTP client"""
@@ -135,7 +189,7 @@ class HSStatsScraper:
         
         Args:
             name: Player name (e.g., "Arch Manning")
-            state: Optional state to filter results (e.g., "Louisiana", "LA")
+            state: Optional state to filter results (e.g., "Louisiana", "LA", "Tennessee", "TN")
             
         Returns:
             List of matching player results with basic info
@@ -147,10 +201,13 @@ class HSStatsScraper:
             await self._rate_limit()
             client = await self._get_client()
             
-            # Build search query
+            # Normalize state input (handle both "TN" and "Tennessee")
+            state_code, state_name = self._normalize_state(state) if state else (None, None)
+            
+            # Build search query - use full state name for better search results
             search_query = name
-            if state:
-                search_query += f" {state}"
+            if state_name:
+                search_query += f" {state_name}"
             
             logger.info(f"🔍 Searching MaxPreps for: {search_query}")
             
@@ -219,23 +276,39 @@ class HSStatsScraper:
                     elif not isinstance(player_name, str):
                         player_name = str(player_name) if player_name else None
                     
-                    # Get profile URL
+                    # Get profile URL - try multiple methods
                     profile_url = None
                     if card.name == 'a':
                         profile_url = card.get('href')
                     else:
-                        link = card.select_one('a[href*="/athlete/"]')
+                        # Fixed typo: /athletes/ not /athlete/
+                        link = card.select_one('a[href*="/athletes/"]')
                         if link:
                             profile_url = link.get('href')
                     
-                    if profile_url and not profile_url.startswith('http'):
-                        profile_url = self.BASE_URL + profile_url
+                    # Validate the URL looks like a real player profile
+                    # Should contain /athletes/ and a player name slug
+                    if profile_url:
+                        if not profile_url.startswith('http'):
+                            profile_url = self.BASE_URL + profile_url
+                        
+                        # Skip generic/malformed URLs
+                        if '/athletes/' in profile_url and profile_url.count('/') >= 5:
+                            # Looks like a valid URL: /state/city/school/athletes/player-name/
+                            pass
+                        elif '/athletes/' in profile_url and re.search(r'/athletes/[a-z0-9-]+/?$', profile_url.lower()):
+                            # Simpler format: /athletes/player-name/
+                            pass
+                        else:
+                            logger.debug(f"Skipping malformed URL: {profile_url}")
+                            profile_url = None
                     
                     # Extract school/location info
                     school_elem = card.select_one('.school, .team-name, .location')
                     school = school_elem.get_text(strip=True) if school_elem else None
                     
                     if player_name and profile_url:
+                        logger.debug(f"Found player: {player_name} -> {profile_url}")
                         results.append({
                             'name': player_name,
                             'school': school,
@@ -273,9 +346,19 @@ class HSStatsScraper:
             await self._rate_limit()
             client = await self._get_client()
             
+            # Validate URL before proceeding
+            if not profile_url or '/athletes/' not in profile_url:
+                logger.error(f"❌ Invalid profile URL: {profile_url}")
+                return None
+            
             # Make sure we're hitting the stats page
+            # URL should be like: /state/city/school/athletes/player-name/football/stats/
             if '/stats/' not in profile_url and '/stats' not in profile_url:
-                profile_url = profile_url.rstrip('/') + '/stats/'
+                # Add /football/stats/ if needed
+                profile_url = profile_url.rstrip('/')
+                if '/football' not in profile_url:
+                    profile_url += '/football'
+                profile_url += '/stats/'
             
             logger.info(f"🔍 Fetching stats from: {profile_url}")
             
