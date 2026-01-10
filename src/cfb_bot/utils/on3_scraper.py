@@ -33,6 +33,8 @@ class On3Scraper:
 
     # Search URL - searches by name with class year filter
     SEARCH_URL = "https://www.on3.com/rivals/search/?searchText={name}&minClassYear={year}"
+    # Broader search without class year filter (for transfer portal)
+    SEARCH_URL_ALL = "https://www.on3.com/rivals/search/?searchText={name}"
 
     # Rankings pages
     PLAYER_RANKINGS_URL = "https://www.on3.com/rivals/rankings/player/football/{year}/"
@@ -190,74 +192,92 @@ class On3Scraper:
         if cached:
             return cached
 
-        # Search directly using On3's search
-        search_url = self.SEARCH_URL.format(name=quote_plus(name), year=year)
-        html = await self._fetch_page(search_url)
+        # Try two searches:
+        # 1. First with class year filter (for high school recruits)
+        # 2. If not found, try broader search without year (for transfer portal)
+        search_urls = [
+            (self.SEARCH_URL.format(name=quote_plus(name), year=year), f"class {year}"),
+            (self.SEARCH_URL_ALL.format(name=quote_plus(name)), "all players (including transfers)"),
+        ]
 
-        if not html:
+        profile_url = None
+        player_name = None
+        is_transfer = False
+
+        for search_url, search_type in search_urls:
+            html = await self._fetch_page(search_url)
+
+            if not html:
+                continue
+
+            try:
+                soup = BeautifulSoup(html, 'html.parser')
+
+                # Find player links in search results
+                # On3 uses links like /rivals/gavin-day-248989/
+                # Use broader selector and filter manually (BeautifulSoup $= can be unreliable)
+                all_links = soup.select('a[href*="/rivals/"]')
+                player_links = [link for link in all_links if link.get('href', '').endswith('/')]
+                logger.debug(f"Found {len(player_links)} player links in search results ({search_type})")
+
+                name_lower = name.lower()
+                name_parts = name_lower.split()
+
+                for link in player_links:
+                    link_text = link.get_text(strip=True)
+                    href = link.get('href', '')
+
+                    # Skip non-player links
+                    if '/rivals/search' in href or '/rivals/rankings' in href or '/rivals/join' in href:
+                        continue
+
+                    # Match if the link contains a player-like slug pattern
+                    if not re.search(r'/rivals/[\w-]+-\d+/', href):
+                        continue
+
+                    link_text_lower = link_text.lower()
+
+                    # Check for match - flexible matching
+                    matches = all(
+                        any(part in word or word.startswith(part) for word in link_text_lower.split())
+                        for part in name_parts
+                    )
+
+                    if matches:
+                        profile_url = href
+                        player_name = link_text
+
+                        # Make sure it's a full URL
+                        if not profile_url.startswith('http'):
+                            profile_url = self.BASE_URL + profile_url
+
+                        # Track if this came from the broader search (likely transfer portal)
+                        is_transfer = (search_type == "all players (including transfers)")
+                        logger.info(f"✅ Found profile: {player_name} -> {profile_url} ({search_type})")
+                        break
+
+                if profile_url:
+                    break  # Found a match, stop searching
+
+            except Exception as e:
+                logger.error(f"Error parsing search results: {e}")
+                continue
+
+        if not profile_url:
+            logger.info(f"❌ No profile found for {name} ({year})")
             return None
 
-        try:
-            soup = BeautifulSoup(html, 'html.parser')
+        # Scrape the profile page for full details
+        recruit = await self._scrape_player_profile(profile_url, year)
 
-            # Find player links in search results
-            # On3 uses links like /rivals/gavin-day-248989/
-            # Use broader selector and filter manually (BeautifulSoup $= can be unreliable)
-            all_links = soup.select('a[href*="/rivals/"]')
-            player_links = [link for link in all_links if link.get('href', '').endswith('/')]
-            logger.debug(f"Found {len(player_links)} player links in search results")
+        if recruit:
+            # Mark if this is a transfer portal player
+            if is_transfer:
+                recruit['is_transfer'] = True
+                recruit['status'] = recruit.get('status') or 'Transfer'
+            self._set_cached(cache_key, recruit)
 
-            profile_url = None
-            player_name = None
-            name_lower = name.lower()
-            name_parts = name_lower.split()
-
-            for link in player_links:
-                link_text = link.get_text(strip=True)
-                href = link.get('href', '')
-
-                # Skip non-player links
-                if '/rivals/search' in href or '/rivals/rankings' in href or '/rivals/join' in href:
-                    continue
-
-                # Match if the link contains a player-like slug pattern
-                if not re.search(r'/rivals/[\w-]+-\d+/', href):
-                    continue
-
-                link_text_lower = link_text.lower()
-
-                # Check for match - flexible matching
-                matches = all(
-                    any(part in word or word.startswith(part) for word in link_text_lower.split())
-                    for part in name_parts
-                )
-
-                if matches:
-                    profile_url = href
-                    player_name = link_text
-
-                    # Make sure it's a full URL
-                    if not profile_url.startswith('http'):
-                        profile_url = self.BASE_URL + profile_url
-
-                    logger.info(f"✅ Found profile: {player_name} -> {profile_url}")
-                    break
-
-            if not profile_url:
-                logger.info(f"❌ No profile found for {name} ({year})")
-                return None
-
-            # Scrape the profile page for full details
-            recruit = await self._scrape_player_profile(profile_url, year)
-
-            if recruit:
-                self._set_cached(cache_key, recruit)
-
-            return recruit
-
-        except Exception as e:
-            logger.error(f"❌ Error parsing search results: {e}", exc_info=True)
-            return None
+        return recruit
 
     async def _scrape_player_profile(self, profile_url: str, year: int) -> Optional[Dict[str, Any]]:
         """

@@ -411,7 +411,7 @@ class HSStatsScraper:
             og_title = soup.select_one('meta[property="og:title"]')
             if og_title and og_title.get('content'):
                 title_content = og_title.get('content')
-                
+
                 # Try pattern with school name first
                 title_match = re.match(r"^(.+?)'s\s+(.+?)\s+High School\s+Football\s+Stats?", title_content, re.I)
                 if title_match:

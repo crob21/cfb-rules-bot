@@ -11,10 +11,36 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.17.5"
+CURRENT_VERSION = "1.17.6"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.17.6": {
+        "date": "2026-01-10",
+        "title": "Transfer Portal Support & Multi-Result Warnings",
+        "emoji": "🔄",
+        "features": [
+            {
+                "category": "On3/Rivals Improvements",
+                "emoji": "⭐",
+                "changes": [
+                    "Transfer portal players now findable via /recruit",
+                    "Scraper falls back to broader search when class year filter returns no results",
+                    "Transfer status automatically detected and shown",
+                    "Emmanuel Karnley (UW transfer) and similar players now work"
+                ]
+            },
+            {
+                "category": "HS Stats Improvements",
+                "emoji": "🏫",
+                "changes": [
+                    "Warning shown when multiple players match a name",
+                    "Displays other matching players so you know to add state filter",
+                    "Tip to narrow results with /hs_stats name:X state:XX"
+                ]
+            }
+        ]
+    },
     "1.17.5": {
         "date": "2026-01-10",
         "title": "Enhanced HS Stats - Career Stats from MaxPreps",

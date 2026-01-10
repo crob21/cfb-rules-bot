@@ -3529,6 +3529,26 @@ async def get_hs_stats(
         return
 
     try:
+        # First search to check for multiple results
+        search_results = await hs_stats_scraper.search_player(name, state)
+        multiple_results_warning = None
+
+        if len(search_results) > 1:
+            # Multiple players found - warn the user
+            other_players = []
+            for result in search_results[1:4]:  # Show up to 3 other matches
+                result_name = result.get('name', 'Unknown')
+                # Clean up the name (MaxPreps concatenates school)
+                if '(' in result_name:
+                    result_name = result_name.split('(')[0].strip()
+                other_players.append(result_name)
+
+            multiple_results_warning = (
+                f"⚠️ **Found {len(search_results)} players matching '{name}'**\n"
+                f"Showing first result. Other matches: {', '.join(other_players)}\n"
+                f"_Add a state filter to narrow results: `/hs_stats name:{name} state:XX`_\n\n"
+            )
+
         player_data = await hs_stats_scraper.lookup_player(name, state, school)
 
         if not player_data:
@@ -3551,6 +3571,10 @@ async def get_hs_stats(
 
         # Format and send stats
         formatted = hs_stats_scraper.format_player_stats(player_data)
+
+        # Add warning if multiple results were found
+        if multiple_results_warning:
+            formatted = multiple_results_warning + formatted
 
         embed = discord.Embed(
             title=f"🏈 High School Stats",
