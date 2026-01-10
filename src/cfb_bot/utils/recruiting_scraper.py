@@ -29,7 +29,10 @@ class RecruitingScraper:
     """Scraper for 247Sports recruiting data"""
 
     BASE_URL = "https://247sports.com"
-    SEARCH_URL = "https://247sports.com/Season/{year}-Football/Recruits/?&Player.Fullname={name}"
+    # Player search - works well for finding players
+    PLAYER_SEARCH_URL = "https://247sports.com/players/?&Player.Fullname={name}"
+    SEASON_SEARCH_URL = "https://247sports.com/Season/{year}-Football/Recruits/?&Player.Fullname={name}"
+    # Rankings pages
     PLAYER_RANKINGS_URL = "https://247sports.com/Season/{year}-Football/CompositeRecruitRankings/"
     TEAM_RANKINGS_URL = "https://247sports.com/Season/{year}-Football/CompositeTeamRankings/"
     POSITION_RANKINGS_URL = "https://247sports.com/Season/{year}-Football/CompositeRecruitRankings/?InstitutionGroup=HighSchool&Position={position}"
@@ -166,14 +169,14 @@ class RecruitingScraper:
 
     async def search_recruit(self, name: str, year: Optional[int] = None) -> Optional[Dict[str, Any]]:
         """
-        Search for a recruit by name
+        Search for a recruit by name and scrape their full profile
 
         Args:
             name: Player name to search
             year: Recruiting class year (defaults to current)
 
         Returns:
-            Recruit info dictionary or None
+            Recruit info dictionary with full profile data or None
         """
         if not year:
             year = self._get_current_recruiting_year()
@@ -183,44 +186,375 @@ class RecruitingScraper:
         if cached:
             return cached
 
-        url = self.SEARCH_URL.format(year=year, name=quote_plus(name))
-        html = await self._fetch_page(url)
+        # Try year-specific search first, then general player search
+        urls_to_try = [
+            self.SEASON_SEARCH_URL.format(year=year, name=quote_plus(name)),
+            self.PLAYER_SEARCH_URL.format(name=quote_plus(name)),
+        ]
 
+        profile_url = None
+        player_name = None
+
+        for url in urls_to_try:
+            html = await self._fetch_page(url)
+            if not html:
+                continue
+
+            try:
+                soup = BeautifulSoup(html, 'html.parser')
+
+                # Find player links - look for /player/ URLs
+                player_links = soup.select('a[href*="/player/"]')
+
+                for link in player_links:
+                    link_text = link.get_text(strip=True)
+                    href = link.get('href', '')
+
+                    # Check if this matches our search
+                    if name.lower() in link_text.lower():
+                        profile_url = href
+                        player_name = link_text
+
+                        # Fix URL - avoid doubling up the base URL
+                        if profile_url.startswith('http'):
+                            pass  # Already full URL
+                        elif profile_url.startswith('//247sports.com'):
+                            profile_url = 'https:' + profile_url
+                        elif profile_url.startswith('/247sports.com'):
+                            profile_url = 'https:/' + profile_url
+                        elif profile_url.startswith('/'):
+                            profile_url = self.BASE_URL + profile_url
+                        else:
+                            profile_url = self.BASE_URL + '/' + profile_url
+
+                        logger.info(f"✅ Found profile link: {player_name} -> {profile_url}")
+                        break
+
+                if profile_url:
+                    break
+
+            except Exception as e:
+                logger.error(f"❌ Error parsing search results: {e}")
+                continue
+
+        if not profile_url:
+            logger.info(f"❌ No profile found for {name} ({year})")
+            return None
+
+        # Now fetch the full profile page
+        recruit = await self._scrape_player_profile(profile_url, year)
+        if recruit:
+            self._set_cached(cache_key, recruit)
+
+        return recruit
+
+    async def _scrape_player_profile(self, profile_url: str, year: int) -> Optional[Dict[str, Any]]:
+        """
+        Scrape a player's full 247Sports profile page
+
+        Args:
+            profile_url: Full URL to player profile
+            year: Recruiting class year
+
+        Returns:
+            Detailed recruit data dictionary
+        """
+        html = await self._fetch_page(profile_url)
         if not html:
             return None
 
         try:
             soup = BeautifulSoup(html, 'html.parser')
 
-            # Find recruit rows in the table
-            recruit_rows = soup.select('.rankings-page__list-item, .ri-page__list-item, tr.player')
+            recruit = {
+                'name': None,
+                'year': year,
+                'stars': None,
+                'rating_247': None,
+                'rating_composite': None,
+                'national_rank': None,
+                'national_rank_247': None,
+                'position_rank': None,
+                'position_rank_247': None,
+                'state_rank': None,
+                'state_rank_247': None,
+                'position': None,
+                'height': None,
+                'weight': None,
+                'city': None,
+                'state': None,
+                'high_school': None,
+                'committed_to': None,
+                'status': 'Uncommitted',
+                'enrollment_date': None,
+                'offers': [],
+                'stats': [],
+                'profile_url': profile_url,
+                'scouting_report': None
+            }
 
-            for row in recruit_rows:
-                # Extract player name
-                name_elem = row.select_one('.rankings-page__name-link, .ri-page__name-link, a.player')
-                if not name_elem:
-                    continue
+            # Player name - from h1 tag
+            name_elem = soup.select_one('h1')
+            if name_elem:
+                recruit['name'] = name_elem.get_text(strip=True)
 
-                player_name = name_elem.get_text(strip=True)
+            # Position, Height, Weight from the player info section
+            pos_elem = soup.select_one('li:has(span:contains("Pos")) span:last-child, .pos-height-weight .pos')
+            if pos_elem:
+                recruit['position'] = pos_elem.get_text(strip=True)
 
-                # Check if this is the player we're looking for
-                if name.lower() not in player_name.lower():
-                    continue
+            height_elem = soup.select_one('li:has(span:contains("Height")) span:last-child, .pos-height-weight .height')
+            if height_elem:
+                recruit['height'] = height_elem.get_text(strip=True)
 
-                # Parse recruit data
-                recruit = self._parse_recruit_row(row, player_name)
-                if recruit:
-                    recruit['year'] = year
-                    self._set_cached(cache_key, recruit)
-                    logger.info(f"✅ Found recruit: {player_name}")
-                    return recruit
+            weight_elem = soup.select_one('li:has(span:contains("Weight")) span:last-child, .pos-height-weight .weight')
+            if weight_elem:
+                recruit['weight'] = weight_elem.get_text(strip=True)
 
-            logger.info(f"❌ No results found for {name} ({year})")
-            return None
+            # Try to get from page text if selectors don't work
+            page_text = soup.get_text()
+
+            # Extract position from "Pos QB" or similar
+            if not recruit['position']:
+                pos_match = re.search(r'Pos\s+([A-Z]{1,4})\b', page_text)
+                if pos_match:
+                    recruit['position'] = pos_match.group(1)
+
+            # Extract height from "Height 6-3" or "6-3.5"
+            if not recruit['height']:
+                height_match = re.search(r'Height\s+([\d]+-[\d.]+)', page_text)
+                if height_match:
+                    recruit['height'] = height_match.group(1)
+
+            # Extract weight
+            if not recruit['weight']:
+                weight_match = re.search(r'Weight\s+(\d{2,3})', page_text)
+                if weight_match:
+                    recruit['weight'] = weight_match.group(1)
+
+            # High School and Location from Prospect Info
+            school_elem = soup.select_one('.prospect-info li:has(span:contains("High School"))')
+            if school_elem:
+                recruit['high_school'] = school_elem.get_text(strip=True).replace('High School', '').strip()
+
+            city_elem = soup.select_one('.prospect-info li:has(span:contains("City"))')
+            if city_elem:
+                city_text = city_elem.get_text(strip=True).replace('City', '').strip()
+                if ', ' in city_text:
+                    parts = city_text.split(', ')
+                    recruit['city'] = parts[0]
+                    recruit['state'] = parts[1][:2].upper() if len(parts) > 1 else None
+                else:
+                    recruit['city'] = city_text
+
+            # Try from page text
+            if not recruit['high_school']:
+                hs_match = re.search(r'High School\s+([A-Za-z\s]+?)(?:\s+City|$)', page_text)
+                if hs_match:
+                    recruit['high_school'] = hs_match.group(1).strip()
+
+            if not recruit['city'] or not recruit['state']:
+                loc_match = re.search(r'City\s+([A-Za-z\s]+),\s+([A-Z]{2})', page_text)
+                if loc_match:
+                    recruit['city'] = loc_match.group(1).strip()
+                    recruit['state'] = loc_match.group(2)
+
+            # Class year
+            class_match = re.search(r'Class\s+(\d{4})', page_text)
+            if class_match:
+                recruit['year'] = int(class_match.group(1))
+
+            # Parse ratings and rankings from page text
+            # Pattern: "247Sports      98      Natl.   3            QB  3    TN  1"
+            # Pattern: "247Sports Composite®      0.9992      Natl.   1            QB  1    TN  1"
+
+            # 247Sports Rating (the "98" number)
+            rating_247_match = re.search(r'247Sports\s+(\d{2})\s+Natl', page_text)
+            if rating_247_match:
+                recruit['rating_247'] = int(rating_247_match.group(1))
+                logger.debug(f"Found 247 rating: {recruit['rating_247']}")
+
+            # 247Sports Composite Rating (0.9992)
+            composite_match = re.search(r'Composite[®]?\s*(0\.\d{4}|1\.0000)', page_text)
+            if composite_match:
+                recruit['rating_composite'] = float(composite_match.group(1))
+                logger.debug(f"Found composite: {recruit['rating_composite']}")
+
+            # Rankings from 247Sports section (the "98" rating section)
+            # Look for pattern: "98      Natl.   3            QB  3    TN  1"
+            rank_section_match = re.search(r'247Sports\s+\d{2}\s+(Natl\.?\s*\d+.*?)(?:247Sports Composite|$)', page_text, re.DOTALL)
+            if rank_section_match:
+                rank_text = rank_section_match.group(1)
+
+                # National rank
+                natl_match = re.search(r'Natl\.?\s*(\d+)', rank_text)
+                if natl_match:
+                    recruit['national_rank_247'] = int(natl_match.group(1))
+
+                # Position rank - look for position followed by number
+                if recruit['position']:
+                    pos_match = re.search(rf"{recruit['position']}\s+(\d+)", rank_text)
+                    if pos_match:
+                        recruit['position_rank_247'] = int(pos_match.group(1))
+
+                # State rank - two letter state code followed by number
+                # Need to exclude position codes (QB, WR, RB, etc.)
+                position_codes = {'QB', 'WR', 'RB', 'TE', 'OL', 'OT', 'OG', 'DL', 'DT', 'DE', 'LB', 'CB', 'DB', 'WS', 'SS', 'FS', 'PK', 'PU', 'LS'}
+                for match in re.finditer(r'\b([A-Z]{2})\s+(\d+)', rank_text):
+                    code = match.group(1)
+                    if code in self.STATES and code not in position_codes:
+                        recruit['state'] = code
+                        recruit['state_rank_247'] = int(match.group(2))
+                        break
+
+            # Composite rankings (from the composite section)
+            comp_rank_match = re.search(r'Composite[®]?\s*[\d.]+\s+(Natl\.?\s*\d+.*?)(?:Your Prediction|Crystal Ball|$)', page_text, re.DOTALL)
+            if comp_rank_match:
+                comp_rank_text = comp_rank_match.group(1)
+
+                natl_match = re.search(r'Natl\.?\s*(\d+)', comp_rank_text)
+                if natl_match:
+                    recruit['national_rank'] = int(natl_match.group(1))
+
+                if recruit['position']:
+                    pos_match = re.search(rf"{recruit['position']}\s+(\d+)", comp_rank_text)
+                    if pos_match:
+                        recruit['position_rank'] = int(pos_match.group(1))
+
+                # State rank - exclude position codes
+                position_codes = {'QB', 'WR', 'RB', 'TE', 'OL', 'OT', 'OG', 'DL', 'DT', 'DE', 'LB', 'CB', 'DB', 'WS', 'SS', 'FS', 'PK', 'PU', 'LS'}
+                for match in re.finditer(r'\b([A-Z]{2})\s+(\d+)', comp_rank_text):
+                    code = match.group(1)
+                    if code in self.STATES and code not in position_codes:
+                        recruit['state_rank'] = int(match.group(2))
+                        break
+
+            # If we didn't find composite national rank, use the 247 one
+            if not recruit['national_rank'] and recruit['national_rank_247']:
+                recruit['national_rank'] = recruit['national_rank_247']
+
+            # Determine star rating from the 247 rating
+            if recruit['rating_247']:
+                if recruit['rating_247'] >= 98:
+                    recruit['stars'] = 5
+                elif recruit['rating_247'] >= 90:
+                    recruit['stars'] = 4
+                elif recruit['rating_247'] >= 80:
+                    recruit['stars'] = 3
+                elif recruit['rating_247'] >= 70:
+                    recruit['stars'] = 2
+                else:
+                    recruit['stars'] = 1
+
+            # Commitment status - check page text for patterns
+            # Pattern: "Vanderbilt (NCAA)" or "Alabama Crimson Tide"
+            # Look for school name patterns near player info
+
+            # Check for "(NCAA)" pattern - indicates they're enrolled
+            # Pattern: "Vanderbilt (NCAA)" in the player info
+            ncaa_match = re.search(r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*\(NCAA\)', page_text)
+            if ncaa_match:
+                recruit['status'] = 'Enrolled'
+                school_name = ncaa_match.group(1).strip()
+                # Clean up the school name
+                school_name = re.sub(r'^(NCAA|HS)\s*', '', school_name).strip()
+                recruit['committed_to'] = school_name
+                logger.debug(f"Found enrollment via (NCAA): {recruit['committed_to']}")
+
+            # Also look for "Commodores Class FR" or similar (current class)
+            if not recruit['committed_to']:
+                team_class_match = re.search(r'(\w+)\s+Commodores|(\w+)\s+Crimson Tide|(\w+)\s+Bulldogs|(\w+)\s+Tigers|(\w+)\s+Ducks|(\w+)\s+Huskies|(\w+)\s+Gators|(\w+)\s+Buckeyes|(\w+)\s+Wolverines', page_text)
+                if team_class_match:
+                    # Get the first non-None group
+                    for g in team_class_match.groups():
+                        if g:
+                            recruit['committed_to'] = g
+                            recruit['status'] = 'Enrolled'
+                            break
+
+            # Look for explicit "Enrolled" or "Committed" text
+            if 'Enrolled' in page_text:
+                if not recruit['status']:
+                    recruit['status'] = 'Enrolled'
+                # Try to get enrollment date
+                date_match = re.search(r'Enrolled\s*[-–]\s*(\d{1,2}/\d{1,2}/\d{4})', page_text)
+                if date_match:
+                    recruit['enrollment_date'] = date_match.group(1)
+
+            elif 'Committed' in page_text and not recruit['status']:
+                recruit['status'] = 'Committed'
+
+            # If we still don't have the school, look for college links
+            if not recruit['committed_to']:
+                school_links = soup.select('a[href*="/college/"]')
+                for link in school_links:
+                    school_name = link.get_text(strip=True)
+                    # Filter out generic links
+                    if school_name and len(school_name) > 2 and school_name not in ['NCAA', 'College']:
+                        recruit['committed_to'] = school_name
+                        if not recruit['status']:
+                            recruit['status'] = 'Committed'
+                        break
+
+            # Parse stats table
+            stats_table = soup.select_one('table')
+            if stats_table:
+                recruit['stats'] = self._parse_stats_table(stats_table)
+
+            # Scouting report
+            scout_elem = soup.select_one('.scouting-report, .evaluation')
+            if scout_elem:
+                recruit['scouting_report'] = scout_elem.get_text(strip=True)[:500]  # Truncate
+
+            # Offers count
+            offers_match = re.search(r'(\d+)\s+Offers?', page_text)
+            if offers_match:
+                recruit['offers_count'] = int(offers_match.group(1))
+
+            logger.info(f"✅ Scraped profile: {recruit['name']} ({recruit['position']}) - {recruit['stars']}⭐")
+            return recruit
 
         except Exception as e:
-            logger.error(f"❌ Error parsing recruit search: {e}", exc_info=True)
+            logger.error(f"❌ Error parsing player profile: {e}", exc_info=True)
             return None
+
+    def _parse_stats_table(self, table) -> List[Dict[str, Any]]:
+        """Parse a stats table from 247Sports profile"""
+        stats = []
+
+        try:
+            # Get headers
+            headers = []
+            header_row = table.select_one('thead tr, tr:first-child')
+            if header_row:
+                headers = [th.get_text(strip=True).lower() for th in header_row.select('th, td')]
+
+            # Get data rows
+            rows = table.select('tbody tr')
+
+            for row in rows:
+                cells = row.select('td')
+                if not cells or len(cells) < 2:
+                    continue
+
+                row_data = {}
+                for i, cell in enumerate(cells):
+                    if i < len(headers):
+                        key = headers[i]
+                        value = cell.get_text(strip=True)
+                        # Try to convert to int
+                        try:
+                            row_data[key] = int(value)
+                        except ValueError:
+                            row_data[key] = value
+
+                if row_data:
+                    stats.append(row_data)
+
+        except Exception as e:
+            logger.debug(f"Error parsing stats table: {e}")
+
+        return stats
 
     def _parse_recruit_row(self, row, player_name: str) -> Optional[Dict[str, Any]]:
         """Parse a recruit row from the rankings table"""
@@ -579,46 +913,108 @@ class RecruitingScraper:
         # Name and basic info
         name = recruit.get('name', 'Unknown')
         stars = recruit.get('stars')
-        star_display = '⭐' * stars if stars else '?'
+        star_display = '⭐' * stars if stars else ''
+        position = recruit.get('position', '')
+        year = recruit.get('year', '')
 
         lines.append(f"**{name}** {star_display}")
+        if position:
+            lines.append(f"📍 **{position}** | Class of **{year}**")
+        lines.append("")
 
-        # Rankings
-        rankings = []
-        if recruit.get('national_rank'):
-            rankings.append(f"#{recruit['national_rank']} National")
-        if recruit.get('position_rank'):
-            rankings.append(f"#{recruit['position_rank']} {recruit.get('position', 'Pos')}")
-        if recruit.get('state_rank'):
-            rankings.append(f"#{recruit['state_rank']} {recruit.get('state', 'State')}")
+        # Ratings section
+        lines.append("**📊 Ratings**")
+        if recruit.get('rating_247'):
+            lines.append(f"• 247Sports: **{recruit['rating_247']}**")
+        if recruit.get('rating_composite'):
+            lines.append(f"• Composite: **{recruit['rating_composite']:.4f}**")
+        lines.append("")
 
-        if rankings:
-            lines.append(' | '.join(rankings))
+        # Rankings section
+        lines.append("**🏆 Rankings**")
+        rank_lines = []
 
-        # Rating
-        if recruit.get('rating'):
-            lines.append(f"📊 Rating: {recruit['rating']:.4f}")
+        # National
+        natl = recruit.get('national_rank') or recruit.get('national_rank_247')
+        if natl:
+            rank_lines.append(f"• National: **#{natl}**")
 
-        # Physical
+        # Position
+        pos_rank = recruit.get('position_rank') or recruit.get('position_rank_247')
+        if pos_rank:
+            rank_lines.append(f"• {position}: **#{pos_rank}**")
+
+        # State
+        state = recruit.get('state', '')
+        state_rank = recruit.get('state_rank') or recruit.get('state_rank_247')
+        if state_rank:
+            rank_lines.append(f"• {state}: **#{state_rank}**")
+
+        if rank_lines:
+            lines.extend(rank_lines)
+        else:
+            lines.append("• _Rankings not available_")
+        lines.append("")
+
+        # Physical & Location
+        lines.append("**📏 Profile**")
         physical = []
         if recruit.get('height'):
-            physical.append(recruit['height'])
+            physical.append(f"**{recruit['height']}**")
         if recruit.get('weight'):
-            physical.append(f"{recruit['weight']} lbs")
+            physical.append(f"**{recruit['weight']} lbs**")
         if physical:
-            lines.append(f"📏 {' / '.join(physical)}")
+            lines.append(f"• Size: {' / '.join(physical)}")
 
-        # Location
         if recruit.get('city') and recruit.get('state'):
-            lines.append(f"📍 {recruit['city']}, {recruit['state']}")
+            lines.append(f"• Hometown: {recruit['city']}, {recruit['state']}")
         if recruit.get('high_school'):
-            lines.append(f"🏫 {recruit['high_school']}")
+            lines.append(f"• High School: {recruit['high_school']}")
 
-        # Commitment
+        if recruit.get('offers_count'):
+            lines.append(f"• Offers: **{recruit['offers_count']}**")
+        lines.append("")
+
+        # Commitment status
         if recruit.get('committed_to'):
-            lines.append(f"✅ **Committed to {recruit['committed_to']}**")
+            status = recruit.get('status', 'Committed')
+            lines.append(f"✅ **{status} to {recruit['committed_to']}**")
         else:
-            lines.append("🔮 Uncommitted")
+            lines.append("🔮 **Uncommitted**")
+
+        # Stats (if available)
+        stats = recruit.get('stats', [])
+        if stats:
+            lines.append("")
+            lines.append("**📈 Career Stats**")
+
+            # Show most recent year first
+            for stat in stats[:3]:  # Show up to 3 seasons
+                year_label = stat.get('year', 'Season')
+                stat_parts = []
+
+                # Passing stats
+                if stat.get('paatt') or stat.get('pacmp'):
+                    cmp = stat.get('pacmp', '?')
+                    att = stat.get('paatt', '?')
+                    yds = stat.get('payd', '?')
+                    td = stat.get('patd', '?')
+                    stat_parts.append(f"Pass: {cmp}/{att}, {yds}yd, {td}TD")
+
+                # Rushing stats
+                if stat.get('ruatt') or stat.get('ruyd'):
+                    att = stat.get('ruatt', '?')
+                    yds = stat.get('ruyd', '?')
+                    td = stat.get('rutd', '?')
+                    stat_parts.append(f"Rush: {att}car, {yds}yd, {td}TD")
+
+                if stat_parts:
+                    lines.append(f"**{year_label}**: {' | '.join(stat_parts)}")
+
+        # Profile URL
+        if recruit.get('profile_url'):
+            lines.append("")
+            lines.append(f"[View Full Profile on 247Sports]({recruit['profile_url']})")
 
         return '\n'.join(lines)
 
