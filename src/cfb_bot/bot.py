@@ -3712,7 +3712,12 @@ async def get_recruit(
     year: Optional[int] = None
 ):
     """Look up a recruit from 247Sports composite rankings"""
-    await interaction.response.defer()
+    try:
+        await interaction.response.defer()
+    except discord.errors.NotFound:
+        # Interaction expired (3 second timeout) - can't respond
+        logger.warning(f"⚠️ /recruit interaction expired for {name}")
+        return
 
     if not await check_module_enabled_deferred(interaction, FeatureModule.RECRUITING):
         return
@@ -3775,7 +3780,11 @@ async def get_top_recruits(
     top: Optional[int] = 15
 ):
     """Get top recruits with optional filters"""
-    await interaction.response.defer()
+    try:
+        await interaction.response.defer()
+    except discord.errors.NotFound:
+        logger.warning("⚠️ /top_recruits interaction expired")
+        return
 
     if not await check_module_enabled_deferred(interaction, FeatureModule.RECRUITING):
         return
@@ -3837,7 +3846,11 @@ async def get_recruiting_class(
     year: Optional[int] = None
 ):
     """Get a team's recruiting class details"""
-    await interaction.response.defer()
+    try:
+        await interaction.response.defer()
+    except discord.errors.NotFound:
+        logger.warning(f"⚠️ /recruiting_class interaction expired for {team}")
+        return
 
     if not await check_module_enabled_deferred(interaction, FeatureModule.RECRUITING):
         return
@@ -3879,7 +3892,11 @@ async def get_recruiting_rankings(
     top: Optional[int] = 25
 ):
     """Get top team recruiting class rankings"""
-    await interaction.response.defer()
+    try:
+        await interaction.response.defer()
+    except discord.errors.NotFound:
+        logger.warning("⚠️ /recruiting_rankings interaction expired")
+        return
 
     if not await check_module_enabled_deferred(interaction, FeatureModule.RECRUITING):
         return
