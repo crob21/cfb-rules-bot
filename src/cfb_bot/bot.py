@@ -624,7 +624,7 @@ async def on_ready():
 async def on_guild_join(guild):
     """Log when the bot joins a new guild"""
     logger.info(f'🆕 Bot joined new guild: {guild.name} (ID: {guild.id}, Members: {guild.member_count})')
-    
+
     # Try to sync commands to the new guild
     try:
         synced = await bot.tree.sync(guild=guild)
@@ -722,7 +722,7 @@ async def on_message(message):
             return
     else:
         guild_id = 0
-    
+
     # Check if LEAGUE module is enabled for this server (used for AI context)
     league_enabled = server_config.is_module_enabled(guild_id, FeatureModule.LEAGUE)
 
@@ -1220,19 +1220,19 @@ async def on_message(message):
 
                 # Check for bulk player lookup (multiple lines with player names)
                 bulk_indicators = [
-                    'look up these', 'lookup these', 'find these', 'check these', 
+                    'look up these', 'lookup these', 'find these', 'check these',
                     'these players', 'player list', 'tell me about:', 'about these',
                     'look up:', 'lookup:', 'players:', 'look these up', 'info on these',
                     'stats for these', 'stats on these'
                 ]
                 content_lines = message.content.strip().split('\n')
-                
+
                 # Position indicators for detecting "Name Position Team" format
                 positions = ['QB', 'RB', 'WR', 'TE', 'OL', 'OT', 'OG', 'DL', 'DT', 'DE', 'LB', 'CB', 'DB', 'S', 'K', 'P']
 
                 # Detect bulk lookup: either explicit request or multiple lines with player-like content
                 is_bulk_request = any(ind in message_lower for ind in bulk_indicators)
-                
+
                 # Check for multiple player-like lines (with parentheses OR position codes)
                 def looks_like_player_line(line):
                     """Check if a line looks like a player entry"""
@@ -1252,7 +1252,7 @@ async def on_message(message):
                     if len(words) >= 3 and all(w[0].isupper() for w in words if w):
                         return True
                     return False
-                
+
                 player_like_lines = [l for l in content_lines if looks_like_player_line(l)]
                 has_multiple_players = len(player_like_lines) >= 2
 
@@ -3712,15 +3712,15 @@ async def get_recruit(
 ):
     """Look up a recruit from 247Sports composite rankings"""
     await interaction.response.defer()
-    
+
     if not await check_module_enabled_deferred(interaction, FeatureModule.RECRUITING):
         return
-    
+
     try:
         logger.info(f"🔍 /recruit lookup: {name} ({year or 'current'})")
-        
+
         recruit = await recruiting_scraper.search_recruit(name, year)
-        
+
         if recruit:
             embed = discord.Embed(
                 title=f"⭐ Recruit: {recruit.get('name', name)}",
@@ -3741,7 +3741,7 @@ async def get_recruit(
             )
             embed.set_footer(text="Harry's Recruiting 🏈 | Data from 247Sports Composite")
             await interaction.followup.send(embed=embed)
-            
+
     except Exception as e:
         logger.error(f"❌ Error in /recruit: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Error looking up recruit: {str(e)}", ephemeral=True)
@@ -3775,26 +3775,26 @@ async def get_top_recruits(
 ):
     """Get top recruits with optional filters"""
     await interaction.response.defer()
-    
+
     if not await check_module_enabled_deferred(interaction, FeatureModule.RECRUITING):
         return
-    
+
     try:
         # Validate top parameter
         if top and (top < 1 or top > 50):
             await interaction.followup.send("❌ 'top' must be between 1 and 50", ephemeral=True)
             return
-        
+
         actual_year = year or recruiting_scraper._get_current_recruiting_year()
         logger.info(f"🔍 /top_recruits: pos={position}, state={state}, year={actual_year}, top={top}")
-        
+
         recruits = await recruiting_scraper.get_top_recruits(
             year=actual_year,
             position=position,
             state=state,
             limit=top or 15
         )
-        
+
         if recruits:
             # Build title
             title_parts = ["⭐ Top"]
@@ -3806,7 +3806,7 @@ async def get_top_recruits(
             if state:
                 title_parts.append(f"from {state.upper()}")
             title_parts.append(f"({actual_year})")
-            
+
             embed = discord.Embed(
                 title=' '.join(title_parts),
                 description=recruiting_scraper.format_top_recruits(recruits, ""),
@@ -3819,7 +3819,7 @@ async def get_top_recruits(
                 f"❌ Couldn't find recruits matching your criteria. Try different filters!",
                 ephemeral=True
             )
-            
+
     except Exception as e:
         logger.error(f"❌ Error in /top_recruits: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Error getting recruits: {str(e)}", ephemeral=True)
@@ -3837,16 +3837,16 @@ async def get_recruiting_class(
 ):
     """Get a team's recruiting class details"""
     await interaction.response.defer()
-    
+
     if not await check_module_enabled_deferred(interaction, FeatureModule.RECRUITING):
         return
-    
+
     try:
         actual_year = year or recruiting_scraper._get_current_recruiting_year()
         logger.info(f"🔍 /recruiting_class: {team} ({actual_year})")
-        
+
         team_data = await recruiting_scraper.get_team_recruiting_class(team, actual_year)
-        
+
         if team_data:
             embed = discord.Embed(
                 title=f"📋 {team_data.get('team', team)} Recruiting Class",
@@ -3861,7 +3861,7 @@ async def get_recruiting_class(
                 f"💡 Try the full school name (e.g., 'Ohio State' not 'OSU')",
                 ephemeral=True
             )
-            
+
     except Exception as e:
         logger.error(f"❌ Error in /recruiting_class: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Error getting class: {str(e)}", ephemeral=True)
@@ -3879,20 +3879,20 @@ async def get_recruiting_rankings(
 ):
     """Get top team recruiting class rankings"""
     await interaction.response.defer()
-    
+
     if not await check_module_enabled_deferred(interaction, FeatureModule.RECRUITING):
         return
-    
+
     try:
         if top and (top < 1 or top > 50):
             await interaction.followup.send("❌ 'top' must be between 1 and 50", ephemeral=True)
             return
-        
+
         actual_year = year or recruiting_scraper._get_current_recruiting_year()
         logger.info(f"🔍 /recruiting_rankings: year={actual_year}, top={top}")
-        
+
         teams = await recruiting_scraper.get_team_rankings(actual_year, top or 25)
-        
+
         if teams:
             # Format rankings
             lines = [f"**Top {len(teams)} Recruiting Classes ({actual_year})**", ""]
@@ -3903,7 +3903,7 @@ async def get_recruiting_rankings(
                 points = team.get('points', 0)
                 points_str = f" ({points:.1f} pts)" if points else ""
                 lines.append(f"`{rank:2d}.` **{name}** - {commits} commits{points_str}")
-            
+
             embed = discord.Embed(
                 title=f"🏆 Team Recruiting Rankings ({actual_year})",
                 description='\n'.join(lines),
@@ -3916,7 +3916,7 @@ async def get_recruiting_rankings(
                 f"❌ Couldn't load team rankings for {actual_year}",
                 ephemeral=True
             )
-            
+
     except Exception as e:
         logger.error(f"❌ Error in /recruiting_rankings: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Error getting rankings: {str(e)}", ephemeral=True)
