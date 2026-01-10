@@ -213,8 +213,17 @@ class RecruitingScraper:
                     if 'cbssports.com' in href or '/stats/player/' in href:
                         continue
 
-                    # Check if this matches our search
-                    if name.lower() in link_text.lower():
+                    # Check if this matches our search (flexible matching for spelling)
+                    link_text_lower = link_text.lower()
+                    name_parts = name.lower().split()
+
+                    # Match if all name parts are found (allows "Green" to match "Greene")
+                    matches = all(
+                        any(part in word or word.startswith(part) for word in link_text_lower.split())
+                        for part in name_parts
+                    )
+
+                    if matches:
                         profile_url = href
                         player_name = link_text
 
@@ -291,8 +300,13 @@ class RecruitingScraper:
 
                 link_text_lower = link_text.lower()
 
-                # Check for match - must match all parts of the name
-                if all(part in link_text_lower for part in name_parts):
+                # Check for match - flexible matching for spelling variations
+                # Match if all parts are found (allows "Green" to match "Greene")
+                matches = all(
+                    any(part in word or word.startswith(part) for word in link_text_lower.split())
+                    for part in name_parts
+                )
+                if matches:
                     profile_url = href
 
                     # Fix URL format
