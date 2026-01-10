@@ -3704,12 +3704,14 @@ async def get_hs_stats_bulk(
 @bot.tree.command(name="recruit", description="Look up a recruit's 247Sports composite ranking")
 @app_commands.describe(
     name="Recruit name (e.g., 'Arch Manning')",
-    year="Recruiting class year (default: current)"
+    year="Recruiting class year (default: current)",
+    deep_search="Search ALL ranked recruits (~3000+) instead of top 1000 - slower but thorough"
 )
 async def get_recruit(
     interaction: discord.Interaction,
     name: str,
-    year: Optional[int] = None
+    year: Optional[int] = None,
+    deep_search: bool = False
 ):
     """Look up a recruit from 247Sports composite rankings"""
     try:
@@ -3723,9 +3725,12 @@ async def get_recruit(
         return
 
     try:
-        logger.info(f"🔍 /recruit lookup: {name} ({year or 'current'})")
+        search_depth = "deep (all ~3000)" if deep_search else "standard (top 1000)"
+        logger.info(f"🔍 /recruit lookup: {name} ({year or 'current'}) - {search_depth}")
 
-        recruit = await recruiting_scraper.search_recruit(name, year)
+        # Use more pages for deep search
+        max_pages = 65 if deep_search else 20  # 65 pages = all ~3100 recruits
+        recruit = await recruiting_scraper.search_recruit(name, year, max_pages=max_pages)
 
         if recruit:
             embed = discord.Embed(
@@ -3733,16 +3738,24 @@ async def get_recruit(
                 description=recruiting_scraper.format_recruit(recruit),
                 color=Colors.RECRUITING if hasattr(Colors, 'RECRUITING') else 0xffd700
             )
-            embed.set_footer(text="Harry's Recruiting 🏈 | Data from 247Sports Composite")
+            footer = "Harry's Recruiting 🏈 | Data from 247Sports Composite"
+            if deep_search:
+                footer += " | Deep Search"
+            embed.set_footer(text=footer)
             await interaction.followup.send(embed=embed)
         else:
+            tips = [
+                "• Check the spelling",
+                "• Try the full name",
+                "• Specify the year if not current class",
+            ]
+            if not deep_search:
+                tips.append("• Try `deep_search:True` to search all ~3000 ranked recruits")
+
             embed = discord.Embed(
                 title="❓ Recruit Not Found",
                 description=f"Couldn't find **{name}** in the 247Sports database.\n\n"
-                           f"💡 **Tips:**\n"
-                           f"• Check the spelling\n"
-                           f"• Try the full name\n"
-                           f"• Specify the year if not current class",
+                           f"💡 **Tips:**\n" + '\n'.join(tips),
                 color=Colors.WARNING
             )
             embed.set_footer(text="Harry's Recruiting 🏈 | Data from 247Sports Composite")
@@ -4841,7 +4854,15 @@ async def set_timer_channel(interaction: discord.Interaction, channel: discord.T
 
 
 @bot.tree.command(name="set_admin_channel", description="Set the channel for admin outputs and bot updates (Admin only)")
-async def set_admin_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+@app_commands.describe(
+    channel="Select a channel from the list (for visible channels)",
+    channel_id="Or paste a channel ID directly (for private channels)"
+)
+async def set_admin_channel(
+    interaction: discord.Interaction,
+    channel: discord.TextChannel = None,
+    channel_id: str = None
+):
     """Set the channel where admin messages and bot updates will be sent"""
     # Check if user is admin
     if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
@@ -4852,15 +4873,35 @@ async def set_admin_channel(interaction: discord.Interaction, channel: discord.T
         await interaction.response.send_message("❌ This command only works in servers!", ephemeral=True)
         return
 
+    # Determine channel - either from picker or from ID
+    if channel:
+        target_channel_id = channel.id
+        channel_name = f"#{channel.name}"
+    elif channel_id:
+        try:
+            target_channel_id = int(channel_id.strip())
+            # Try to fetch channel name if possible
+            fetched_channel = interaction.guild.get_channel(target_channel_id)
+            if fetched_channel:
+                channel_name = f"#{fetched_channel.name}"
+            else:
+                channel_name = f"<#{target_channel_id}> (private)"
+        except ValueError:
+            await interaction.response.send_message("❌ Invalid channel ID! It should be a number like `1459372492387778704`", ephemeral=True)
+            return
+    else:
+        await interaction.response.send_message("❌ Provide either a `channel` or a `channel_id`!", ephemeral=True)
+        return
+
     guild_id = interaction.guild.id
 
     # Update the channel ID and persist it
-    server_config.set_admin_channel(guild_id, channel.id)
+    server_config.set_admin_channel(guild_id, target_channel_id)
     await server_config.save_to_discord()
 
     embed = discord.Embed(
         title="🔧 Admin Channel Set!",
-        description=f"Right then! Admin outputs will now go to:\n\n**#{channel.name}** (<#{channel.id}>)\n\nThis includes:\n• Bot startup/restart notifications\n• Timer restore messages\n• Config change confirmations\n• Error reports\n\n✅ **Saved!** This will persist across bot restarts.",
+        description=f"Right then! Admin outputs will now go to:\n\n**{channel_name}** (<#{target_channel_id}>)\n\nThis includes:\n• Bot startup/restart notifications\n• Timer restore messages\n• Config change confirmations\n• Error reports\n\n✅ **Saved!** This will persist across bot restarts.\n\n⚠️ **Note:** Make sure Harry has access to send messages in that channel!",
         color=Colors.SUCCESS
     )
     embed.set_footer(text=Footers.CONFIG)

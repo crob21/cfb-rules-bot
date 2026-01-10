@@ -11,10 +11,61 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.17.0"
+CURRENT_VERSION = "1.17.3"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.17.3": {
+        "date": "2026-01-10",
+        "title": "Private Admin Channel Support",
+        "emoji": "🔒",
+        "features": [
+            {
+                "category": "Improvements",
+                "emoji": "⬆️",
+                "changes": [
+                    "/set_admin_channel now accepts channel_id for private channels",
+                    "Use: /set_admin_channel channel_id:1459372492387778704",
+                    "Works for channels Harry can't see in the picker"
+                ]
+            }
+        ]
+    },
+    "1.17.2": {
+        "date": "2026-01-10",
+        "title": "Deep Search & Admin Channel",
+        "emoji": "🔎",
+        "features": [
+            {
+                "category": "New Features",
+                "emoji": "✨",
+                "changes": [
+                    "/recruit now has `deep_search:True` option to search ALL ~3000 ranked recruits",
+                    "Standard search covers top 1000 (~10 seconds)",
+                    "Deep search covers all ~3100 recruits (~30 seconds)",
+                    "/set_admin_channel - Set a private channel for bot updates & errors"
+                ]
+            }
+        ]
+    },
+    "1.17.1": {
+        "date": "2026-01-10",
+        "title": "Recruiting Search Expansion",
+        "emoji": "🔍",
+        "features": [
+            {
+                "category": "Improvements",
+                "emoji": "⬆️",
+                "changes": [
+                    "Expanded recruit search from top 150 to top 1000 recruits",
+                    "Reduced rate limit delay (0.5s) for faster searches (~10s for top 1000)",
+                    "Added progress logging for deep searches",
+                    "Auto-stops at end of rankings instead of fixed page limit",
+                    "Most recruits people look up are in top 500 (~5 seconds)"
+                ]
+            }
+        ]
+    },
     "1.17.0": {
         "date": "2026-01-10",
         "title": "247Sports Recruiting Module",

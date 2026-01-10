@@ -67,7 +67,7 @@ class RecruitingScraper:
         self._cache: Dict[str, Any] = {}
         self._cache_ttl = timedelta(hours=1)  # Cache for 1 hour
         self._last_request = datetime.min
-        self._rate_limit_delay = 1.0  # 1 second between requests
+        self._rate_limit_delay = 0.5  # 0.5 seconds between requests (polite but responsive)
 
         # HTTP client with browser-like headers
         self._headers = {
@@ -167,13 +167,21 @@ class RecruitingScraper:
             return float(match.group(1))
         return None
 
-    async def search_recruit(self, name: str, year: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    async def search_recruit(
+        self,
+        name: str,
+        year: Optional[int] = None,
+        max_pages: int = 20
+    ) -> Optional[Dict[str, Any]]:
         """
         Search for a recruit by name and scrape their full profile
 
         Args:
             name: Player name to search
             year: Recruiting class year (defaults to current)
+            max_pages: Maximum ranking pages to search (50 players/page)
+                       - 20 = top 1000 (~10 seconds, default)
+                       - 65 = all ~3100 ranked recruits (~30 seconds)
 
         Returns:
             Recruit info dictionary with full profile data or None
@@ -181,7 +189,7 @@ class RecruitingScraper:
         if not year:
             year = self._get_current_recruiting_year()
 
-        cache_key = f"recruit:{name.lower()}:{year}"
+        cache_key = f"recruit:{name.lower()}:{year}:{max_pages}"
         cached = self._get_cached(cache_key)
         if cached:
             return cached
@@ -250,8 +258,8 @@ class RecruitingScraper:
 
         # If direct search failed, try searching the composite rankings
         if not profile_url:
-            logger.info(f"🔍 Direct search failed, trying composite rankings for {name}")
-            profile_url, player_name = await self._search_composite_rankings(name, year)
+            logger.info(f"🔍 Direct search failed, trying composite rankings for {name} (max {max_pages} pages)")
+            profile_url, player_name = await self._search_composite_rankings(name, year, max_pages=max_pages)
 
         if not profile_url:
             logger.info(f"❌ No profile found for {name} ({year})")
@@ -264,13 +272,23 @@ class RecruitingScraper:
 
         return recruit
 
-    async def _search_composite_rankings(self, name: str, year: int) -> tuple[Optional[str], Optional[str]]:
+    async def _search_composite_rankings(
+        self,
+        name: str,
+        year: int,
+        max_pages: int = 20
+    ) -> tuple[Optional[str], Optional[str]]:
         """
         Search composite rankings pages for a player (fallback when direct search fails)
 
         Args:
             name: Player name to search
             year: Recruiting class year
+            max_pages: Maximum pages to search (50 players/page, default 20 = top 1000)
+                       Each page takes ~1 second due to rate limiting
+                       - 20 pages = ~20 seconds max (top 1000)
+                       - 40 pages = ~40 seconds max (top 2000)
+                       - 65 pages = ~65 seconds max (all ranked recruits)
 
         Returns:
             Tuple of (profile_url, player_name) or (None, None)
@@ -278,24 +296,37 @@ class RecruitingScraper:
         name_lower = name.lower()
         name_parts = name_lower.split()
 
-        # Try multiple pages of rankings (top 50, 51-100, 101-150, etc.)
-        pages_to_try = [
-            self.PLAYER_RANKINGS_URL.format(year=year),  # Top 50
-            self.PLAYER_RANKINGS_URL.format(year=year) + "?Page=2",  # 51-100
-            self.PLAYER_RANKINGS_URL.format(year=year) + "?Page=3",  # 101-150
-        ]
+        logger.info(f"🔍 Searching up to {max_pages} pages of rankings for: {name}")
 
-        for url in pages_to_try:
+        # Build list of URLs to try (page 1, 2, 3... up to max_pages)
+        base_url = self.PLAYER_RANKINGS_URL.format(year=year)
+
+        for page_num in range(1, max_pages + 1):
+            if page_num == 1:
+                url = base_url
+            else:
+                url = f"{base_url}?Page={page_num}"
+
             html = await self._fetch_page(url)
 
             if not html:
-                continue
+                # If we get no HTML, likely hit the end of rankings
+                logger.info(f"📄 No more pages after page {page_num - 1}")
+                break
 
             try:
                 soup = BeautifulSoup(html, 'html.parser')
 
                 # Find all player links
                 player_links = soup.select('a[href*="/player/"]')
+
+                # Filter out non-player links
+                valid_links = [l for l in player_links if 'cbssports.com' not in l.get('href', '')]
+
+                # If no valid player links, we've hit the end
+                if not valid_links:
+                    logger.info(f"📄 No players on page {page_num}, stopping search")
+                    break
 
                 for link in player_links:
                     link_text = link.get_text(strip=True)
@@ -322,13 +353,18 @@ class RecruitingScraper:
                         elif profile_url.startswith('/'):
                             profile_url = self.BASE_URL + profile_url
 
-                        logger.info(f"✅ Found via rankings: {link_text} -> {profile_url}")
+                        logger.info(f"✅ Found on page {page_num}: {link_text} -> {profile_url}")
                         return profile_url, link_text
 
+                # Log progress every 10 pages
+                if page_num % 10 == 0:
+                    logger.info(f"📄 Searched {page_num} pages (~{page_num * 50} recruits)...")
+
             except Exception as e:
-                logger.error(f"❌ Error searching composite rankings: {e}")
+                logger.error(f"❌ Error searching page {page_num}: {e}")
                 continue
 
+        logger.info(f"❌ Player not found in top {max_pages * 50} recruits")
         return None, None
 
     async def _scrape_player_profile(self, profile_url: str, year: int) -> Optional[Dict[str, Any]]:
