@@ -405,30 +405,51 @@ class HSStatsScraper:
             }
 
             # ==================== EXTRACT FROM OG:TITLE ====================
-            # Format: "Gavin Day's Faith Lutheran High School Football Stats"
+            # Format variations:
+            # - "Gavin Day's Faith Lutheran High School Football Stats" (has school)
+            # - "Mason James' High School Football Stats" (no school)
             og_title = soup.select_one('meta[property="og:title"]')
             if og_title and og_title.get('content'):
                 title_content = og_title.get('content')
-                # Parse: "Player Name's School Name High School Football Stats"
-                title_match = re.match(r"^(.+?)'s\s+(.+?)\s+(?:High School\s+)?Football\s+Stats?", title_content, re.I)
+                
+                # Try pattern with school name first
+                title_match = re.match(r"^(.+?)'s\s+(.+?)\s+High School\s+Football\s+Stats?", title_content, re.I)
                 if title_match:
                     player_data['name'] = title_match.group(1).strip()
-                    player_data['school'] = title_match.group(2).strip()
-                    # Clean up school name - remove "High School" if present
-                    player_data['school'] = re.sub(r'\s+High School$', '', player_data['school'], flags=re.I)
-                    logger.debug(f"Extracted from og:title - Name: {player_data['name']}, School: {player_data['school']}")
+                    school_part = title_match.group(2).strip()
+                    # Only set school if it's not just empty or generic
+                    if school_part and school_part.lower() not in ['', 'high school']:
+                        player_data['school'] = school_part
+                    logger.debug(f"Extracted from og:title (with school) - Name: {player_data['name']}, School: {player_data['school']}")
+                else:
+                    # Try pattern without school: "Name's High School Football Stats"
+                    title_match = re.match(r"^(.+?)'s?\s+High School\s+Football\s+Stats?", title_content, re.I)
+                    if title_match:
+                        player_data['name'] = title_match.group(1).strip()
+                        logger.debug(f"Extracted from og:title (no school) - Name: {player_data['name']}")
+                    else:
+                        # Last resort: Just get name before apostrophe
+                        title_match = re.match(r"^(.+?)'s?\s+", title_content)
+                        if title_match:
+                            player_data['name'] = title_match.group(1).strip()
 
             # Fallback: Try page title
             if not player_data['name']:
                 title_elem = soup.select_one('title')
                 if title_elem:
                     title_text = title_elem.get_text(strip=True)
-                    title_match = re.match(r"^(.+?)'s\s+(.+?)\s+(?:High School\s+)?Football", title_text, re.I)
+                    # Same patterns as above
+                    title_match = re.match(r"^(.+?)'s\s+(.+?)\s+High School\s+Football", title_text, re.I)
                     if title_match:
                         player_data['name'] = title_match.group(1).strip()
                         if not player_data['school']:
-                            player_data['school'] = title_match.group(2).strip()
-                            player_data['school'] = re.sub(r'\s+High School$', '', player_data['school'], flags=re.I)
+                            school_part = title_match.group(2).strip()
+                            if school_part:
+                                player_data['school'] = school_part
+                    else:
+                        title_match = re.match(r"^(.+?)'s?\s+High School\s+Football", title_text, re.I)
+                        if title_match:
+                            player_data['name'] = title_match.group(1).strip()
 
             # Fallback: Try h1 (might be "Football Stats" but try anyway)
             if not player_data['name']:
@@ -446,9 +467,9 @@ class HSStatsScraper:
                 state = url_match.group(1).upper()
                 city = url_match.group(2).replace('-', ' ').title()
                 school_from_url = url_match.group(3).replace('-', ' ').title()
-                
+
                 player_data['location'] = f"{city}, {state}"
-                
+
                 # Use school from URL as fallback
                 if not player_data['school']:
                     player_data['school'] = school_from_url
@@ -493,10 +514,10 @@ class HSStatsScraper:
             # ==================== PARSE TOP STATS SECTION ====================
             # MaxPreps shows summary stats in compact format: "Solo210Tot283"
             top_stats = {}
-            
+
             # MaxPreps compacts stats without spaces, e.g., "Pts6P/G0.2Tot2Yds13Solo210Tot283"
             # Need to handle: Solo210Tot283 (solo tackles, total tackles)
-            
+
             # Try combined pattern first for defense stats (most reliable)
             # Pattern: Solo(number)Tot(number) - defense stats are together
             defense_match = re.search(r'Solo(\d+)Tot(\d+)', page_text)
@@ -504,7 +525,7 @@ class HSStatsScraper:
                 top_stats['solo_tackles'] = defense_match.group(1)
                 top_stats['total_tackles'] = defense_match.group(2)
                 logger.debug(f"Found defense stats: Solo {top_stats['solo_tackles']}, Tot {top_stats['total_tackles']}")
-            
+
             # Try other patterns for remaining stats
             # These need word boundaries or context to avoid false matches
             stat_patterns = [
@@ -516,13 +537,13 @@ class HSStatsScraper:
                 (r'PD\s*(\d+)', 'passes_defended'),
                 (r'TFL\s*(\d+)', 'tackles_for_loss'),
             ]
-            
+
             for pattern, stat_name in stat_patterns:
                 if stat_name not in top_stats:  # Don't overwrite
                     match = re.search(pattern, page_text, re.I)
                     if match:
                         top_stats[stat_name] = match.group(1)
-            
+
             if top_stats:
                 player_data['career_summary'] = top_stats
                 logger.debug(f"Found top stats: {top_stats}")
@@ -531,16 +552,16 @@ class HSStatsScraper:
             # Parse all stats tables on the page
             stats_tables = soup.select('table')
             all_seasons = []
-            
+
             for table in stats_tables:
                 season_stats = self._parse_stats_table(table)
                 if season_stats:
                     all_seasons.extend(season_stats)
-            
+
             # Consolidate seasons by year (merge data from different tables)
             seasons_by_year = {}
             career_total = None
-            
+
             for season in all_seasons:
                 if season.get('is_career_total'):
                     if not career_total:
@@ -560,16 +581,16 @@ class HSStatsScraper:
                         for key in ['passing', 'rushing', 'receiving', 'all_purpose', 'defense']:
                             if season.get(key):
                                 existing[key].update({k: v for k, v in season[key].items() if v})
-            
+
             # Add individual seasons
             player_data['seasons'] = list(seasons_by_year.values())
-            
+
             # Add career total as a special season
             if career_total:
                 career_total['year'] = 'Career Total'
                 career_total['grade'] = 'Career'
                 player_data['seasons'].append(career_total)
-            
+
             # Add top stats to career summary if we have defensive stats
             if top_stats.get('solo_tackles') or top_stats.get('total_tackles'):
                 # Create or update career defense stats
@@ -581,7 +602,7 @@ class HSStatsScraper:
                         'defense': {}
                     }
                     player_data['seasons'].append(career_total)
-                
+
                 career_total.setdefault('defense', {})
                 career_total['defense']['solo_tackles'] = top_stats.get('solo_tackles', '')
                 career_total['defense']['total_tackles'] = top_stats.get('total_tackles', '')
@@ -599,66 +620,73 @@ class HSStatsScraper:
     def _parse_stats_table(self, table, table_type: str = None) -> List[Dict[str, Any]]:
         """
         Parse a MaxPreps stats table into structured data.
-        
+
         MaxPreps tables have format:
         - Header row: GD, Team, Year, GP, [stat columns...]
         - Data rows: Sr., Var, 25-26, 14, [values...]
         - Total row: Varsity Total, [totals...]
-        
+
         Returns list of season stats dicts.
         """
         try:
             seasons = []
-            
+
             # Get all rows
             rows = table.select('tr')
             if len(rows) < 2:
                 return []
-            
+
             # First row is headers
             header_cells = rows[0].select('th, td')
             headers = [h.get_text(strip=True).lower() for h in header_cells]
             logger.debug(f"Table headers: {headers}")
-            
+
             # Determine table type from headers
+            # MaxPreps tables have different meanings for same column names:
+            # - Receiving table: Rec=receptions(count), Yds=yards
+            # - All Purpose table: Rec=receiving yards (not count!)
             if not table_type:
                 if 'car' in headers or 'carries' in headers:
                     table_type = 'rushing'
                 elif 'comp' in headers or 'att' in headers:
                     table_type = 'passing'
-                elif 'rec' in headers and 'ir' not in headers:
-                    table_type = 'receiving'
-                elif 'ir' in headers or 'kr' in headers:
+                elif 'ir' in headers or 'kr' in headers or 'pr' in headers:
+                    # All Purpose table has IR/KR/PR columns
                     table_type = 'all_purpose'
+                elif 'rec' in headers and 'yds' in headers and 'avg' in headers and 'td' in headers:
+                    # Receiving table has: Rec, Yds, Avg, Y/G, Lng, TD
+                    # Distinguished by having both 'rec' AND 'yds' as separate columns
+                    table_type = 'receiving'
                 elif 'solo' in headers or 'tkl' in headers:
                     table_type = 'defense'
-                elif 'rush' in headers and 'pass' in headers:
+                elif 'rush' in headers and 'pass' in headers and 'rec' in headers:
+                    # Total yards table has Rush, Pass, Rec columns (all yards)
                     table_type = 'total_yards'
-            
+
             # Parse data rows (skip header)
             for row in rows[1:]:
                 cells = row.select('td')
                 if not cells:
                     continue
-                
+
                 # Build row data dict
                 row_data = {}
                 for i, cell in enumerate(cells):
                     if i < len(headers):
                         row_data[headers[i]] = cell.get_text(strip=True)
-                
+
                 # Skip if this is the header row repeated
                 if row_data.get('gd', '').lower() == 'gd':
                     continue
-                
+
                 # Check if this is a totals row
                 is_total = any('total' in str(v).lower() for v in row_data.values())
-                
+
                 # Extract year/grade info
                 grade = row_data.get('gd', '')  # Sr., Jr., So., Fr.
                 year = row_data.get('year', '')  # 25-26, 24-25, etc.
                 gp = row_data.get('gp', '')  # Games played
-                
+
                 # Create season entry
                 season = {
                     'grade': grade,
@@ -672,7 +700,7 @@ class HSStatsScraper:
                     'all_purpose': {},
                     'defense': {}
                 }
-                
+
                 # Parse based on table type
                 if table_type == 'rushing':
                     season['rushing'] = {
@@ -684,7 +712,7 @@ class HSStatsScraper:
                         'touchdowns': row_data.get('td', ''),
                         '100_yard_games': row_data.get('100+', '')
                     }
-                
+
                 elif table_type == 'passing':
                     season['passing'] = {
                         'completions': row_data.get('comp', row_data.get('cmp', '')),
@@ -694,16 +722,18 @@ class HSStatsScraper:
                         'interceptions': row_data.get('int', ''),
                         'passer_rating': row_data.get('rtg', row_data.get('qbr', ''))
                     }
-                
+
                 elif table_type == 'receiving':
+                    # Receiving table columns: Rec(count), Yds(yards), Avg, Y/G, Lng, TD
                     season['receiving'] = {
-                        'receptions': row_data.get('rec', ''),
-                        'yards': row_data.get('yds', ''),
+                        'receptions': row_data.get('rec', ''),  # Rec = receptions count
+                        'yards': row_data.get('yds', ''),       # Yds = receiving yards
                         'avg': row_data.get('avg', ''),
+                        'yards_per_game': row_data.get('y/g', ''),
                         'touchdowns': row_data.get('td', ''),
                         'long': row_data.get('lng', '')
                     }
-                
+
                 elif table_type == 'all_purpose':
                     season['all_purpose'] = {
                         'rush_yards': row_data.get('rush', ''),
@@ -714,7 +744,7 @@ class HSStatsScraper:
                         'total': row_data.get('total', ''),
                         'yards_per_game': row_data.get('y/g', '')
                     }
-                
+
                 elif table_type == 'defense':
                     season['defense'] = {
                         'solo_tackles': row_data.get('solo', ''),
@@ -725,7 +755,7 @@ class HSStatsScraper:
                         'passes_defended': row_data.get('pd', row_data.get('pbu', '')),
                         'forced_fumbles': row_data.get('ff', '')
                     }
-                
+
                 elif table_type == 'total_yards':
                     season['all_purpose'] = {
                         'rush_yards': row_data.get('rush', ''),
@@ -734,7 +764,7 @@ class HSStatsScraper:
                         'total': row_data.get('total', ''),
                         'yards_per_game': row_data.get('y/g', '')
                     }
-                
+
                 # Only add if we have some data
                 has_data = any([
                     any(season['passing'].values()),
@@ -743,10 +773,10 @@ class HSStatsScraper:
                     any(season['all_purpose'].values()),
                     any(season['defense'].values())
                 ])
-                
+
                 if has_data:
                     seasons.append(season)
-            
+
             return seasons
 
         except Exception as e:
@@ -910,14 +940,14 @@ class HSStatsScraper:
         class_year = player_data.get('class_year', '')
 
         lines.append(f"🏈 **{name}**")
-        
+
         # School/Location line
         if school:
             school_line = f"🏫 {school}"
             if location:
                 school_line += f" ({location})"
             lines.append(school_line)
-        
+
         # Player info line (position, height, weight, class)
         info_parts = []
         if position:
@@ -935,7 +965,7 @@ class HSStatsScraper:
 
         # Stats by season
         seasons = player_data.get('seasons', [])
-        
+
         # Separate career total from individual seasons
         career_season = None
         individual_seasons = []
@@ -944,17 +974,17 @@ class HSStatsScraper:
                 career_season = season
             else:
                 individual_seasons.append(season)
-        
+
         # Show individual seasons (most recent first, limit to 3)
         if individual_seasons:
             # Sort by year descending
             individual_seasons.sort(key=lambda s: s.get('year', ''), reverse=True)
-            
+
             for season in individual_seasons[:3]:
                 year = season.get('year', '')
                 grade = season.get('grade', '')
                 games = season.get('games', '')
-                
+
                 # Build season header
                 header_parts = []
                 if grade and grade not in ['', 'Varsity Total']:
@@ -965,11 +995,11 @@ class HSStatsScraper:
                 if games:
                     season_header += f" ({games} GP)"
                 lines.append(season_header)
-                
+
                 # Add stat lines for this season
                 self._add_stat_lines(lines, season)
                 lines.append("")
-        
+
         # Show career totals if available
         if career_season:
             games = career_season.get('games', '')
@@ -979,7 +1009,7 @@ class HSStatsScraper:
             lines.append(career_header)
             self._add_stat_lines(lines, career_season)
             lines.append("")
-        
+
         # If no seasons found, show career summary if available
         if not seasons:
             career_summary = player_data.get('career_summary', {})
@@ -1005,7 +1035,7 @@ class HSStatsScraper:
             lines.append(f"[View Full Profile on MaxPreps]({profile_url})")
 
         return "\n".join(lines)
-    
+
     def _add_stat_lines(self, lines: List[str], season: Dict[str, Any]):
         """Add stat lines for a season to the output"""
         # Passing
@@ -1026,7 +1056,7 @@ class HSStatsScraper:
             avg = rushing.get('avg', '')
             td = rushing.get('touchdowns', '-')
             lng = rushing.get('long', '')
-            
+
             rush_line = f"  🏃 **Rushing:** {car} CAR | {yds} YDS | {td} TD"
             if avg:
                 rush_line += f" | {avg} AVG"
@@ -1041,12 +1071,12 @@ class HSStatsScraper:
             yds = receiving.get('yards', '')
             td = receiving.get('touchdowns', '')
             avg = receiving.get('avg', '')
-            
+
             # Only display if there's actual receiving data (not all zeros)
             has_data = (rec and rec not in ['0', '-', '']) or \
                        (yds and yds not in ['0', '-', '']) or \
                        (td and td not in ['0', '-', ''])
-            
+
             if has_data:
                 rec_line = f"  🙌 **Receiving:** {rec or '-'} REC | {yds or '-'} YDS | {td or '-'} TD"
                 if avg:
@@ -1060,7 +1090,7 @@ class HSStatsScraper:
             ir = all_purpose.get('int_return', '')
             kr = all_purpose.get('kick_return', '')
             pr = all_purpose.get('punt_return', '')
-            
+
             if total:
                 ap_parts = [f"**{total}** Total"]
                 if ir and ir != '0':
@@ -1080,7 +1110,7 @@ class HSStatsScraper:
             ints = defense.get('interceptions', '')
             ff = defense.get('forced_fumbles', '')
             pd = defense.get('passes_defended', '')
-            
+
             def_parts = []
             if solo or total:
                 tkl_str = f"{total}" if total else ""
@@ -1095,7 +1125,7 @@ class HSStatsScraper:
                 def_parts.append(f"{ff} FF")
             if pd and pd != '0':
                 def_parts.append(f"{pd} PD")
-            
+
             if def_parts:
                 lines.append(f"  🛡️ **Defense:** {' | '.join(def_parts)}")
 
