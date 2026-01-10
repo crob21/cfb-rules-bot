@@ -1217,14 +1217,45 @@ async def on_message(message):
                 message_lower = message.content.lower()
 
                 # Check for bulk player lookup (multiple lines with player names)
-                bulk_indicators = ['look up these', 'lookup these', 'find these', 'check these', 'these players', 'player list']
+                bulk_indicators = [
+                    'look up these', 'lookup these', 'find these', 'check these', 
+                    'these players', 'player list', 'tell me about:', 'about these',
+                    'look up:', 'lookup:', 'players:', 'look these up', 'info on these',
+                    'stats for these', 'stats on these'
+                ]
                 content_lines = message.content.strip().split('\n')
+                
+                # Position indicators for detecting "Name Position Team" format
+                positions = ['QB', 'RB', 'WR', 'TE', 'OL', 'OT', 'OG', 'DL', 'DT', 'DE', 'LB', 'CB', 'DB', 'S', 'K', 'P']
 
                 # Detect bulk lookup: either explicit request or multiple lines with player-like content
                 is_bulk_request = any(ind in message_lower for ind in bulk_indicators)
-                has_multiple_players = len(content_lines) >= 3 and any('(' in line for line in content_lines)
+                
+                # Check for multiple player-like lines (with parentheses OR position codes)
+                def looks_like_player_line(line):
+                    """Check if a line looks like a player entry"""
+                    line = line.strip()
+                    if not line or len(line) < 5:
+                        return False
+                    # Has parentheses (Name (Team Position))
+                    if '(' in line:
+                        return True
+                    # Has position code in middle (Name Position Team)
+                    line_upper = line.upper()
+                    for pos in positions:
+                        if f' {pos} ' in line_upper:
+                            return True
+                    # At least 3 words (First Last Team)
+                    words = line.split()
+                    if len(words) >= 3 and all(w[0].isupper() for w in words if w):
+                        return True
+                    return False
+                
+                player_like_lines = [l for l in content_lines if looks_like_player_line(l)]
+                has_multiple_players = len(player_like_lines) >= 2
 
                 if is_bulk_request or has_multiple_players:
+                    logger.info(f"🏈 Bulk lookup triggered: is_bulk_request={is_bulk_request}, player_lines={len(player_like_lines)}")
                     # Try to parse as player list
                     player_list = cfb_data.parse_player_list(message.content)
 

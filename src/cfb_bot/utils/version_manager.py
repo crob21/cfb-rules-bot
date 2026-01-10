@@ -11,10 +11,29 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.16.3"
+CURRENT_VERSION = "1.16.4"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.16.4": {
+        "date": "2026-01-10",
+        "title": "Bulk Lookup Detection Fix",
+        "emoji": "🔧",
+        "features": [
+            {
+                "category": "Bug Fixes",
+                "emoji": "🐛",
+                "changes": [
+                    "Fixed bulk lookup not triggering for 'Tell me about:' and similar phrases",
+                    "Added more bulk indicators: 'tell me about:', 'about these', 'look up:', etc.",
+                    "Improved player line detection - no longer requires parentheses",
+                    "Detects 'Name Position Team' format (e.g., Sam Huard QB USC)",
+                    "Detects 3-word lines as potential player entries",
+                    "Added logging to show bulk lookup trigger reason"
+                ]
+            }
+        ]
+    },
     "1.16.3": {
         "date": "2026-01-10",
         "title": "Bulk Lookup Parser Fix",
