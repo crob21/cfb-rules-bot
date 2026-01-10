@@ -11,10 +11,27 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.17.6"
+CURRENT_VERSION = "1.17.7"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.17.7": {
+        "date": "2026-01-10",
+        "title": "Fixed Recruiting Class Command for On3",
+        "emoji": "📋",
+        "features": [
+            {
+                "category": "Bug Fixes",
+                "emoji": "🐛",
+                "changes": [
+                    "Fixed /recruiting_class not finding teams on On3",
+                    "On3 uses listitem elements, not table rows",
+                    "Now parses rank, commits, star breakdown, avg rating, NIL, and score",
+                    "Washington 2026 class now shows: #15, 25 commits, 88.76 avg, $69K NIL"
+                ]
+            }
+        ]
+    },
     "1.17.6": {
         "date": "2026-01-10",
         "title": "Transfer Portal Support & Multi-Result Warnings",

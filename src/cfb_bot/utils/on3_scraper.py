@@ -756,8 +756,9 @@ class On3Scraper:
             # Find team in rankings
             team_lower = team.lower()
 
-            # Look for team rows
-            rows = soup.select('tr, [role="row"]')
+            # Look for team rows - On3 uses listitem elements, not table rows
+            rows = soup.select('listitem, li, tr, [role="row"]')
+            logger.debug(f"Found {len(rows)} potential team rows")
 
             for row in rows:
                 row_text = row.get_text()
@@ -775,6 +776,7 @@ class On3Scraper:
                     '4_stars': 0,
                     '3_stars': 0,
                     'points': None,
+                    'avg_nil': None,
                     'source': 'On3/Rivals'
                 }
 
@@ -783,25 +785,53 @@ class On3Scraper:
                 if team_link:
                     team_data['team'] = team_link.get_text(strip=True)
 
-                # Rank
-                rank_match = re.search(r'^(\d+)\b', row_text.strip())
-                if rank_match:
-                    team_data['rank'] = int(rank_match.group(1))
+                # On3 structure: h6 for rank, p tags for stars/commits, h6 for rating/NIL
+                # Rank - first h6 or heading in the row
+                headings = row.select('h6, [role="heading"]')
+                if headings:
+                    first_heading_text = headings[0].get_text(strip=True)
+                    if first_heading_text.isdigit():
+                        team_data['rank'] = int(first_heading_text)
+                    
+                    # Average rating - usually a heading with format XX.XX
+                    for h in headings:
+                        h_text = h.get_text(strip=True)
+                        if re.match(r'^\d{2}\.\d{2}$', h_text):
+                            team_data['avg_rating'] = float(h_text)
+                        elif h_text.startswith('$'):
+                            team_data['avg_nil'] = h_text
 
-                # Total commits
-                commits_match = re.search(r'(\d+)\s*(?:commits?|players?)', row_text.lower())
-                if commits_match:
-                    team_data['total_commits'] = int(commits_match.group(1))
+                # Star counts and total - look for paragraphs with numbers
+                paragraphs = row.select('p')
+                numbers = []
+                for p in paragraphs:
+                    p_text = p.get_text(strip=True)
+                    if p_text.isdigit():
+                        numbers.append(int(p_text))
+                    elif re.match(r'^\d+\.\d+$', p_text):
+                        # This might be the score
+                        team_data['points'] = float(p_text)
 
-                # Average rating
-                avg_match = re.search(r'(\d{2}\.\d{2})', row_text)
-                if avg_match:
-                    team_data['avg_rating'] = float(avg_match.group(1))
+                # On3 shows: 5-star, 4-star, 3-star, total (in that order)
+                if len(numbers) >= 4:
+                    team_data['5_stars'] = numbers[0]
+                    team_data['4_stars'] = numbers[1]
+                    team_data['3_stars'] = numbers[2]
+                    team_data['total_commits'] = numbers[3]
+                elif len(numbers) >= 1:
+                    # At least get the last number as total
+                    team_data['total_commits'] = numbers[-1]
 
-                # Points
-                points_match = re.search(r'([\d,]+(?:\.\d+)?)\s*(?:pts?|points?)', row_text.lower())
-                if points_match:
-                    team_data['points'] = float(points_match.group(1).replace(',', ''))
+                # Fallback: try regex on full text
+                if not team_data['rank']:
+                    rank_match = re.search(r'^(\d+)\b', row_text.strip())
+                    if rank_match:
+                        team_data['rank'] = int(rank_match.group(1))
+
+                if not team_data['avg_rating']:
+                    avg_match = re.search(r'(\d{2}\.\d{2})', row_text)
+                    if avg_match:
+                        team_data['avg_rating'] = float(avg_match.group(1))
 
                 self._set_cached(cache_key, team_data)
                 logger.info(f"✅ Found team class: {team_data['team']} (Rank #{team_data['rank']})")
@@ -1026,8 +1056,11 @@ class On3Scraper:
         if team_data.get('avg_rating'):
             lines.append(f"📊 Avg Rating: **{team_data['avg_rating']:.2f}**")
 
+        if team_data.get('avg_nil'):
+            lines.append(f"💰 Avg NIL: **{team_data['avg_nil']}**")
+
         if team_data.get('points'):
-            lines.append(f"🏆 Points: **{team_data['points']:.2f}**")
+            lines.append(f"🏆 Score: **{team_data['points']:.2f}**")
 
         stars = []
         if team_data.get('5_stars'):
