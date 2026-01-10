@@ -186,10 +186,9 @@ class RecruitingScraper:
         if cached:
             return cached
 
-        # Try year-specific search first, then general player search
+        # Try year-specific search first
         urls_to_try = [
             self.SEASON_SEARCH_URL.format(year=year, name=quote_plus(name)),
-            self.PLAYER_SEARCH_URL.format(name=quote_plus(name)),
         ]
 
         profile_url = None
@@ -210,18 +209,21 @@ class RecruitingScraper:
                     link_text = link.get_text(strip=True)
                     href = link.get('href', '')
 
+                    # Skip non-player links (e.g., cbssports.com links)
+                    if 'cbssports.com' in href or '/stats/player/' in href:
+                        continue
+
                     # Check if this matches our search
                     if name.lower() in link_text.lower():
                         profile_url = href
                         player_name = link_text
 
-                        # Fix URL - avoid doubling up the base URL
+                        # Fix URL - handle various formats
                         if profile_url.startswith('http'):
                             pass  # Already full URL
-                        elif profile_url.startswith('//247sports.com'):
+                        elif profile_url.startswith('//'):
+                            # Protocol-relative URL (e.g., //247sports.com/player/...)
                             profile_url = 'https:' + profile_url
-                        elif profile_url.startswith('/247sports.com'):
-                            profile_url = 'https:/' + profile_url
                         elif profile_url.startswith('/'):
                             profile_url = self.BASE_URL + profile_url
                         else:
@@ -237,6 +239,11 @@ class RecruitingScraper:
                 logger.error(f"❌ Error parsing search results: {e}")
                 continue
 
+        # If direct search failed, try searching the composite rankings
+        if not profile_url:
+            logger.info(f"🔍 Direct search failed, trying composite rankings for {name}")
+            profile_url, player_name = await self._search_composite_rankings(name, year)
+
         if not profile_url:
             logger.info(f"❌ No profile found for {name} ({year})")
             return None
@@ -247,6 +254,61 @@ class RecruitingScraper:
             self._set_cached(cache_key, recruit)
 
         return recruit
+
+    async def _search_composite_rankings(self, name: str, year: int) -> tuple[Optional[str], Optional[str]]:
+        """
+        Search composite rankings page for a player (fallback when direct search fails)
+
+        Args:
+            name: Player name to search
+            year: Recruiting class year
+
+        Returns:
+            Tuple of (profile_url, player_name) or (None, None)
+        """
+        # Try composite rankings page
+        url = self.PLAYER_RANKINGS_URL.format(year=year)
+        html = await self._fetch_page(url)
+
+        if not html:
+            return None, None
+
+        try:
+            soup = BeautifulSoup(html, 'html.parser')
+            name_lower = name.lower()
+            name_parts = name_lower.split()
+
+            # Find all player links
+            player_links = soup.select('a[href*="/player/"]')
+
+            for link in player_links:
+                link_text = link.get_text(strip=True)
+                href = link.get('href', '')
+
+                # Skip non-player links
+                if 'cbssports.com' in href or '/stats/player/' in href:
+                    continue
+
+                link_text_lower = link_text.lower()
+
+                # Check for match - must match all parts of the name
+                if all(part in link_text_lower for part in name_parts):
+                    profile_url = href
+
+                    # Fix URL format
+                    if profile_url.startswith('//'):
+                        profile_url = 'https:' + profile_url
+                    elif profile_url.startswith('/'):
+                        profile_url = self.BASE_URL + profile_url
+
+                    logger.info(f"✅ Found via rankings: {link_text} -> {profile_url}")
+                    return profile_url, link_text
+
+            return None, None
+
+        except Exception as e:
+            logger.error(f"❌ Error searching composite rankings: {e}")
+            return None, None
 
     async def _scrape_player_profile(self, profile_url: str, year: int) -> Optional[Dict[str, Any]]:
         """
