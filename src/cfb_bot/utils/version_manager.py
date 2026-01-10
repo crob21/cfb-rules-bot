@@ -11,10 +11,28 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.16.0"
+CURRENT_VERSION = "1.16.1"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.16.1": {
+        "date": "2026-01-10",
+        "title": "Guild Debugging & Logging",
+        "emoji": "🔍",
+        "features": [
+            {
+                "category": "Improvements",
+                "emoji": "🔍",
+                "changes": [
+                    "Added detailed guild listing on startup (shows each server name, ID, member count)",
+                    "Added on_guild_join event to log when bot joins new servers",
+                    "Added on_guild_remove event to log when bot is removed from servers",
+                    "Auto-syncs commands to newly joined guilds",
+                    "Better debugging for missing guild connections"
+                ]
+            }
+        ]
+    },
     "1.16.0": {
         "date": "2026-01-09",
         "title": "League Module Separation",

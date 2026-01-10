@@ -521,6 +521,8 @@ async def on_ready():
         logger.info(f'📛 Bot Username: {bot.user.name}')
         logger.info(f'🏷️ Bot Display Name: {bot.user.display_name}')
         logger.info(f'📊 Connected to {len(bot.guilds)} guilds')
+        for guild in bot.guilds:
+            logger.info(f'   🏠 Guild: {guild.name} (ID: {guild.id}, Members: {guild.member_count})')
         logger.info(f'👋 Harry is ready to help with league questions!')
 
         # Start cleanup task
@@ -615,6 +617,23 @@ async def on_ready():
             pass  # Can't send if bot not fully initialized
         # Don't re-raise - let bot continue running
         # The bot will still connect, just without some features
+
+@bot.event
+async def on_guild_join(guild):
+    """Log when the bot joins a new guild"""
+    logger.info(f'🆕 Bot joined new guild: {guild.name} (ID: {guild.id}, Members: {guild.member_count})')
+    
+    # Try to sync commands to the new guild
+    try:
+        synced = await bot.tree.sync(guild=guild)
+        logger.info(f'✅ Synced {len(synced)} command(s) to new guild {guild.id}')
+    except Exception as e:
+        logger.error(f'❌ Failed to sync commands to new guild {guild.id}: {e}')
+
+@bot.event
+async def on_guild_remove(guild):
+    """Log when the bot is removed from a guild"""
+    logger.info(f'👋 Bot removed from guild: {guild.name} (ID: {guild.id})')
 
 @bot.event
 async def on_message(message):
