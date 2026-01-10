@@ -54,7 +54,17 @@ class Footers:
     PLAYER_LOOKUP = "Harry's Player Lookup 🏈 | Data from CollegeFootballData.com"
     HS_STATS = "Harry's HS Stats 🏈 | Data scraped from MaxPreps"
     CONFIG = "Harry's Server Config 🏈"
-    DEFAULT = "Harry - Your CFB 26 League Assistant 🏈"
+    # League-specific footer (only when LEAGUE module enabled)
+    LEAGUE = "Harry - Your CFB 26 League Assistant 🏈"
+    # Generic footer (when LEAGUE module disabled)
+    DEFAULT = "Harry - Your CFB Assistant 🏈"
+
+
+def get_footer_for_guild(guild_id: int) -> str:
+    """Get appropriate footer based on whether LEAGUE is enabled for this guild"""
+    if guild_id and server_config.is_module_enabled(guild_id, FeatureModule.LEAGUE):
+        return Footers.LEAGUE
+    return Footers.DEFAULT
 
 
 # Admin-only channel for bot notifications (Booze's Playground)
@@ -836,6 +846,9 @@ async def on_message(message):
     channel_id = message.channel.id if message.channel else 0
     auto_responses = server_config.auto_responses_enabled(guild_id, channel_id)
 
+    # Check if LEAGUE module is enabled
+    league_enabled = server_config.is_module_enabled(guild_id, FeatureModule.LEAGUE)
+
     # Team banter responses - only if auto_responses is enabled
     team_keywords = {
         'oregon': 'Fuck Oregon! 🦆💩',
@@ -862,13 +875,13 @@ async def on_message(message):
         'wolverines': 'Go Blue! 💙',
     } if auto_responses else {}
 
-    # Info responses - always available (not gated)
+    # League-specific info responses - only if LEAGUE module is enabled
     info_keywords = {
         'rules': 'Here are the CFB 26 league rules! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
         'league rules': 'Here are the CFB 26 league rules! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
         'charter': 'Here\'s the official CFB 26 league charter! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)',
         'league charter': 'Here\'s the official CFB 26 league charter! 📋\n\n[📖 **Full League Charter**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)'
-    }
+    } if league_enabled else {}
 
     # Combine both keyword dicts
     all_keywords = {**team_keywords, **info_keywords}
@@ -904,7 +917,7 @@ async def on_message(message):
             color=Colors.PRIMARY
         )
         embed.description = auto_response
-        embed.set_footer(text=Footers.DEFAULT)
+        embed.set_footer(text=get_footer_for_guild(guild_id))
 
         # Send the response immediately
         await message.channel.send(embed=embed)
@@ -1794,25 +1807,31 @@ Please provide a helpful, accurate answer. This is a general conversation, not a
                 ai_response = None
 
         # Use AI response if available, otherwise fall back to generic
+        guild_id = message.guild.id if message.guild else 0
+        league_enabled = server_config.is_module_enabled(guild_id, FeatureModule.LEAGUE)
+
         if ai_response and "NO_CHARTER_INFO" not in ai_response:
             embed.description = ai_response
-            # Only add charter link if AI indicates it doesn't know the answer
-            if "check the full charter" in ai_response.lower() or "charter" in ai_response.lower():
+            # Only add charter link if LEAGUE enabled AND AI indicates it doesn't know the answer
+            if league_enabled and ("check the full charter" in ai_response.lower() or "charter" in ai_response.lower()):
                 embed.add_field(
                     name="📖 Full League Charter",
                     value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
                     inline=False
                 )
         else:
-            embed.description = "Well, you stumped me! But check our charter below - it has all the official CFB 26 league rules, recruiting policies, and dynasty management guidelines!"
-            # Always add charter link for generic responses
-            embed.add_field(
-                name="📖 Full League Charter",
-                value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
-                inline=False
-            )
+            # Generic fallback - different message based on LEAGUE status
+            if league_enabled:
+                embed.description = "Well, you stumped me! But check our charter below - it has all the official CFB 26 league rules, recruiting policies, and dynasty management guidelines!"
+                embed.add_field(
+                    name="📖 Full League Charter",
+                    value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+                    inline=False
+                )
+            else:
+                embed.description = "Hmm, I'm not quite sure about that one! Try asking me about college football players, teams, rankings, or schedules."
 
-        embed.set_footer(text=Footers.DEFAULT)
+        embed.set_footer(text=get_footer_for_guild(guild_id))
 
         # Send the response
         await message.channel.send(embed=embed)
@@ -1828,18 +1847,24 @@ Please provide a helpful, accurate answer. This is a general conversation, not a
         # Add a small delay to make it feel more natural
         await asyncio.sleep(1)
 
-        # Create a friendly response redirecting to league topics
+        # Create a friendly response
         embed = discord.Embed(
             title="🏈 Harry's Response",
             color=Colors.PRIMARY
         )
-        embed.description = "Hey there! I'm Harry, your CFB 26 league assistant! I'm here to help with league rules, recruiting, transfers, dynasty management, and all things college football. Ask me about our league charter, game settings, or anything CFB 26 related!"
-        embed.add_field(
-            name="📖 Full League Charter",
-            value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
-            inline=False
-        )
-        embed.set_footer(text=Footers.DEFAULT)
+        guild_id = message.guild.id if message.guild else 0
+        league_enabled = server_config.is_module_enabled(guild_id, FeatureModule.LEAGUE)
+
+        if league_enabled:
+            embed.description = "Hey there! I'm Harry, your CFB 26 league assistant! I'm here to help with league rules, recruiting, transfers, dynasty management, and all things college football. Ask me about our league charter, game settings, or anything CFB 26 related!"
+            embed.add_field(
+                name="📖 Full League Charter",
+                value="[View Complete Rules](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+                inline=False
+            )
+        else:
+            embed.description = "Hey there! I'm Harry, your college football assistant! I can help with player lookups, team stats, rankings, schedules, and all things CFB. Try `/player` or `/rankings` to get started!"
+        embed.set_footer(text=get_footer_for_guild(guild_id))
 
         # Send the response
         await message.channel.send(embed=embed)
@@ -2120,81 +2145,114 @@ async def on_reaction_add(reaction, user):
         return
 
     # Handle different emoji reactions
+    reaction_guild_id = reaction.message.guild.id if reaction.message.guild else 0
+    league_enabled_reaction = server_config.is_module_enabled(reaction_guild_id, FeatureModule.LEAGUE)
+
     if reaction.emoji == '❓':
         # Question mark - offer help
         embed = discord.Embed(
             title="🏈 Harry's Help",
-            description="I'm here to help with CFB 26 league questions! Here are some ways to interact with me:",
             color=Colors.PRIMARY
         )
 
-        embed.add_field(
-            name="💬 Chat Commands:",
-            value="• Mention me: `@Harry what are the rules?`\n• Ask questions: `What's the transfer policy?`\n• Say hi: `Hi Harry!`",
-            inline=False
-        )
+        if league_enabled_reaction:
+            embed.description = "I'm here to help with CFB 26 league questions! Here are some ways to interact with me:"
+            embed.add_field(
+                name="💬 Chat Commands:",
+                value="• Mention me: `@Harry what are the rules?`\n• Ask questions: `What's the transfer policy?`\n• Say hi: `Hi Harry!`",
+                inline=False
+            )
+            embed.add_field(
+                name="⚡ Slash Commands:",
+                value="• `/harry <question>` - Ask me anything\n• `/charter` - Link to full charter\n• `/help_cfb` - See all commands",
+                inline=False
+            )
+            embed.add_field(
+                name="📖 Full Charter",
+                value="[Open Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+                inline=False
+            )
+        else:
+            embed.description = "I'm here to help with college football! Here are some ways to interact with me:"
+            embed.add_field(
+                name="💬 Chat Commands:",
+                value="• Mention me: `@Harry tell me about [player]`\n• Ask questions: `What's Ohio State's ranking?`",
+                inline=False
+            )
+            embed.add_field(
+                name="⚡ Slash Commands:",
+                value="• `/player <name>` - Player lookup\n• `/rankings` - CFB rankings\n• `/betting` - Betting lines\n• `/help_cfb` - See all commands",
+                inline=False
+            )
 
-        embed.add_field(
-            name="⚡ Slash Commands:",
-            value="• `/harry <question>` - Ask me anything\n• `/charter` - Link to full charter\n• `/help_cfb` - See all commands",
-            inline=False
-        )
-
-        embed.add_field(
-            name="📖 Full Charter",
-            value="[Open Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
-            inline=False
-        )
-
-        embed.set_footer(text=Footers.DEFAULT)
+        embed.set_footer(text=get_footer_for_guild(reaction_guild_id))
 
         await reaction.message.channel.send(embed=embed)
 
     elif reaction.emoji == '🏈':
         # Football emoji - CFB enthusiasm
         embed = discord.Embed(
-            title="🏈 CFB 26 Hype!",
-            description="CFB 26 is the best dynasty league! 🏆\n\nNeed help with league rules? Just ask me anything!",
+            title="🏈 CFB Hype!",
             color=Colors.PRIMARY
         )
+        if league_enabled_reaction:
+            embed.description = "CFB 26 is the best dynasty league! 🏆\n\nNeed help with league rules? Just ask me anything!"
+        else:
+            embed.description = "College football is the best! 🏆\n\nNeed player stats, rankings, or schedules? Just ask!"
+        embed.set_footer(text=get_footer_for_guild(reaction_guild_id))
         await reaction.message.channel.send(embed=embed)
 
     elif reaction.emoji == '🦆':
         # Duck emoji - Oregon rivalry (only if auto_responses is on)
-        reaction_guild_id = reaction.message.guild.id if reaction.message.guild else 0
         if server_config.auto_responses_enabled(reaction_guild_id):
             embed = discord.Embed(
                 title="🦆 Oregon Sucks!",
-                description="Oregon sucks! 🦆💩\n\nBut CFB 26 rules are awesome! Ask me about them!",
                 color=Colors.PRIMARY
             )
+            if league_enabled_reaction:
+                embed.description = "Oregon sucks! 🦆💩\n\nBut CFB 26 rules are awesome! Ask me about them!"
+            else:
+                embed.description = "Oregon sucks! 🦆💩\n\nNeed any CFB stats or info? Just ask!"
+            embed.set_footer(text=get_footer_for_guild(reaction_guild_id))
             await reaction.message.channel.send(embed=embed)
 
     elif reaction.emoji == '🐕':
         # Dog emoji - Huskies support
         embed = discord.Embed(
             title="🐕 Go Huskies!",
-            description="Go Huskies! 🐕\n\nSpeaking of teams, need help with league rules?",
             color=Colors.PRIMARY
         )
+        if league_enabled_reaction:
+            embed.description = "Go Huskies! 🐕\n\nSpeaking of teams, need help with league rules?"
+        else:
+            embed.description = "Go Huskies! 🐕\n\nNeed player stats or team info? Just ask!"
+        embed.set_footer(text=get_footer_for_guild(reaction_guild_id))
         await reaction.message.channel.send(embed=embed)
 
     elif reaction.emoji == '🤖':
         # Robot emoji - AI explanation
         embed = discord.Embed(
             title="🤖 AI Assistant",
-            description="I'm powered by AI to help with your CFB 26 league questions! Ask me anything about rules, recruiting, transfers, or penalties!",
             color=Colors.PRIMARY
         )
+        if league_enabled_reaction:
+            embed.description = "I'm powered by AI to help with your CFB 26 league questions! Ask me anything about rules, recruiting, transfers, or penalties!"
+        else:
+            embed.description = "I'm powered by AI to help with college football questions! Ask me about players, teams, rankings, or schedules!"
+        embed.set_footer(text=get_footer_for_guild(reaction_guild_id))
         await reaction.message.channel.send(embed=embed)
 
     elif reaction.emoji == '💡':
         # Lightbulb emoji - tips
         embed = discord.Embed(
             title="💡 Pro Tips",
-            description="Here are some pro tips for CFB 26:\n\n• Follow all league rules to avoid penalties\n• Recruit smart - quality over quantity\n• Use the right difficulty settings\n• Don't sim games without permission\n\nNeed more help? Just ask!",
             color=Colors.PRIMARY
         )
+        if league_enabled_reaction:
+            embed.description = "Here are some pro tips for CFB 26:\n\n• Follow all league rules to avoid penalties\n• Recruit smart - quality over quantity\n• Use the right difficulty settings\n• Don't sim games without permission\n\nNeed more help? Just ask!"
+        else:
+            embed.description = "Here are some CFB data tips:\n\n• Use `/player` for player lookups\n• Use `/rankings` for current polls\n• Use `/betting` for game lines\n• Use `/cfb_schedule` for team schedules\n\nNeed more help? Just ask!"
+        embed.set_footer(text=get_footer_for_guild(reaction_guild_id))
         await reaction.message.channel.send(embed=embed)
 
 async def load_league_data():
@@ -2213,6 +2271,10 @@ async def load_league_data():
 @bot.tree.command(name="rule", description="Look up CFB 26 league rules")
 async def rule(interaction: discord.Interaction, rule_name: str):
     """Look up a specific league rule"""
+    # This command requires LEAGUE module
+    if not await check_module_enabled(interaction, FeatureModule.LEAGUE):
+        return
+
     await interaction.response.send_message("📋 Looking up rule...", ephemeral=True)
 
     # Search for rule in league data
@@ -3580,13 +3642,16 @@ async def get_hs_stats_bulk(
         )
 
 
-@bot.tree.command(name="harry", description="Ask Harry (the bot) about league rules and policies")
+@bot.tree.command(name="harry", description="Ask Harry about college football")
 async def ask_harry(interaction: discord.Interaction, question: str):
-    """Ask Harry (the bot) about the league charter in a conversational way"""
+    """Ask Harry (the bot) about college football or league rules"""
     embed = discord.Embed(
         title="🏈 Harry's Response",
         color=Colors.PRIMARY
     )
+
+    guild_id = interaction.guild.id if interaction.guild else 0
+    league_enabled = server_config.is_module_enabled(guild_id, FeatureModule.LEAGUE)
 
     if AI_AVAILABLE and ai_assistant:
         try:
@@ -3607,11 +3672,13 @@ async def ask_harry(interaction: discord.Interaction, question: str):
                 logger.info(f"🎯 Matched keywords: {matched_keywords}")
 
             # Get personality based on server settings
-            cmd_guild_id = interaction.guild.id if interaction.guild else 0
-            personality = server_config.get_personality_prompt(cmd_guild_id)
+            personality = server_config.get_personality_prompt(guild_id)
 
-            # Make the AI response more conversational
-            conversational_question = f"{personality} Answer this question about CFB 26 league rules: {question}"
+            # Make the AI response conversational - context depends on LEAGUE status
+            if league_enabled:
+                conversational_question = f"{personality} Answer this question about CFB 26 league rules: {question}"
+            else:
+                conversational_question = f"{personality} Answer this question about college football: {question}"
             response = await ai_assistant.ask_ai(conversational_question, f"{interaction.user} ({interaction.user.id})")
 
             if response:
@@ -3621,13 +3688,17 @@ async def ask_harry(interaction: discord.Interaction, question: str):
                     value=f"*{question}*",
                     inline=False
                 )
-                embed.add_field(
-                    name="💡 Need More Info?",
-                    value="Ask me anything about league rules, or check the full charter below!",
-                    inline=False
-                )
+                if league_enabled:
+                    embed.add_field(
+                        name="💡 Need More Info?",
+                        value="Ask me anything about league rules, or check the full charter below!",
+                        inline=False
+                    )
             else:
-                embed.description = "Sorry, I couldn't get a response right now. Let me check the charter for you!"
+                if league_enabled:
+                    embed.description = "Sorry, I couldn't get a response right now. Let me check the charter for you!"
+                else:
+                    embed.description = "Sorry, I couldn't get a response right now. Try asking another way!"
                 embed.add_field(
                     name="💬 Responding to:",
                     value=f"*{question}*",
@@ -3641,20 +3712,25 @@ async def ask_harry(interaction: discord.Interaction, question: str):
                 inline=False
             )
     else:
-        embed.description = "Hi! I'm Harry, your CFB 26 league assistant. I'm having some technical difficulties right now, but you can always check the charter directly!"
+        if league_enabled:
+            embed.description = "Hi! I'm Harry, your CFB 26 league assistant. I'm having some technical difficulties right now, but you can always check the charter directly!"
+        else:
+            embed.description = "Hi! I'm Harry, your college football assistant. I'm having some technical difficulties right now. Try again in a bit!"
         embed.add_field(
             name="💬 Responding to:",
             value=f"*{question}*",
             inline=False
         )
 
-    embed.add_field(
-        name="📖 Full League Charter",
-        value="[Open Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
-        inline=False
-    )
+    # Only add charter link if LEAGUE module is enabled
+    if league_enabled:
+        embed.add_field(
+            name="📖 Full League Charter",
+            value="[Open Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+            inline=False
+        )
 
-    embed.set_footer(text=Footers.DEFAULT)
+    embed.set_footer(text=get_footer_for_guild(guild_id))
 
     # Send the actual response
     await interaction.followup.send(embed=embed)
@@ -6080,7 +6156,8 @@ async def show_version(interaction: discord.Interaction):
         inline=False
     )
 
-    embed.set_footer(text=Footers.DEFAULT)
+    guild_id = interaction.guild.id if interaction.guild else 0
+    embed.set_footer(text=get_footer_for_guild(guild_id))
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="changelog", description="View version changelog")

@@ -11,10 +11,30 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.15.3"
+CURRENT_VERSION = "1.16.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.16.0": {
+        "date": "2026-01-09",
+        "title": "League Module Separation",
+        "emoji": "🏈",
+        "features": [
+            {
+                "category": "Module Separation",
+                "emoji": "🏈",
+                "changes": [
+                    "League-specific features now gated behind LEAGUE module",
+                    "Charter links only show when LEAGUE is enabled",
+                    "Generic CFB assistant mode when LEAGUE is disabled",
+                    "Footer dynamically changes based on server config",
+                    "Reaction responses adapt to LEAGUE status",
+                    "/harry command works for general CFB without LEAGUE",
+                    "/rule command now requires LEAGUE module"
+                ]
+            }
+        ]
+    },
     "1.15.3": {
         "date": "2026-01-09",
         "title": "Interaction Timeout Fix",
