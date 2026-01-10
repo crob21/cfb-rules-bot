@@ -718,6 +718,11 @@ async def on_message(message):
             # Harry is not enabled in this channel - stay silent
             logger.debug(f"🔇 Channel {channel_id} not enabled for Harry in guild {guild_id}")
             return
+    else:
+        guild_id = 0
+    
+    # Check if LEAGUE module is enabled for this server (used for AI context)
+    league_enabled = server_config.is_module_enabled(guild_id, FeatureModule.LEAGUE)
 
     # Check if the bot is @mentioned (only responds to @CFB Bot, not just "harry" in text)
     bot_mentioned = False
@@ -1750,7 +1755,8 @@ If the charter contains relevant information, provide a helpful answer. If not, 
                         logger.info(f"🤖 League AI Question from {message.author} ({message.author.id}): {question}")
                         logger.info(f"📝 Full AI prompt: {charter_question[:200]}...")
 
-                        ai_response = await ai_assistant.ask_ai(charter_question, f"{message.author} ({message.author.id})")
+                        # Include league context since this is a league-related question
+                        ai_response = await ai_assistant.ask_ai(charter_question, f"{message.author} ({message.author.id})", include_league_context=league_enabled)
 
                         # Step 2: If no charter info, try general AI search without charter context
                         if ai_response and "NO_CHARTER_INFO" in ai_response:
@@ -1771,11 +1777,11 @@ Keep responses concise and helpful. Do NOT mention "charter" unless you truly do
                             # Use AI without charter context since charter had no info
                             general_context = personality
 
-                            # Call OpenAI directly with general context
-                            ai_response = await ai_assistant.ask_openai(general_question, general_context, personality_prompt=personality)
+                            # Call OpenAI directly with general context (include league context only if LEAGUE enabled)
+                            ai_response = await ai_assistant.ask_openai(general_question, general_context, personality_prompt=personality, include_league_context=league_enabled)
                             if not ai_response:
                                 # Fallback to Anthropic
-                                ai_response = await ai_assistant.ask_anthropic(general_question, general_context, personality_prompt=personality)
+                                ai_response = await ai_assistant.ask_anthropic(general_question, general_context, personality_prompt=personality, include_league_context=league_enabled)
                     else:
                         # For non-league questions, use general AI WITHOUT charter context
                         general_question = f"""{personality} Answer this question helpfully and accurately:
@@ -1792,11 +1798,11 @@ Please provide a helpful, accurate answer."""
                         # Use AI without charter context (like /ask command)
                         general_context = personality
 
-                        # Call OpenAI directly with general context
-                        ai_response = await ai_assistant.ask_openai(general_question, general_context, personality_prompt=personality)
+                        # Call OpenAI directly with general context (include league context only if LEAGUE enabled)
+                        ai_response = await ai_assistant.ask_openai(general_question, general_context, personality_prompt=personality, include_league_context=league_enabled)
                         if not ai_response:
                             # Fallback to Anthropic
-                            ai_response = await ai_assistant.ask_anthropic(general_question, general_context, personality_prompt=personality)
+                            ai_response = await ai_assistant.ask_anthropic(general_question, general_context, personality_prompt=personality, include_league_context=league_enabled)
                 else:
                     # For non-allowed channels, this should only happen with slash commands
                     # Use general AI without league context
@@ -1814,19 +1820,18 @@ Please provide a helpful, accurate answer. This is a general conversation, not a
                     # Use AI without charter context
                     general_context = personality
 
-                    # Call OpenAI directly with general context
-                    ai_response = await ai_assistant.ask_openai(general_question, general_context, personality_prompt=personality)
+                    # Call OpenAI directly with general context (no league context for non-allowed channels)
+                    ai_response = await ai_assistant.ask_openai(general_question, general_context, personality_prompt=personality, include_league_context=False)
                     if not ai_response:
                         # Fallback to Anthropic
-                        ai_response = await ai_assistant.ask_anthropic(general_question, general_context)
+                        ai_response = await ai_assistant.ask_anthropic(general_question, general_context, include_league_context=False)
 
             except Exception as e:
                 logger.error(f"AI error: {e}")
                 ai_response = None
 
         # Use AI response if available, otherwise fall back to generic
-        guild_id = message.guild.id if message.guild else 0
-        league_enabled = server_config.is_module_enabled(guild_id, FeatureModule.LEAGUE)
+        # Note: guild_id and league_enabled already calculated at the start of on_message
 
         if ai_response and "NO_CHARTER_INFO" not in ai_response:
             embed.description = ai_response
@@ -3697,7 +3702,7 @@ async def ask_harry(interaction: discord.Interaction, question: str):
                 conversational_question = f"{personality} Answer this question about CFB 26 league rules: {question}"
             else:
                 conversational_question = f"{personality} Answer this question about college football: {question}"
-            response = await ai_assistant.ask_ai(conversational_question, f"{interaction.user} ({interaction.user.id})")
+            response = await ai_assistant.ask_ai(conversational_question, f"{interaction.user} ({interaction.user.id})", include_league_context=league_enabled)
 
             if response:
                 embed.description = response
@@ -3785,16 +3790,18 @@ async def ask_ai(interaction: discord.Interaction, question: str):
             harry_question = f"{personality} Answer this question: {question}"
 
             # /ask ALWAYS uses general AI without charter context (not league-specific)
-            logger.info("🌍 /ask command - ALWAYS using general AI without charter context")
+            # But we respect the LEAGUE module setting for schedule context
+            ask_league_enabled = server_config.is_module_enabled(ask_guild_id, FeatureModule.LEAGUE)
+            logger.info(f"🌍 /ask command - general AI without charter context (league_enabled={ask_league_enabled})")
             general_context = personality
 
-            # Call OpenAI directly with general context
+            # Call OpenAI directly with general context (include league context only if LEAGUE enabled)
             logger.info("🔄 Attempting OpenAI API call...")
-            response = await ai_assistant.ask_openai(harry_question, general_context, personality_prompt=personality)
+            response = await ai_assistant.ask_openai(harry_question, general_context, personality_prompt=personality, include_league_context=ask_league_enabled)
             if not response:
                 # Fallback to Anthropic
                 logger.info("⚠️ OpenAI failed, attempting Anthropic fallback...")
-                response = await ai_assistant.ask_anthropic(harry_question, general_context, personality_prompt=personality)
+                response = await ai_assistant.ask_anthropic(harry_question, general_context, personality_prompt=personality, include_league_context=ask_league_enabled)
 
             if response:
                 logger.info(f"✅ AI response received ({len(response)} characters)")
@@ -4867,9 +4874,10 @@ FORMAT YOUR RESPONSE LIKE THIS:
 Be extremely sarcastic, funny, and insane. Give each person a proper roast!"""
 
         # Ask AI with higher token limit for full analysis with proper roasts
-        response = await ai_assistant.ask_openai(prompt, "Co-Commissioner Selection Analysis", max_tokens=2000)
+        # This command is LEAGUE-only, so always include league context
+        response = await ai_assistant.ask_openai(prompt, "Co-Commissioner Selection Analysis", max_tokens=2000, include_league_context=True)
         if not response:
-            response = await ai_assistant.ask_anthropic(prompt, "Co-Commissioner Selection Analysis", max_tokens=2000)
+            response = await ai_assistant.ask_anthropic(prompt, "Co-Commissioner Selection Analysis", max_tokens=2000, include_league_context=True)
 
         if not response:
             await interaction.followup.send("❌ AI couldn't analyze the chat. Maybe you're all equally terrible?")

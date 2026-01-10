@@ -96,8 +96,16 @@ class AICharterAssistant:
 
         return "\n".join(context_parts)
 
-    async def ask_openai(self, question: str, context: str, max_tokens: int = 500, personality_prompt: str = None) -> Optional[str]:
-        """Ask OpenAI about the charter"""
+    async def ask_openai(self, question: str, context: str, max_tokens: int = 500, personality_prompt: str = None, include_league_context: bool = True) -> Optional[str]:
+        """Ask OpenAI - optionally includes league charter and schedule context
+        
+        Args:
+            question: The question to ask
+            context: Additional context (charter content, etc.)
+            max_tokens: Maximum tokens for response
+            personality_prompt: Custom personality prompt
+            include_league_context: Whether to include league schedule/charter info (False for non-league servers)
+        """
         if not self.openai_api_key:
             logger.warning("⚠️ OpenAI API key not found")
             return None
@@ -107,43 +115,61 @@ class AICharterAssistant:
             'Content-Type': 'application/json'
         }
 
-        # Get schedule context
-        schedule_context = self.get_schedule_context()
-
         # Use provided personality or default full personality
         personality = personality_prompt or "You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks."
 
-        prompt = f"""
-        {personality}
-        Answer questions based on the league charter AND schedule information provided below in a hilariously sarcastic way.
+        # Build prompt based on whether league context should be included
+        if include_league_context:
+            # Get schedule context for league servers
+            schedule_context = self.get_schedule_context()
+            
+            prompt = f"""
+            {personality}
+            Answer questions based on the league charter AND schedule information provided below in a hilariously sarcastic way.
 
-        League Charter Context:
-        {context}
+            League Charter Context:
+            {context}
 
-        League Schedule Information:
-        {schedule_context}
+            League Schedule Information:
+            {schedule_context}
 
-        Question: {question}
+            Question: {question}
 
-        IMPORTANT INSTRUCTIONS:
-        - If you can answer the question based on the charter OR schedule content, provide a direct, helpful answer with maximum sarcasm
-        - For schedule questions (matchups, byes, who plays who), use the schedule information above
+            IMPORTANT INSTRUCTIONS:
+            - If you can answer the question based on the charter OR schedule content, provide a direct, helpful answer with maximum sarcasm
+            - For schedule questions (matchups, byes, who plays who), use the schedule information above
 
-        CRITICAL - SCHEDULE FORMATTING RULES (YOU MUST FOLLOW THESE):
-        1. FORMAT AS CLEAN LISTS, not paragraphs
-        2. USER TEAMS MUST BE BOLDED WITH ** - The user teams are: Hawaii, LSU, Michigan St, Nebraska, Notre Dame, Texas
-        3. Example correct format:
-           🏈 **LSU** @ Kentucky
-           🏈 **Nebraska** @ Boise St
-           🏈 **Texas** @ Mississippi St
-        4. WRONG format (no bold): 🏈 LSU @ Kentucky
-        5. Keep sarcasm SHORT in intro/outro, make the schedule data EASY TO READ
+            CRITICAL - SCHEDULE FORMATTING RULES (YOU MUST FOLLOW THESE):
+            1. FORMAT AS CLEAN LISTS, not paragraphs
+            2. USER TEAMS MUST BE BOLDED WITH ** - The user teams are: Hawaii, LSU, Michigan St, Nebraska, Notre Dame, Texas
+            3. Example correct format:
+               🏈 **LSU** @ Kentucky
+               🏈 **Nebraska** @ Boise St
+               🏈 **Texas** @ Mississippi St
+            4. WRONG format (no bold): 🏈 LSU @ Kentucky
+            5. Keep sarcasm SHORT in intro/outro, make the schedule data EASY TO READ
 
-        - Do NOT mention "check the full charter" or "charter" unless you truly don't know the answer
-        - Be extremely sarcastic and witty, like a completely insane but knowledgeable league member
-        - If the information isn't available, say so with sarcasm
-        - Keep responses informative but hilariously sarcastic and insane
-        """
+            - Do NOT mention "check the full charter" or "charter" unless you truly don't know the answer
+            - Be extremely sarcastic and witty, like a completely insane but knowledgeable league member
+            - If the information isn't available, say so with sarcasm
+            - Keep responses informative but hilariously sarcastic and insane
+            """
+        else:
+            # Generic CFB assistant mode (no league-specific data)
+            prompt = f"""
+            {personality}
+            Answer this question about college football in a hilariously sarcastic way.
+
+            Question: {question}
+
+            IMPORTANT INSTRUCTIONS:
+            - Provide helpful, accurate information about college football
+            - Be extremely sarcastic and witty, like a completely insane but knowledgeable CFB fan
+            - You can discuss teams, players, games, rankings, history, etc.
+            - If you don't know something, say so with sarcasm
+            - Keep responses informative but hilariously sarcastic
+            - Do NOT make up specific league schedules, rosters, or game results
+            """
 
         data = {
             'model': 'gpt-3.5-turbo',
@@ -219,8 +245,16 @@ class AICharterAssistant:
             logger.error(f"Error calling OpenAI: {e}")
             return None
 
-    async def ask_anthropic(self, question: str, context: str, max_tokens: int = 500, personality_prompt: str = None) -> Optional[str]:
-        """Ask Anthropic Claude about the charter"""
+    async def ask_anthropic(self, question: str, context: str, max_tokens: int = 500, personality_prompt: str = None, include_league_context: bool = True) -> Optional[str]:
+        """Ask Anthropic Claude - optionally includes league charter and schedule context
+        
+        Args:
+            question: The question to ask
+            context: Additional context (charter content, etc.)
+            max_tokens: Maximum tokens for response
+            personality_prompt: Custom personality prompt
+            include_league_context: Whether to include league schedule/charter info (False for non-league servers)
+        """
         if not self.anthropic_api_key:
             logger.warning("⚠️ Anthropic API key not found")
             return None
@@ -231,41 +265,59 @@ class AICharterAssistant:
             'anthropic-version': '2023-06-01'
         }
 
-        # Get schedule context
-        schedule_context = self.get_schedule_context()
-
         # Use provided personality or default full personality
         personality = personality_prompt or "You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You have a deep, unhinged hatred of the Oregon Ducks."
 
-        prompt = f"""
-        {personality}
-        Answer questions based on the league charter AND schedule information provided below.
+        # Build prompt based on whether league context should be included
+        if include_league_context:
+            # Get schedule context for league servers
+            schedule_context = self.get_schedule_context()
+            
+            prompt = f"""
+            {personality}
+            Answer questions based on the league charter AND schedule information provided below.
 
-        League Charter Context:
-        {context}
+            League Charter Context:
+            {context}
 
-        League Schedule Information:
-        {schedule_context}
+            League Schedule Information:
+            {schedule_context}
 
-        Question: {question}
+            Question: {question}
 
-        IMPORTANT INSTRUCTIONS:
-        - If you can answer the question based on the charter OR schedule content, provide a direct, helpful answer with maximum sarcasm
-        - For schedule questions (matchups, byes, who plays who), use the schedule information above
+            IMPORTANT INSTRUCTIONS:
+            - If you can answer the question based on the charter OR schedule content, provide a direct, helpful answer with maximum sarcasm
+            - For schedule questions (matchups, byes, who plays who), use the schedule information above
 
-        CRITICAL - SCHEDULE FORMATTING RULES (YOU MUST FOLLOW THESE):
-        1. FORMAT AS CLEAN LISTS, not paragraphs
-        2. USER TEAMS MUST BE BOLDED WITH ** - The user teams are: Hawaii, LSU, Michigan St, Nebraska, Notre Dame, Texas
-        3. Example correct format:
-           🏈 **LSU** @ Kentucky
-           🏈 **Nebraska** @ Boise St
-           🏈 **Texas** @ Mississippi St
-        4. WRONG format (no bold): 🏈 LSU @ Kentucky
-        5. Keep sarcasm SHORT in intro/outro, make the schedule data EASY TO READ
+            CRITICAL - SCHEDULE FORMATTING RULES (YOU MUST FOLLOW THESE):
+            1. FORMAT AS CLEAN LISTS, not paragraphs
+            2. USER TEAMS MUST BE BOLDED WITH ** - The user teams are: Hawaii, LSU, Michigan St, Nebraska, Notre Dame, Texas
+            3. Example correct format:
+               🏈 **LSU** @ Kentucky
+               🏈 **Nebraska** @ Boise St
+               🏈 **Texas** @ Mississippi St
+            4. WRONG format (no bold): 🏈 LSU @ Kentucky
+            5. Keep sarcasm SHORT in intro/outro, make the schedule data EASY TO READ
 
-        - Be extremely sarcastic and witty, like a completely insane but knowledgeable league member
-        - Keep responses informative but hilariously sarcastic
-        """
+            - Be extremely sarcastic and witty, like a completely insane but knowledgeable league member
+            - Keep responses informative but hilariously sarcastic
+            """
+        else:
+            # Generic CFB assistant mode (no league-specific data)
+            prompt = f"""
+            {personality}
+            Answer this question about college football.
+
+            Question: {question}
+
+            IMPORTANT INSTRUCTIONS:
+            - Provide helpful, accurate information about college football
+            - Be extremely sarcastic and witty, like a completely insane but knowledgeable CFB fan
+            - You can discuss teams, players, games, rankings, history, etc.
+            - If you don't know something, say so with sarcasm
+            - Keep responses informative but hilariously sarcastic
+            - Do NOT make up specific league schedules, rosters, or game results
+            """
 
         data = {
             'model': 'claude-3-haiku-20240307',
@@ -320,8 +372,14 @@ class AICharterAssistant:
             logger.error(f"Error calling Anthropic: {e}")
             return None
 
-    async def ask_ai(self, question: str, user_info: str = None) -> Optional[str]:
-        """Ask AI about the charter (tries OpenAI first, then Anthropic)"""
+    async def ask_ai(self, question: str, user_info: str = None, include_league_context: bool = True) -> Optional[str]:
+        """Ask AI about the charter (tries OpenAI first, then Anthropic)
+        
+        Args:
+            question: The question to ask
+            user_info: User info for logging
+            include_league_context: Whether to include league schedule/charter info (False for non-league servers)
+        """
         if user_info:
             logger.info(f"🤖 AI asked by {user_info}: {question[:100]}...")
         else:
@@ -337,15 +395,15 @@ class AICharterAssistant:
             logger.info(f"📄 Using charter context ({len(context)} characters)")
 
         # Try OpenAI first
-        logger.info("🔄 Trying OpenAI...")
-        response = await self.ask_openai(question, context)
+        logger.info(f"🔄 Trying OpenAI... (include_league_context={include_league_context})")
+        response = await self.ask_openai(question, context, include_league_context=include_league_context)
         if response:
             logger.info("✅ OpenAI response received")
             return response
 
         # Fallback to Anthropic
         logger.info("🔄 Trying Anthropic...")
-        response = await self.ask_anthropic(question, context)
+        response = await self.ask_anthropic(question, context, include_league_context=include_league_context)
         if response:
             logger.info("✅ Anthropic response received")
         else:

@@ -11,10 +11,28 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.16.1"
+CURRENT_VERSION = "1.16.2"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.16.2": {
+        "date": "2026-01-10",
+        "title": "League Context Isolation",
+        "emoji": "🔒",
+        "features": [
+            {
+                "category": "Bug Fixes",
+                "emoji": "🐛",
+                "changes": [
+                    "CRITICAL: Fixed AI leaking league schedule data to non-league servers",
+                    "AI prompts now respect LEAGUE module status per server",
+                    "Non-league servers no longer see schedule/charter context in AI responses",
+                    "Added include_league_context parameter to all AI methods",
+                    "League-specific AI features properly isolated from general CFB assistant mode"
+                ]
+            }
+        ]
+    },
     "1.16.1": {
         "date": "2026-01-10",
         "title": "Guild Debugging & Logging",
