@@ -2,8 +2,8 @@
 
 This document outlines all features of Harry, the CFB 26 League Bot.
 
-**Current Version:** 1.17.4  
-**Last Updated:** January 10, 2026  
+**Current Version:** 1.17.5
+**Last Updated:** January 10, 2026
 **Status:** ✅ Production Ready
 
 ---
@@ -178,21 +178,44 @@ Access comprehensive college football data powered by CollegeFootballData.com AP
 
 ## 🏫 High School Stats Module
 
-Look up high school football stats from MaxPreps for recruiting research.
+Look up high school football career stats from MaxPreps for recruiting research.
 
 > **Note:** This module uses web scraping and is disabled by default. Enable with `/config enable hs_stats`
 
 ### Single Player Lookup
 
-**Command:** `/hs_stats <name> [state]`
+**Command:** `/hs_stats <name> [state] [school]`
 
-**Natural Language:** `@Harry HS stats for Arch Manning`
+**Natural Language:** `@Harry hs stats Gavin Day NV`
 
 **Shows:**
-- Career stats (passing, rushing, receiving)
-- Per-season breakdown
-- School and location
-- Position and class year
+- 🏈 **Player Info:** Name, school, location (city, state)
+- 📍 **Position:** QB, WR, RB, DB, LB, etc.
+- 📏 **Physical:** Height, weight, class year (Senior/Junior/etc.)
+- 📊 **Career Stats:**
+  - **Defense:** Solo tackles, total tackles, sacks, interceptions
+  - **Rushing:** Carries, yards, avg, TDs, long run
+  - **Passing:** Completions, attempts, yards, TDs, INTs
+  - **Receiving:** Receptions, yards, avg, TDs
+  - **All-Purpose:** Rush/Rec/KR/PR/IR yards, total
+- 📅 **Season Breakdown:** Stats by grade level (Sr/Jr/So/Fr)
+- 🔗 **Link:** Direct link to MaxPreps profile
+
+**Example Output:**
+```
+🏈 Gavin Day
+🏫 Faith Lutheran (Las Vegas, NV)
+📍 DB • 6'3" • 190 lbs • Senior
+
+Sr. 25-26 (14 GP)
+  🔄 All Purpose: 165 Total | 165 IR
+
+Jr. 24-25 (12 GP)
+  🔄 All Purpose: 71 Total | 71 IR
+
+📊 Career Totals
+  🛡️ Defense: 210 Solo/283 TKL
+```
 
 ### Bulk Lookup
 
@@ -498,6 +521,6 @@ src/cfb_bot/
 
 ---
 
-**Author:** Harry (with assistance from Craig's AI assistant, innit!)  
-**Version:** 1.17.4  
+**Author:** Harry (with assistance from Craig's AI assistant, innit!)
+**Version:** 1.17.4
 **Last Updated:** January 10, 2026

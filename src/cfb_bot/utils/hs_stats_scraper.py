@@ -404,63 +404,187 @@ class HSStatsScraper:
                 'seasons': []
             }
 
-            # Player name - MaxPreps uses h1 with the player name
-            name_elem = soup.select_one('h1')
-            if name_elem:
-                # Clean the name (remove extra whitespace, "Stats" suffix, etc.)
-                name_text = name_elem.get_text(strip=True)
-                # Remove "'s Stats" or similar
-                name_text = re.sub(r"'s\s+Stats?$", "", name_text, flags=re.I)
-                player_data['name'] = name_text.strip()
+            # ==================== EXTRACT FROM OG:TITLE ====================
+            # Format: "Gavin Day's Faith Lutheran High School Football Stats"
+            og_title = soup.select_one('meta[property="og:title"]')
+            if og_title and og_title.get('content'):
+                title_content = og_title.get('content')
+                # Parse: "Player Name's School Name High School Football Stats"
+                title_match = re.match(r"^(.+?)'s\s+(.+?)\s+(?:High School\s+)?Football\s+Stats?", title_content, re.I)
+                if title_match:
+                    player_data['name'] = title_match.group(1).strip()
+                    player_data['school'] = title_match.group(2).strip()
+                    # Clean up school name - remove "High School" if present
+                    player_data['school'] = re.sub(r'\s+High School$', '', player_data['school'], flags=re.I)
+                    logger.debug(f"Extracted from og:title - Name: {player_data['name']}, School: {player_data['school']}")
 
-            # School - try multiple selectors for MaxPreps layout
-            school_selectors = [
-                'a[href*="/schools/"]', 'a[href*="-greenies"]', 'a[href*="-tigers"]',
-                '.school-name', '.team-name', '[class*="school"]',
-                'a[href*="/la/"], a[href*="/tx/"], a[href*="/ca/"]'  # State-based URLs
-            ]
-            for selector in school_selectors:
-                school_elem = soup.select_one(selector)
-                if school_elem:
-                    school_text = school_elem.get_text(strip=True)
-                    if school_text and len(school_text) > 2 and school_text != player_data['name']:
-                        player_data['school'] = school_text
-                        break
+            # Fallback: Try page title
+            if not player_data['name']:
+                title_elem = soup.select_one('title')
+                if title_elem:
+                    title_text = title_elem.get_text(strip=True)
+                    title_match = re.match(r"^(.+?)'s\s+(.+?)\s+(?:High School\s+)?Football", title_text, re.I)
+                    if title_match:
+                        player_data['name'] = title_match.group(1).strip()
+                        if not player_data['school']:
+                            player_data['school'] = title_match.group(2).strip()
+                            player_data['school'] = re.sub(r'\s+High School$', '', player_data['school'], flags=re.I)
 
-            # Try to extract from page breadcrumbs or meta
-            if not player_data['school']:
-                # Look in the URL path for school info
-                # URL format: /la/new-orleans/newman-greenies/athletes/...
-                import re
-                url_match = re.search(r'/([a-z]{2})/([^/]+)/([^/]+)/athletes/', profile_url)
-                if url_match:
-                    state = url_match.group(1).upper()
-                    city = url_match.group(2).replace('-', ' ').title()
-                    school = url_match.group(3).replace('-', ' ').title()
-                    player_data['school'] = school
-                    player_data['location'] = f"{city}, {state}"
+            # Fallback: Try h1 (might be "Football Stats" but try anyway)
+            if not player_data['name']:
+                name_elem = soup.select_one('h1')
+                if name_elem:
+                    name_text = name_elem.get_text(strip=True)
+                    # Only use if it looks like a name (not "Football Stats")
+                    if name_text and 'Stats' not in name_text and 'Football' not in name_text:
+                        player_data['name'] = name_text.strip()
 
-            # Position - look for QB, WR, RB, etc.
+            # Extract location from URL if not already set
+            # URL format: /nv/las-vegas/faith-lutheran-crusaders/athletes/...
+            url_match = re.search(r'/([a-z]{2})/([^/]+)/([^/]+)/athletes/', profile_url)
+            if url_match:
+                state = url_match.group(1).upper()
+                city = url_match.group(2).replace('-', ' ').title()
+                school_from_url = url_match.group(3).replace('-', ' ').title()
+                
+                player_data['location'] = f"{city}, {state}"
+                
+                # Use school from URL as fallback
+                if not player_data['school']:
+                    player_data['school'] = school_from_url
+
+            # Position - look for position abbreviations with context
             page_text = soup.get_text()
-            pos_match = re.search(r'\b(QB|WR|RB|TE|OL|DL|LB|CB|S|K|P|ATH)\b', page_text)
-            if pos_match:
-                player_data['position'] = pos_match.group(1)
+            # Look for position in player info section
+            # MaxPreps format: "V. Football #1 • DB" followed by "Home" or other nav
+            # The position is the last item before navigation items
+            pos_patterns = [
+                # "V. Football #1 • DB" - capture position before Home/Bio/etc
+                r'Football\s*#?\d*\s*[•·]\s*(QB|WR|RB|TE|OL|DL|LB|CB|ATH|DB|OT|OG|DE|DT|SS|FS|S|K|P)(?=Home|Bio|Stats|$|[^a-zA-Z])',
+                r'[•·]\s*(QB|WR|RB|TE|OL|DL|LB|CB|ATH|DB|OT|OG|DE|DT|SS|FS|S|K|P)(?=Home|Bio|Stats|$|[^a-zA-Z])',
+                r'Position[:\s]*(QB|WR|RB|TE|OL|DL|LB|CB|ATH|DB|OT|OG|DE|DT|SS|FS|S|K|P)\b',
+            ]
+            for pattern in pos_patterns:
+                pos_match = re.search(pattern, page_text, re.I)
+                if pos_match:
+                    player_data['position'] = pos_match.group(1).upper()
+                    break
 
+            # Extract height/weight from player info
+            # Format: "6'3" • 190 lbs" or "6-3 • 190"
+            hw_match = re.search(r"(\d['′]?\d+[\"″]?|\d-\d+)\s*[•·]\s*(\d+)\s*(?:lbs?)?", page_text)
+            if hw_match:
+                player_data['height'] = hw_match.group(1)
+                player_data['weight'] = hw_match.group(2)
+
+            # Extract class year from page (Senior, Junior, etc.)
+            # MaxPreps shows class year in header section, format: "Senior • 2026"
+            # Look specifically in the athlete info area
+            class_patterns = [
+                r'(Senior|Junior|Sophomore|Freshman)\s*[•·]\s*(\d{4})',  # Senior • 2026
+                r'\b(Senior|Junior|Sophomore|Freshman)\b',  # Just the class
+            ]
+            for pattern in class_patterns:
+                class_match = re.search(pattern, page_text, re.I)
+                if class_match:
+                    player_data['class_year'] = class_match.group(1).title()
+                    break
+
+            # ==================== PARSE TOP STATS SECTION ====================
+            # MaxPreps shows summary stats in compact format: "Solo210Tot283"
+            top_stats = {}
+            
+            # MaxPreps compacts stats without spaces, e.g., "Pts6P/G0.2Tot2Yds13Solo210Tot283"
+            # Need to handle: Solo210Tot283 (solo tackles, total tackles)
+            
+            # Try combined pattern first for defense stats (most reliable)
+            # Pattern: Solo(number)Tot(number) - defense stats are together
+            defense_match = re.search(r'Solo(\d+)Tot(\d+)', page_text)
+            if defense_match:
+                top_stats['solo_tackles'] = defense_match.group(1)
+                top_stats['total_tackles'] = defense_match.group(2)
+                logger.debug(f"Found defense stats: Solo {top_stats['solo_tackles']}, Tot {top_stats['total_tackles']}")
+            
+            # Try other patterns for remaining stats
+            # These need word boundaries or context to avoid false matches
+            stat_patterns = [
+                (r'Pts(\d+)P/G', 'points'),  # Points followed by P/G
+                (r'P/G([\d.]+)', 'points_per_game'),
+                (r'Sack[s]?\s*(\d+)', 'sacks'),
+                (r'(?<![a-zA-Z])Int\s*(\d+)(?![a-zA-Z])', 'interceptions'),  # INT not part of other word
+                (r'FF\s*(\d+)', 'forced_fumbles'),
+                (r'PD\s*(\d+)', 'passes_defended'),
+                (r'TFL\s*(\d+)', 'tackles_for_loss'),
+            ]
+            
+            for pattern, stat_name in stat_patterns:
+                if stat_name not in top_stats:  # Don't overwrite
+                    match = re.search(pattern, page_text, re.I)
+                    if match:
+                        top_stats[stat_name] = match.group(1)
+            
+            if top_stats:
+                player_data['career_summary'] = top_stats
+                logger.debug(f"Found top stats: {top_stats}")
+
+            # ==================== PARSE STATS TABLES ====================
             # Parse all stats tables on the page
             stats_tables = soup.select('table')
-
+            all_seasons = []
+            
             for table in stats_tables:
                 season_stats = self._parse_stats_table(table)
                 if season_stats:
-                    player_data['seasons'].append(season_stats)
-
-            # If no tables found, try alternative stat blocks
-            if not player_data['seasons']:
-                stat_blocks = soup.select('.stat-block, .career-stats, .season-stats')
-                for block in stat_blocks:
-                    stats = self._parse_stat_block(block)
-                    if stats:
-                        player_data['seasons'].append(stats)
+                    all_seasons.extend(season_stats)
+            
+            # Consolidate seasons by year (merge data from different tables)
+            seasons_by_year = {}
+            career_total = None
+            
+            for season in all_seasons:
+                if season.get('is_career_total'):
+                    if not career_total:
+                        career_total = season
+                    else:
+                        # Merge with existing career total
+                        for key in ['passing', 'rushing', 'receiving', 'all_purpose', 'defense']:
+                            if season.get(key):
+                                career_total[key].update({k: v for k, v in season[key].items() if v})
+                else:
+                    year_key = season.get('year', '') or season.get('grade', 'unknown')
+                    if year_key not in seasons_by_year:
+                        seasons_by_year[year_key] = season
+                    else:
+                        # Merge stats from this table into existing season
+                        existing = seasons_by_year[year_key]
+                        for key in ['passing', 'rushing', 'receiving', 'all_purpose', 'defense']:
+                            if season.get(key):
+                                existing[key].update({k: v for k, v in season[key].items() if v})
+            
+            # Add individual seasons
+            player_data['seasons'] = list(seasons_by_year.values())
+            
+            # Add career total as a special season
+            if career_total:
+                career_total['year'] = 'Career Total'
+                career_total['grade'] = 'Career'
+                player_data['seasons'].append(career_total)
+            
+            # Add top stats to career summary if we have defensive stats
+            if top_stats.get('solo_tackles') or top_stats.get('total_tackles'):
+                # Create or update career defense stats
+                if not career_total:
+                    career_total = {
+                        'year': 'Career Total',
+                        'grade': 'Career',
+                        'is_career_total': True,
+                        'defense': {}
+                    }
+                    player_data['seasons'].append(career_total)
+                
+                career_total.setdefault('defense', {})
+                career_total['defense']['solo_tackles'] = top_stats.get('solo_tackles', '')
+                career_total['defense']['total_tackles'] = top_stats.get('total_tackles', '')
 
             logger.info(f"✅ Scraped stats for {player_data.get('name', 'Unknown')}")
             return player_data
@@ -472,94 +596,162 @@ class HSStatsScraper:
             logger.error(f"❌ Error fetching stats: {e}", exc_info=True)
             return None
 
-    def _parse_stats_table(self, table) -> Optional[Dict[str, Any]]:
-        """Parse a stats table into structured data"""
+    def _parse_stats_table(self, table, table_type: str = None) -> List[Dict[str, Any]]:
+        """
+        Parse a MaxPreps stats table into structured data.
+        
+        MaxPreps tables have format:
+        - Header row: GD, Team, Year, GP, [stat columns...]
+        - Data rows: Sr., Var, 25-26, 14, [values...]
+        - Total row: Varsity Total, [totals...]
+        
+        Returns list of season stats dicts.
+        """
         try:
-            stats = {
-                'year': None,
-                'games': None,
-                'passing': {},
-                'rushing': {},
-                'receiving': {},
-                'defense': {}
-            }
-
-            # Get headers
-            headers = []
-            header_row = table.select_one('thead tr, tr:first-child')
-            if header_row:
-                headers = [th.get_text(strip=True).lower() for th in header_row.select('th, td')]
-
-            # Get data rows
-            rows = table.select('tbody tr, tr:not(:first-child)')
-
-            for row in rows:
+            seasons = []
+            
+            # Get all rows
+            rows = table.select('tr')
+            if len(rows) < 2:
+                return []
+            
+            # First row is headers
+            header_cells = rows[0].select('th, td')
+            headers = [h.get_text(strip=True).lower() for h in header_cells]
+            logger.debug(f"Table headers: {headers}")
+            
+            # Determine table type from headers
+            if not table_type:
+                if 'car' in headers or 'carries' in headers:
+                    table_type = 'rushing'
+                elif 'comp' in headers or 'att' in headers:
+                    table_type = 'passing'
+                elif 'rec' in headers and 'ir' not in headers:
+                    table_type = 'receiving'
+                elif 'ir' in headers or 'kr' in headers:
+                    table_type = 'all_purpose'
+                elif 'solo' in headers or 'tkl' in headers:
+                    table_type = 'defense'
+                elif 'rush' in headers and 'pass' in headers:
+                    table_type = 'total_yards'
+            
+            # Parse data rows (skip header)
+            for row in rows[1:]:
                 cells = row.select('td')
                 if not cells:
                     continue
-
+                
+                # Build row data dict
                 row_data = {}
                 for i, cell in enumerate(cells):
                     if i < len(headers):
                         row_data[headers[i]] = cell.get_text(strip=True)
-
-                # Parse common stat fields
-                if 'year' in row_data or 'season' in row_data:
-                    stats['year'] = row_data.get('year') or row_data.get('season')
-
-                if 'g' in row_data or 'games' in row_data:
-                    stats['games'] = row_data.get('g') or row_data.get('games')
-
-                # Passing stats
-                if any(k in row_data for k in ['comp', 'att', 'pass yds', 'pass td']):
-                    stats['passing'] = {
-                        'completions': row_data.get('comp', row_data.get('cmp')),
-                        'attempts': row_data.get('att'),
-                        'yards': row_data.get('pass yds', row_data.get('yds')),
-                        'touchdowns': row_data.get('pass td', row_data.get('td')),
-                        'interceptions': row_data.get('int')
+                
+                # Skip if this is the header row repeated
+                if row_data.get('gd', '').lower() == 'gd':
+                    continue
+                
+                # Check if this is a totals row
+                is_total = any('total' in str(v).lower() for v in row_data.values())
+                
+                # Extract year/grade info
+                grade = row_data.get('gd', '')  # Sr., Jr., So., Fr.
+                year = row_data.get('year', '')  # 25-26, 24-25, etc.
+                gp = row_data.get('gp', '')  # Games played
+                
+                # Create season entry
+                season = {
+                    'grade': grade,
+                    'year': year,
+                    'games': gp,
+                    'is_career_total': is_total,
+                    'table_type': table_type,
+                    'passing': {},
+                    'rushing': {},
+                    'receiving': {},
+                    'all_purpose': {},
+                    'defense': {}
+                }
+                
+                # Parse based on table type
+                if table_type == 'rushing':
+                    season['rushing'] = {
+                        'carries': row_data.get('car', ''),
+                        'yards': row_data.get('yds', ''),
+                        'avg': row_data.get('avg', ''),
+                        'yards_per_game': row_data.get('y/g', ''),
+                        'long': row_data.get('lng', ''),
+                        'touchdowns': row_data.get('td', ''),
+                        '100_yard_games': row_data.get('100+', '')
                     }
-
-                # Rushing stats
-                if any(k in row_data for k in ['rush', 'rush yds', 'rush td', 'car', 'carries']):
-                    stats['rushing'] = {
-                        'carries': row_data.get('car', row_data.get('carries', row_data.get('rush att'))),
-                        'yards': row_data.get('rush yds', row_data.get('yds')),
-                        'touchdowns': row_data.get('rush td', row_data.get('td')),
-                        'avg': row_data.get('avg', row_data.get('ypc'))
+                
+                elif table_type == 'passing':
+                    season['passing'] = {
+                        'completions': row_data.get('comp', row_data.get('cmp', '')),
+                        'attempts': row_data.get('att', ''),
+                        'yards': row_data.get('yds', ''),
+                        'touchdowns': row_data.get('td', ''),
+                        'interceptions': row_data.get('int', ''),
+                        'passer_rating': row_data.get('rtg', row_data.get('qbr', ''))
                     }
-
-                # Receiving stats
-                if any(k in row_data for k in ['rec', 'receptions', 'rec yds', 'rec td']):
-                    stats['receiving'] = {
-                        'receptions': row_data.get('rec', row_data.get('receptions')),
-                        'yards': row_data.get('rec yds', row_data.get('yds')),
-                        'touchdowns': row_data.get('rec td', row_data.get('td')),
-                        'avg': row_data.get('avg', row_data.get('ypr'))
+                
+                elif table_type == 'receiving':
+                    season['receiving'] = {
+                        'receptions': row_data.get('rec', ''),
+                        'yards': row_data.get('yds', ''),
+                        'avg': row_data.get('avg', ''),
+                        'touchdowns': row_data.get('td', ''),
+                        'long': row_data.get('lng', '')
                     }
-
-                # Defense stats
-                if any(k in row_data for k in ['tackles', 'tkl', 'sacks', 'int']):
-                    stats['defense'] = {
-                        'tackles': row_data.get('tackles', row_data.get('tkl')),
-                        'sacks': row_data.get('sacks', row_data.get('sk')),
-                        'interceptions': row_data.get('int'),
-                        'forced_fumbles': row_data.get('ff')
+                
+                elif table_type == 'all_purpose':
+                    season['all_purpose'] = {
+                        'rush_yards': row_data.get('rush', ''),
+                        'rec_yards': row_data.get('rec', ''),
+                        'kick_return': row_data.get('kr', ''),
+                        'punt_return': row_data.get('pr', ''),
+                        'int_return': row_data.get('ir', ''),
+                        'total': row_data.get('total', ''),
+                        'yards_per_game': row_data.get('y/g', '')
                     }
-
-            # Only return if we found some stats
-            has_stats = (
-                stats['passing'] or
-                stats['rushing'] or
-                stats['receiving'] or
-                stats['defense']
-            )
-
-            return stats if has_stats else None
+                
+                elif table_type == 'defense':
+                    season['defense'] = {
+                        'solo_tackles': row_data.get('solo', ''),
+                        'total_tackles': row_data.get('tot', row_data.get('tkl', '')),
+                        'tackles_for_loss': row_data.get('tfl', ''),
+                        'sacks': row_data.get('sack', row_data.get('sk', '')),
+                        'interceptions': row_data.get('int', ''),
+                        'passes_defended': row_data.get('pd', row_data.get('pbu', '')),
+                        'forced_fumbles': row_data.get('ff', '')
+                    }
+                
+                elif table_type == 'total_yards':
+                    season['all_purpose'] = {
+                        'rush_yards': row_data.get('rush', ''),
+                        'pass_yards': row_data.get('pass', ''),
+                        'rec_yards': row_data.get('rec', ''),
+                        'total': row_data.get('total', ''),
+                        'yards_per_game': row_data.get('y/g', '')
+                    }
+                
+                # Only add if we have some data
+                has_data = any([
+                    any(season['passing'].values()),
+                    any(season['rushing'].values()),
+                    any(season['receiving'].values()),
+                    any(season['all_purpose'].values()),
+                    any(season['defense'].values())
+                ])
+                
+                if has_data:
+                    seasons.append(season)
+            
+            return seasons
 
         except Exception as e:
             logger.debug(f"Error parsing stats table: {e}")
-            return None
+            return []
 
     def _parse_stat_block(self, block) -> Optional[Dict[str, Any]]:
         """Parse a stat block (non-table format) into structured data"""
@@ -713,67 +905,99 @@ class HSStatsScraper:
         school = player_data.get('school', '')
         location = player_data.get('location', '')
         position = player_data.get('position', '')
+        height = player_data.get('height', '')
+        weight = player_data.get('weight', '')
+        class_year = player_data.get('class_year', '')
 
         lines.append(f"🏈 **{name}**")
+        
+        # School/Location line
         if school:
             school_line = f"🏫 {school}"
             if location:
                 school_line += f" ({location})"
             lines.append(school_line)
+        
+        # Player info line (position, height, weight, class)
+        info_parts = []
         if position:
-            lines.append(f"📍 Position: {position}")
+            info_parts.append(f"**{position}**")
+        if height:
+            info_parts.append(f"{height}")
+        if weight:
+            info_parts.append(f"{weight} lbs")
+        if class_year:
+            info_parts.append(f"{class_year}")
+        if info_parts:
+            lines.append(f"📍 {' • '.join(info_parts)}")
 
         lines.append("")
 
         # Stats by season
         seasons = player_data.get('seasons', [])
-        if seasons:
-            for season in seasons[-3:]:  # Show last 3 seasons
-                year = season.get('year', 'Career')
+        
+        # Separate career total from individual seasons
+        career_season = None
+        individual_seasons = []
+        for season in seasons:
+            if season.get('is_career_total') or 'career' in str(season.get('year', '')).lower():
+                career_season = season
+            else:
+                individual_seasons.append(season)
+        
+        # Show individual seasons (most recent first, limit to 3)
+        if individual_seasons:
+            # Sort by year descending
+            individual_seasons.sort(key=lambda s: s.get('year', ''), reverse=True)
+            
+            for season in individual_seasons[:3]:
+                year = season.get('year', '')
+                grade = season.get('grade', '')
                 games = season.get('games', '')
-
-                season_header = f"**{year}**"
+                
+                # Build season header
+                header_parts = []
+                if grade and grade not in ['', 'Varsity Total']:
+                    header_parts.append(grade)
+                if year:
+                    header_parts.append(year)
+                season_header = f"**{' '.join(header_parts) or 'Season'}**"
                 if games:
-                    season_header += f" ({games} games)"
+                    season_header += f" ({games} GP)"
                 lines.append(season_header)
-
-                # Passing
-                passing = season.get('passing', {})
-                if passing and any(passing.values()):
-                    comp = passing.get('completions', '?')
-                    att = passing.get('attempts', '?')
-                    yds = passing.get('yards', '?')
-                    td = passing.get('touchdowns', '?')
-                    int_val = passing.get('interceptions', '?')
-                    lines.append(f"  🎯 Passing: {comp}/{att} | {yds} YDS | {td} TD | {int_val} INT")
-
-                # Rushing
-                rushing = season.get('rushing', {})
-                if rushing and any(rushing.values()):
-                    car = rushing.get('carries', '?')
-                    yds = rushing.get('yards', '?')
-                    td = rushing.get('touchdowns', '?')
-                    lines.append(f"  🏃 Rushing: {car} CAR | {yds} YDS | {td} TD")
-
-                # Receiving
-                receiving = season.get('receiving', {})
-                if receiving and any(receiving.values()):
-                    rec = receiving.get('receptions', '?')
-                    yds = receiving.get('yards', '?')
-                    td = receiving.get('touchdowns', '?')
-                    lines.append(f"  🙌 Receiving: {rec} REC | {yds} YDS | {td} TD")
-
-                # Defense
-                defense = season.get('defense', {})
-                if defense and any(defense.values()):
-                    tkl = defense.get('tackles', '?')
-                    sacks = defense.get('sacks', '?')
-                    ints = defense.get('interceptions', '?')
-                    lines.append(f"  🛡️ Defense: {tkl} TKL | {sacks} SCK | {ints} INT")
-
+                
+                # Add stat lines for this season
+                self._add_stat_lines(lines, season)
                 lines.append("")
-        else:
-            lines.append("_No stats available_")
+        
+        # Show career totals if available
+        if career_season:
+            games = career_season.get('games', '')
+            career_header = "**📊 Career Totals**"
+            if games:
+                career_header += f" ({games} GP)"
+            lines.append(career_header)
+            self._add_stat_lines(lines, career_season)
+            lines.append("")
+        
+        # If no seasons found, show career summary if available
+        if not seasons:
+            career_summary = player_data.get('career_summary', {})
+            if career_summary:
+                lines.append("**📊 Career Summary**")
+                if career_summary.get('solo_tackles'):
+                    lines.append(f"  🛡️ Solo Tackles: **{career_summary['solo_tackles']}**")
+                if career_summary.get('total_tackles'):
+                    lines.append(f"  🛡️ Total Tackles: **{career_summary['total_tackles']}**")
+                if career_summary.get('interceptions'):
+                    lines.append(f"  🏈 Interceptions: **{career_summary['interceptions']}**")
+                if career_summary.get('sacks'):
+                    lines.append(f"  💥 Sacks: **{career_summary['sacks']}**")
+                if career_summary.get('points'):
+                    lines.append(f"  🎯 Points: **{career_summary['points']}**")
+                lines.append("")
+            else:
+                lines.append("_No detailed stats available_")
 
         # Link to profile
         profile_url = player_data.get('profile_url')
@@ -781,6 +1005,99 @@ class HSStatsScraper:
             lines.append(f"[View Full Profile on MaxPreps]({profile_url})")
 
         return "\n".join(lines)
+    
+    def _add_stat_lines(self, lines: List[str], season: Dict[str, Any]):
+        """Add stat lines for a season to the output"""
+        # Passing
+        passing = season.get('passing', {})
+        if passing and any(v for v in passing.values() if v):
+            comp = passing.get('completions', '-')
+            att = passing.get('attempts', '-')
+            yds = passing.get('yards', '-')
+            td = passing.get('touchdowns', '-')
+            int_val = passing.get('interceptions', '-')
+            lines.append(f"  🎯 **Passing:** {comp}/{att} | {yds} YDS | {td} TD | {int_val} INT")
+
+        # Rushing
+        rushing = season.get('rushing', {})
+        if rushing and any(v for v in rushing.values() if v):
+            car = rushing.get('carries', '-')
+            yds = rushing.get('yards', '-')
+            avg = rushing.get('avg', '')
+            td = rushing.get('touchdowns', '-')
+            lng = rushing.get('long', '')
+            
+            rush_line = f"  🏃 **Rushing:** {car} CAR | {yds} YDS | {td} TD"
+            if avg:
+                rush_line += f" | {avg} AVG"
+            if lng:
+                rush_line += f" | LNG {lng}"
+            lines.append(rush_line)
+
+        # Receiving - only show if there's meaningful data
+        receiving = season.get('receiving', {})
+        if receiving:
+            rec = receiving.get('receptions', '')
+            yds = receiving.get('yards', '')
+            td = receiving.get('touchdowns', '')
+            avg = receiving.get('avg', '')
+            
+            # Only display if there's actual receiving data (not all zeros)
+            has_data = (rec and rec not in ['0', '-', '']) or \
+                       (yds and yds not in ['0', '-', '']) or \
+                       (td and td not in ['0', '-', ''])
+            
+            if has_data:
+                rec_line = f"  🙌 **Receiving:** {rec or '-'} REC | {yds or '-'} YDS | {td or '-'} TD"
+                if avg:
+                    rec_line += f" | {avg} AVG"
+                lines.append(rec_line)
+
+        # All Purpose Yards
+        all_purpose = season.get('all_purpose', {})
+        if all_purpose and any(v for v in all_purpose.values() if v):
+            total = all_purpose.get('total', '')
+            ir = all_purpose.get('int_return', '')
+            kr = all_purpose.get('kick_return', '')
+            pr = all_purpose.get('punt_return', '')
+            
+            if total:
+                ap_parts = [f"**{total}** Total"]
+                if ir and ir != '0':
+                    ap_parts.append(f"{ir} IR")
+                if kr and kr != '0':
+                    ap_parts.append(f"{kr} KR")
+                if pr and pr != '0':
+                    ap_parts.append(f"{pr} PR")
+                lines.append(f"  🔄 **All Purpose:** {' | '.join(ap_parts)}")
+
+        # Defense
+        defense = season.get('defense', {})
+        if defense and any(v for v in defense.values() if v):
+            solo = defense.get('solo_tackles', '')
+            total = defense.get('total_tackles', '')
+            sacks = defense.get('sacks', '')
+            ints = defense.get('interceptions', '')
+            ff = defense.get('forced_fumbles', '')
+            pd = defense.get('passes_defended', '')
+            
+            def_parts = []
+            if solo or total:
+                tkl_str = f"{total}" if total else ""
+                if solo:
+                    tkl_str = f"{solo} Solo/{total}" if total else f"{solo} Solo"
+                def_parts.append(f"{tkl_str} TKL")
+            if sacks and sacks != '0':
+                def_parts.append(f"{sacks} SCK")
+            if ints and ints != '0':
+                def_parts.append(f"{ints} INT")
+            if ff and ff != '0':
+                def_parts.append(f"{ff} FF")
+            if pd and pd != '0':
+                def_parts.append(f"{pd} PD")
+            
+            if def_parts:
+                lines.append(f"  🛡️ **Defense:** {' | '.join(def_parts)}")
 
     async def close(self):
         """Close HTTP client"""

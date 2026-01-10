@@ -11,10 +11,42 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.17.4"
+CURRENT_VERSION = "1.17.5"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.17.5": {
+        "date": "2026-01-10",
+        "title": "Enhanced HS Stats - Career Stats from MaxPreps",
+        "emoji": "🏫",
+        "features": [
+            {
+                "category": "HS Stats Improvements",
+                "emoji": "📊",
+                "changes": [
+                    "Improved MaxPreps career stats parsing for all stat types",
+                    "Fixed player name/school extraction from og:title metadata",
+                    "Career defensive stats: solo tackles, total tackles, sacks, INTs",
+                    "All-purpose yards including INT/kick/punt returns per season",
+                    "Rushing, receiving, passing stats with per-game averages",
+                    "Position detection (QB, WR, RB, DB, LB, etc.)",
+                    "Physical info: height, weight, class year",
+                    "Individual season breakdowns by grade level (Sr/Jr/So/Fr)",
+                    "Career totals consolidated across all tables"
+                ]
+            },
+            {
+                "category": "Bug Fixes",
+                "emoji": "🐛",
+                "changes": [
+                    "Fixed regex bug that caused 'Tot283' to parse as '2' instead of '283'",
+                    "Fixed position detection for 'V. Football #1 • DB' format",
+                    "Removed duplicate import of 're' module",
+                    "Empty receiving stats (all zeros) are now hidden"
+                ]
+            }
+        ]
+    },
     "1.17.4": {
         "date": "2026-01-10",
         "title": "On3/Rivals Recruiting Data - Offers, Predictions, Visits & Photos",
