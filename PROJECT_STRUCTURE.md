@@ -4,7 +4,7 @@
 
 A Discord bot for College Football 26 Online Dynasty League that provides league rule information, AI-powered responses, CFB data lookups, and fun rivalry interactions.
 
-**Current Version:** 1.14.0  
+**Current Version:** 1.16.2  
 **Codename:** Harry
 
 ## Directory Structure
@@ -35,9 +35,10 @@ cfb-rules-bot/
 │   │       ├── __init__.py
 │   │       ├── admin_check.py      # Bot admin management
 │   │       ├── audioop_fix.py      # Python 3.13 compatibility
+│   │       ├── cfb_data.py         # CFB player data (CFBD API)
 │   │       ├── channel_manager.py  # Channel blocking
 │   │       ├── charter_editor.py   # Charter management
-│   │       ├── player_lookup.py    # CFB player data (CFBD API)
+│   │       ├── hs_stats_scraper.py # High school stats (MaxPreps)
 │   │       ├── schedule_manager.py # Schedule data
 │   │       ├── server_config.py    # Per-server configuration
 │   │       ├── storage.py          # Storage abstraction layer
@@ -123,12 +124,20 @@ Per-server feature configuration:
 - Auto-response toggles
 - Personality settings
 
-### Player Lookup (`src/cfb_bot/utils/player_lookup.py`)
-CFB player data via CollegeFootballData.com:
+### CFB Data (`src/cfb_bot/utils/cfb_data.py`)
+CFB data via CollegeFootballData.com:
 - Player vitals and stats
 - Recruiting information
 - Transfer portal data
+- Rankings, matchups, schedules
+- Draft picks, betting lines
 - Fuzzy matching for suggestions
+
+### HS Stats Scraper (`src/cfb_bot/utils/hs_stats_scraper.py`)
+High school football stats via MaxPreps web scraping:
+- Player career stats
+- Per-season breakdowns
+- Caching and rate limiting
 
 ### Timekeeper (`src/cfb_bot/utils/timekeeper.py`)
 Advance timer and dynasty week tracking:
@@ -174,6 +183,7 @@ SUPABASE_KEY=xxx
 | Core | Personality, AI, management | Always On |
 | CFB Data | Player lookup, rankings | Enabled |
 | League | Timer, charter, dynasty | Disabled |
+| HS Stats | High school stats | Disabled |
 
 ## Deployment
 
@@ -201,5 +211,5 @@ python -m pytest tests/
 
 ---
 
-**Version:** 1.13.0  
-**Last Updated:** January 9, 2026
+**Version:** 1.16.2  
+**Last Updated:** January 10, 2026

@@ -2,7 +2,7 @@
 
 > **Harry** - Your cockney, Oregon-hating CFB assistant
 
-[![Version](https://img.shields.io/badge/Version-1.14.0-blue.svg)](../src/cfb_bot/utils/version_manager.py)
+[![Version](https://img.shields.io/badge/Version-1.16.2-blue.svg)](../src/cfb_bot/utils/version_manager.py)
 [![Python](https://img.shields.io/badge/Python-3.11+-green.svg)](https://python.org)
 [![Discord.py](https://img.shields.io/badge/Discord.py-2.3+-purple.svg)](https://discordpy.readthedocs.io)
 
@@ -36,6 +36,12 @@
 | Transfer Portal | `/transfers` | Portal activity |
 | Betting | `/betting` | Spreads and O/U |
 | Ratings | `/team_ratings` | SP+, SRS, Elo |
+
+### 🏫 HS Stats Module
+| Feature | Command | Description |
+|---------|---------|-------------|
+| HS Player Lookup | `/hs_stats` | MaxPreps high school stats |
+| HS Bulk Lookup | `/hs_stats_bulk` | Bulk HS player lookup |
 
 ### ⏰ League Management
 | Feature | Command | Description |
@@ -100,13 +106,13 @@ Harry uses a pluggable storage system:
 │               Core                    │
 │  (Always On - Personality, AI, Mgmt) │
 └──────────────────────────────────────┘
-         │                    │
-         ▼                    ▼
-┌─────────────────┐  ┌─────────────────┐
-│    CFB Data     │  │     League      │
-│  (Player, Rank) │  │ (Timer, Charter)│
-│   Default: ON   │  │  Default: OFF   │
-└─────────────────┘  └─────────────────┘
+         │           │           │
+         ▼           ▼           ▼
+┌────────────┐ ┌────────────┐ ┌────────────┐
+│  CFB Data  │ │   League   │ │  HS Stats  │
+│  Default:  │ │  Default:  │ │  Default:  │
+│     ON     │ │    OFF     │ │    OFF     │
+└────────────┘ └────────────┘ └────────────┘
 ```
 
 ### Per-Channel Controls
@@ -157,6 +163,6 @@ python main.py
 
 ---
 
-**Version:** 1.13.0  
-**Last Updated:** January 9, 2026  
+**Version:** 1.16.2  
+**Last Updated:** January 10, 2026  
 **Made with 🏈 for the CFB 26 League**

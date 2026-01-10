@@ -68,7 +68,7 @@ async def test_openai_api():
 async def test_ai_integration():
     """Test the AI integration module"""
     try:
-        from ai_integration import AICharterAssistant
+        from src.cfb_bot.ai.ai_integration import AICharterAssistant
         
         print("🔄 Testing AI integration module...")
         

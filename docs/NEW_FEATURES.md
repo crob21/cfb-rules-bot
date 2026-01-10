@@ -2,8 +2,8 @@
 
 This document outlines all features of Harry, the CFB 26 League Bot.
 
-**Current Version:** 1.14.0  
-**Last Updated:** January 9, 2026  
+**Current Version:** 1.16.2  
+**Last Updated:** January 10, 2026  
 **Status:** ✅ Production Ready
 
 ---
@@ -11,6 +11,8 @@ This document outlines all features of Harry, the CFB 26 League Bot.
 ## 🏈 CFB Data Module
 
 Access comprehensive college football data powered by CollegeFootballData.com API.
+
+> **Note:** All CFB Data commands automatically default to the current season and week. No need to specify year/week unless you want historical data!
 
 ### Player Lookup
 
@@ -89,7 +91,7 @@ Access comprehensive college football data powered by CollegeFootballData.com AP
 
 ### Betting Lines
 
-**Command:** `/betting <team1> <team2>`
+**Command:** `/betting [team]` - Shows upcoming games, or filter by team
 
 **Natural Language:** `@Harry who's favored in Bama vs Georgia?`
 
@@ -97,6 +99,7 @@ Access comprehensive college football data powered by CollegeFootballData.com AP
 - Point spread
 - Over/under
 - Moneyline (when available)
+- Auto-detects postseason/playoff games
 
 ### Advanced Ratings
 
@@ -109,6 +112,39 @@ Access comprehensive college football data powered by CollegeFootballData.com AP
 - SRS (Simple Rating System)
 - Elo rating
 - FPI (when available)
+
+---
+
+## 🏫 High School Stats Module
+
+Look up high school football stats from MaxPreps for recruiting research.
+
+> **Note:** This module uses web scraping and is disabled by default. Enable with `/config enable hs_stats`
+
+### Single Player Lookup
+
+**Command:** `/hs_stats <name> [state]`
+
+**Natural Language:** `@Harry HS stats for Arch Manning`
+
+**Shows:**
+- Career stats (passing, rushing, receiving)
+- Per-season breakdown
+- School and location
+- Position and class year
+
+### Bulk Lookup
+
+**Command:** `/hs_stats_bulk <player_list>`
+
+Look up multiple high school players at once for recruiting boards.
+
+**Format:**
+```
+Player Name, State
+Player Name 2, State
+Player Name 3
+```
 
 ---
 
@@ -252,6 +288,7 @@ Includes personalized roasts for each candidate!
 | **Core** | Harry's personality, AI chat | Always On |
 | **CFB Data** | Player lookup, rankings, etc. | Enabled |
 | **League** | Timer, charter, dynasty | Disabled |
+| **HS Stats** | High school stats (MaxPreps) | Disabled |
 
 ### Per-Channel Controls
 
@@ -263,7 +300,7 @@ Includes personalized roasts for each candidate!
 | `enable` | Enable Harry in this channel |
 | `disable` | Disable Harry in this channel |
 | `disable_all` | Clear whitelist for server |
-| `toggle_auto` | Toggle auto-responses |
+| `toggle_rivalry` | Toggle rivalry auto-responses |
 
 **Important:** Harry is disabled by default! Use `/channel enable` to activate.
 
@@ -334,7 +371,7 @@ Only **auto-responses** (unprompted jump-ins) can be toggled:
 - 🦆 emoji reactions triggering responses
 - Random Oregon jokes in timer messages
 
-Use `/channel toggle_auto` to control these per-channel.
+Use `/channel toggle_rivalry` to control these per-channel.
 
 ---
 
@@ -374,13 +411,14 @@ Relay messages between users.
 ### File Structure
 ```
 src/cfb_bot/
-├── bot.py              # Main Discord bot
+├── bot.py                   # Main Discord bot
 ├── ai/
 │   └── ai_integration.py    # OpenAI/Anthropic
 └── utils/
     ├── storage.py           # Storage abstraction
     ├── server_config.py     # Per-server config
-    ├── player_lookup.py     # CFB data
+    ├── cfb_data.py          # CFB data (CFBD API)
+    ├── hs_stats_scraper.py  # High school stats (MaxPreps)
     ├── timekeeper.py        # Timer & weeks
     ├── charter_editor.py    # Charter management
     ├── summarizer.py        # Channel summaries
@@ -397,5 +435,5 @@ src/cfb_bot/
 ---
 
 **Author:** Harry (with assistance from Craig's AI assistant, innit!)  
-**Version:** 1.13.0  
-**Last Updated:** January 9, 2026
+**Version:** 1.16.2  
+**Last Updated:** January 10, 2026

@@ -2,7 +2,7 @@
 
 A Discord bot for College Football 26 Online Dynasty League that provides league rule information, AI-powered responses, player lookups, interactive charter management, and fun rivalry interactions.
 
-**Current Version:** 1.14.0  
+**Current Version:** 1.16.2  
 **Harry** - Your cockney, Oregon-hating assistant
 
 ## Features
@@ -14,8 +14,13 @@ A Discord bot for College Football 26 Online Dynasty League that provides league
 - **Team Schedules** - `/cfb_schedule` for game results and upcoming games
 - **NFL Draft** - `/draft_picks` for draft history by school
 - **Transfer Portal** - `/transfers` for incoming/outgoing transfers
-- **Betting Lines** - `/betting` for spreads and over/unders
+- **Betting Lines** - `/betting` for spreads and over/unders (auto-detects current week/postseason)
 - **Advanced Stats** - `/team_ratings` for SP+, SRS, Elo ratings
+
+### 🏫 High School Stats Module (NEW)
+- **HS Player Lookup** - `/hs_stats` for MaxPreps high school stats
+- **Bulk HS Lookup** - `/hs_stats_bulk` for recruiting lists
+- **Web Scraping** - Pulls directly from MaxPreps
 
 ### ⏰ League Management
 - **Advance Timer** - Server-wide countdown with automatic reminders
@@ -101,6 +106,7 @@ Harry supports per-server feature toggling:
 | **Core** | Harry's personality, AI chat, bot management | Always On |
 | **CFB Data** | Player lookup, rankings, schedules, etc. | Enabled |
 | **League** | Timer, charter, rules, dynasty features | Disabled |
+| **HS Stats** | High school stats from MaxPreps | Disabled |
 
 Use `/config` to manage modules or the web dashboard at `/dashboard`.
 
@@ -109,10 +115,10 @@ Use `/config` to manage modules or the web dashboard at `/dashboard`.
 Harry is **disabled by default** in all channels. Use `/channel` to manage:
 
 ```
-/channel enable     - Enable Harry in current channel
-/channel disable    - Disable Harry in current channel
-/channel view       - See current channel status
-/channel toggle_auto - Toggle auto-responses (jump-ins)
+/channel enable        - Enable Harry in current channel
+/channel disable       - Disable Harry in current channel
+/channel view          - See current channel status
+/channel toggle_rivalry - Toggle rivalry auto-responses (jump-ins)
 ```
 
 ## Commands
@@ -189,7 +195,8 @@ cfb-rules-bot/
 │   └── utils/
 │       ├── storage.py          # Storage abstraction
 │       ├── server_config.py    # Per-server config
-│       ├── player_lookup.py    # CFB data lookups
+│       ├── cfb_data.py         # CFB data lookups (CFBD API)
+│       ├── hs_stats_scraper.py # High school stats (MaxPreps)
 │       ├── timekeeper.py       # Timer & weeks
 │       ├── charter_editor.py   # Charter management
 │       └── version_manager.py  # Version tracking

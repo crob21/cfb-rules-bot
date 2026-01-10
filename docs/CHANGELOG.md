@@ -5,6 +5,84 @@ All notable changes to the CFB 26 Rules Bot (Harry) will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.2] - 2026-01-10
+
+### Fixed
+
+- **CRITICAL: League Context Isolation**
+  - Fixed AI leaking league schedule data to non-league servers
+  - AI prompts now respect LEAGUE module status per server
+  - Non-league servers no longer see schedule/charter in AI responses
+  - Added `include_league_context` parameter to all AI methods
+
+## [1.16.1] - 2026-01-10
+
+### Added
+
+- **Guild Debugging & Logging**
+  - Detailed guild listing on startup (name, ID, member count)
+  - `on_guild_join` event logs when bot joins new servers
+  - `on_guild_remove` event logs when bot is removed
+  - Auto-syncs commands to newly joined guilds
+
+## [1.16.0] - 2026-01-09
+
+### Added
+
+- **League Module Separation**
+  - League-specific features now gated behind LEAGUE module
+  - Charter links only show when LEAGUE is enabled
+  - Generic CFB assistant mode when LEAGUE is disabled
+  - Footer dynamically changes based on server config
+  - Reaction responses adapt to LEAGUE status
+
+## [1.15.3] - 2026-01-09
+
+### Fixed
+
+- **Interaction Timeout Fix**
+  - Fixed 'Unknown interaction' timeout errors on CFB data commands
+  - All API commands now defer() FIRST before module checks
+  - Added `check_module_enabled_deferred()` for post-defer validation
+
+## [1.15.2] - 2026-01-09
+
+### Fixed
+
+- **Betting Lines Postseason Filtering**
+  - `/betting` now shows only upcoming postseason games
+  - Client-side date filtering for playoff matchups
+  - Fixed postseason week detection
+
+## [1.15.1] - 2026-01-09
+
+### Fixed
+
+- **Timer KeyError Fix**
+  - Fixed `KeyError` in countdown monitoring (JSON key conversion)
+  - Improved error logging with exception types
+
+## [1.15.0] - 2026-01-09
+
+### Added
+
+- **High School Stats Module**
+  - `/hs_stats <name>` - Look up high school player stats
+  - `/hs_stats_bulk <list>` - Bulk lookup for recruiting
+  - MaxPreps web scraping with caching
+  - Module toggleable via `/config enable hs_stats`
+
+- **CFB Data Enhancements**
+  - All commands default to current season/week
+  - `/betting` auto-detects postseason games
+  - `/rankings` shows latest week only (cleaner output)
+  - `/draft_picks` improved team name matching
+
+### Changed
+
+- Renamed `player_lookup.py` to `cfb_data.py`
+- Constants centralized (Colors, Footers classes)
+
 ## [1.14.0] - 2026-01-09
 
 ### Added
