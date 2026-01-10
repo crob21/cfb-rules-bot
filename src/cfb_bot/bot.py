@@ -698,7 +698,7 @@ async def on_message(message):
         if not server_config.is_channel_enabled(guild_id, channel_id):
             # Harry is not enabled in this channel - stay silent
             logger.debug(f"🔇 Channel {channel_id} not enabled for Harry in guild {guild_id}")
-        return
+            return
 
     # Check if the bot is @mentioned (only responds to @CFB Bot, not just "harry" in text)
     bot_mentioned = False
