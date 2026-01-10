@@ -11,10 +11,28 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.16.2"
+CURRENT_VERSION = "1.16.3"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.16.3": {
+        "date": "2026-01-10",
+        "title": "Bulk Lookup Parser Fix",
+        "emoji": "🔧",
+        "features": [
+            {
+                "category": "Bug Fixes",
+                "emoji": "🐛",
+                "changes": [
+                    "Fixed bulk player lookup not recognizing 'Name Position Team' format",
+                    "Parser now handles: Sam Huard QB USC, Armon Parker DL Washington",
+                    "Added Pattern 4: Name Position Team (without parentheses)",
+                    "Added Pattern 5: Name Team (FirstName LastName School)",
+                    "Improved parser logging for debugging"
+                ]
+            }
+        ]
+    },
     "1.16.2": {
         "date": "2026-01-10",
         "title": "League Context Isolation",

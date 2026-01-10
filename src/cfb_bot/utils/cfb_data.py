@@ -2160,7 +2160,28 @@ class CFBDataLookup:
                 players.append(player)
                 continue
 
-            # Pattern 4: Just a name
+            # Pattern 4: Name Position Team (e.g., "Sam Huard QB USC", "Armon Parker DL Washington")
+            positions = ['QB', 'RB', 'WR', 'TE', 'OL', 'OT', 'OG', 'C', 'DL', 'DT', 'DE', 'LB', 'CB', 'S', 'DB', 'K', 'P', 'LS', 'ATH', 'EDGE']
+            position_pattern = '|'.join(positions)
+            match = re.match(rf'^([A-Za-z\'\-\s]+?)\s+({position_pattern})\s+(.+)$', line, re.IGNORECASE)
+            if match:
+                player['name'] = match.group(1).strip()
+                player['position'] = match.group(2).upper().strip()
+                player['team'] = match.group(3).strip()
+                players.append(player)
+                continue
+
+            # Pattern 5: Name Team (two words, last word is team - e.g., "John Smith Alabama")
+            # Only if it looks like FirstName LastName Team
+            words = line.split()
+            if len(words) == 3 and all(re.match(r'^[A-Za-z\'\-]+$', w) for w in words):
+                # Assume first two words are name, last is team
+                player['name'] = ' '.join(words[:2])
+                player['team'] = words[2]
+                players.append(player)
+                continue
+
+            # Pattern 6: Just a name (fallback)
             if re.match(r'^[A-Za-z\'\-\s]+$', line) and len(line.split()) >= 2:
                 player['name'] = line.strip()
                 players.append(player)
@@ -2173,6 +2194,8 @@ class CFBDataLookup:
                 p['team'] = p['team'].title().strip()
 
         logger.info(f"✅ Parsed {len(players)} players from list")
+        for p in players:
+            logger.info(f"   📋 Parsed: name='{p.get('name')}', team='{p.get('team')}', pos='{p.get('position')}'")
         return players
 
     async def lookup_multiple_players(self, player_list: List[Dict[str, Optional[str]]]) -> List[Dict[str, Any]]:
