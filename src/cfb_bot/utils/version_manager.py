@@ -11,10 +11,32 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.16.4"
+CURRENT_VERSION = "1.17.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.17.0": {
+        "date": "2026-01-10",
+        "title": "247Sports Recruiting Module",
+        "emoji": "⭐",
+        "features": [
+            {
+                "category": "New Features",
+                "emoji": "⭐",
+                "changes": [
+                    "NEW MODULE: 247Sports Recruiting data (web scraping)",
+                    "/recruit <name> - Look up individual recruit's composite ranking",
+                    "/top_recruits - Get top recruits, filter by position or state",
+                    "/recruiting_class <team> - Get team's recruiting class details",
+                    "/recruiting_rankings - Top 25 team recruiting rankings",
+                    "Composite ratings combining 247, Rivals, ESPN, On3",
+                    "Star ratings, national/position/state rankings",
+                    "Commitment tracking",
+                    "Enable with: /config enable recruiting"
+                ]
+            }
+        ]
+    },
     "1.16.4": {
         "date": "2026-01-10",
         "title": "Bulk Lookup Detection Fix",

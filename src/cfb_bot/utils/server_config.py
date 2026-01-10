@@ -22,6 +22,7 @@ class FeatureModule(Enum):
     CFB_DATA = "cfb_data"   # Player lookup, rankings, matchups, etc.
     LEAGUE = "league"       # Timer, charter, rules, league staff
     HS_STATS = "hs_stats"   # High school stats scraping (MaxPreps)
+    RECRUITING = "recruiting"  # 247Sports recruiting data (web scraping)
 
 
 # Default settings for new servers
@@ -31,6 +32,7 @@ DEFAULT_CONFIG = {
         FeatureModule.CFB_DATA.value: True,  # Enabled by default
         FeatureModule.LEAGUE.value: False,   # Disabled by default (opt-in)
         FeatureModule.HS_STATS.value: False, # Disabled by default (opt-in, uses web scraping)
+        FeatureModule.RECRUITING.value: False, # Disabled by default (opt-in, uses web scraping)
     },
     "settings": {
         "timer_channel_id": None,
@@ -64,6 +66,12 @@ COMMAND_MODULES = {
     # High School Stats commands
     "hs_stats": FeatureModule.HS_STATS,
     "hs_stats_bulk": FeatureModule.HS_STATS,
+
+    # Recruiting commands (247Sports)
+    "recruit": FeatureModule.RECRUITING,
+    "top_recruits": FeatureModule.RECRUITING,
+    "recruiting_class": FeatureModule.RECRUITING,
+    "recruiting_rankings": FeatureModule.RECRUITING,
 
     # League commands
     "advance": FeatureModule.LEAGUE,
@@ -282,6 +290,7 @@ class ServerConfigManager:
             FeatureModule.CFB_DATA: "🏈 **CFB Data** - Player lookup, rankings, matchups, schedules, draft, transfers, betting, ratings",
             FeatureModule.LEAGUE: "🏆 **League** - Timer, advance, charter, rules, league staff, dynasty features",
             FeatureModule.HS_STATS: "🏫 **HS Stats** - High school football stats from MaxPreps (web scraping)",
+            FeatureModule.RECRUITING: "⭐ **Recruiting** - 247Sports composite rankings, team classes, top recruits (web scraping)",
         }
         return descriptions.get(module, str(module))
 

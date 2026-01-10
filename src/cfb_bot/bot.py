@@ -46,6 +46,7 @@ class Colors:
     WARNING = 0xffa500    # Orange - warnings
     ADMIN = 0xffaa00      # Golden - admin logs
     HS_STATS = 0x2ecc71   # Emerald - HS stats module
+    RECRUITING = 0xffd700 # Gold - recruiting module (247Sports)
 
 
 class Footers:
@@ -304,6 +305,7 @@ from .utils.timekeeper import (CFB_DYNASTY_WEEKS, TOTAL_WEEKS_PER_SEASON,
 from .utils.version_manager import VersionManager
 from .utils.cfb_data import cfb_data
 from .utils.hs_stats_scraper import hs_stats_scraper
+from .utils.recruiting_scraper import recruiting_scraper
 from .utils.server_config import server_config, FeatureModule
 
 
@@ -3696,6 +3698,230 @@ async def get_hs_stats_bulk(
         )
 
 
+# ==================== RECRUITING COMMANDS (247Sports) ====================
+
+@bot.tree.command(name="recruit", description="Look up a recruit's 247Sports composite ranking")
+@app_commands.describe(
+    name="Recruit name (e.g., 'Arch Manning')",
+    year="Recruiting class year (default: current)"
+)
+async def get_recruit(
+    interaction: discord.Interaction,
+    name: str,
+    year: Optional[int] = None
+):
+    """Look up a recruit from 247Sports composite rankings"""
+    await interaction.response.defer()
+    
+    if not await check_module_enabled_deferred(interaction, FeatureModule.RECRUITING):
+        return
+    
+    try:
+        logger.info(f"🔍 /recruit lookup: {name} ({year or 'current'})")
+        
+        recruit = await recruiting_scraper.search_recruit(name, year)
+        
+        if recruit:
+            embed = discord.Embed(
+                title=f"⭐ Recruit: {recruit.get('name', name)}",
+                description=recruiting_scraper.format_recruit(recruit),
+                color=Colors.RECRUITING if hasattr(Colors, 'RECRUITING') else 0xffd700
+            )
+            embed.set_footer(text="Harry's Recruiting 🏈 | Data from 247Sports Composite")
+            await interaction.followup.send(embed=embed)
+        else:
+            embed = discord.Embed(
+                title="❓ Recruit Not Found",
+                description=f"Couldn't find **{name}** in the 247Sports database.\n\n"
+                           f"💡 **Tips:**\n"
+                           f"• Check the spelling\n"
+                           f"• Try the full name\n"
+                           f"• Specify the year if not current class",
+                color=Colors.WARNING
+            )
+            embed.set_footer(text="Harry's Recruiting 🏈 | Data from 247Sports Composite")
+            await interaction.followup.send(embed=embed)
+            
+    except Exception as e:
+        logger.error(f"❌ Error in /recruit: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error looking up recruit: {str(e)}", ephemeral=True)
+
+
+@bot.tree.command(name="top_recruits", description="Get top recruits by position or state")
+@app_commands.describe(
+    position="Filter by position (QB, WR, RB, etc.)",
+    state="Filter by state (TX, CA, FL, etc.)",
+    year="Recruiting class year (default: current)",
+    top="Number of recruits to show (default: 15)"
+)
+@app_commands.choices(position=[
+    app_commands.Choice(name="QB - Quarterback", value="QB"),
+    app_commands.Choice(name="RB - Running Back", value="RB"),
+    app_commands.Choice(name="WR - Wide Receiver", value="WR"),
+    app_commands.Choice(name="TE - Tight End", value="TE"),
+    app_commands.Choice(name="OT - Offensive Tackle", value="OT"),
+    app_commands.Choice(name="EDGE - Edge Rusher", value="EDGE"),
+    app_commands.Choice(name="DL - Defensive Line", value="DL"),
+    app_commands.Choice(name="LB - Linebacker", value="LB"),
+    app_commands.Choice(name="CB - Cornerback", value="CB"),
+    app_commands.Choice(name="S - Safety", value="S"),
+])
+async def get_top_recruits(
+    interaction: discord.Interaction,
+    position: Optional[str] = None,
+    state: Optional[str] = None,
+    year: Optional[int] = None,
+    top: Optional[int] = 15
+):
+    """Get top recruits with optional filters"""
+    await interaction.response.defer()
+    
+    if not await check_module_enabled_deferred(interaction, FeatureModule.RECRUITING):
+        return
+    
+    try:
+        # Validate top parameter
+        if top and (top < 1 or top > 50):
+            await interaction.followup.send("❌ 'top' must be between 1 and 50", ephemeral=True)
+            return
+        
+        actual_year = year or recruiting_scraper._get_current_recruiting_year()
+        logger.info(f"🔍 /top_recruits: pos={position}, state={state}, year={actual_year}, top={top}")
+        
+        recruits = await recruiting_scraper.get_top_recruits(
+            year=actual_year,
+            position=position,
+            state=state,
+            limit=top or 15
+        )
+        
+        if recruits:
+            # Build title
+            title_parts = ["⭐ Top"]
+            if top:
+                title_parts.append(str(top))
+            if position:
+                title_parts.append(position)
+            title_parts.append("Recruits")
+            if state:
+                title_parts.append(f"from {state.upper()}")
+            title_parts.append(f"({actual_year})")
+            
+            embed = discord.Embed(
+                title=' '.join(title_parts),
+                description=recruiting_scraper.format_top_recruits(recruits, ""),
+                color=Colors.RECRUITING if hasattr(Colors, 'RECRUITING') else 0xffd700
+            )
+            embed.set_footer(text="Harry's Recruiting 🏈 | Data from 247Sports Composite")
+            await interaction.followup.send(embed=embed)
+        else:
+            await interaction.followup.send(
+                f"❌ Couldn't find recruits matching your criteria. Try different filters!",
+                ephemeral=True
+            )
+            
+    except Exception as e:
+        logger.error(f"❌ Error in /top_recruits: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error getting recruits: {str(e)}", ephemeral=True)
+
+
+@bot.tree.command(name="recruiting_class", description="Get a team's recruiting class ranking")
+@app_commands.describe(
+    team="Team name (e.g., 'Georgia', 'Ohio State')",
+    year="Recruiting class year (default: current)"
+)
+async def get_recruiting_class(
+    interaction: discord.Interaction,
+    team: str,
+    year: Optional[int] = None
+):
+    """Get a team's recruiting class details"""
+    await interaction.response.defer()
+    
+    if not await check_module_enabled_deferred(interaction, FeatureModule.RECRUITING):
+        return
+    
+    try:
+        actual_year = year or recruiting_scraper._get_current_recruiting_year()
+        logger.info(f"🔍 /recruiting_class: {team} ({actual_year})")
+        
+        team_data = await recruiting_scraper.get_team_recruiting_class(team, actual_year)
+        
+        if team_data:
+            embed = discord.Embed(
+                title=f"📋 {team_data.get('team', team)} Recruiting Class",
+                description=recruiting_scraper.format_team_class(team_data),
+                color=Colors.RECRUITING if hasattr(Colors, 'RECRUITING') else 0xffd700
+            )
+            embed.set_footer(text="Harry's Recruiting 🏈 | Data from 247Sports Composite")
+            await interaction.followup.send(embed=embed)
+        else:
+            await interaction.followup.send(
+                f"❌ Couldn't find recruiting class for **{team}** ({actual_year}).\n"
+                f"💡 Try the full school name (e.g., 'Ohio State' not 'OSU')",
+                ephemeral=True
+            )
+            
+    except Exception as e:
+        logger.error(f"❌ Error in /recruiting_class: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error getting class: {str(e)}", ephemeral=True)
+
+
+@bot.tree.command(name="recruiting_rankings", description="Get top team recruiting class rankings")
+@app_commands.describe(
+    year="Recruiting class year (default: current)",
+    top="Number of teams to show (default: 25)"
+)
+async def get_recruiting_rankings(
+    interaction: discord.Interaction,
+    year: Optional[int] = None,
+    top: Optional[int] = 25
+):
+    """Get top team recruiting class rankings"""
+    await interaction.response.defer()
+    
+    if not await check_module_enabled_deferred(interaction, FeatureModule.RECRUITING):
+        return
+    
+    try:
+        if top and (top < 1 or top > 50):
+            await interaction.followup.send("❌ 'top' must be between 1 and 50", ephemeral=True)
+            return
+        
+        actual_year = year or recruiting_scraper._get_current_recruiting_year()
+        logger.info(f"🔍 /recruiting_rankings: year={actual_year}, top={top}")
+        
+        teams = await recruiting_scraper.get_team_rankings(actual_year, top or 25)
+        
+        if teams:
+            # Format rankings
+            lines = [f"**Top {len(teams)} Recruiting Classes ({actual_year})**", ""]
+            for team in teams:
+                rank = team.get('rank', '?')
+                name = team.get('team', 'Unknown')
+                commits = team.get('total_commits', '?')
+                points = team.get('points', 0)
+                points_str = f" ({points:.1f} pts)" if points else ""
+                lines.append(f"`{rank:2d}.` **{name}** - {commits} commits{points_str}")
+            
+            embed = discord.Embed(
+                title=f"🏆 Team Recruiting Rankings ({actual_year})",
+                description='\n'.join(lines),
+                color=Colors.RECRUITING if hasattr(Colors, 'RECRUITING') else 0xffd700
+            )
+            embed.set_footer(text="Harry's Recruiting 🏈 | Data from 247Sports Composite")
+            await interaction.followup.send(embed=embed)
+        else:
+            await interaction.followup.send(
+                f"❌ Couldn't load team rankings for {actual_year}",
+                ephemeral=True
+            )
+            
+    except Exception as e:
+        logger.error(f"❌ Error in /recruiting_rankings: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error getting rankings: {str(e)}", ephemeral=True)
+
+
 @bot.tree.command(name="harry", description="Ask Harry about college football")
 async def ask_harry(interaction: discord.Interaction, question: str):
     """Ask Harry (the bot) about college football or league rules"""
@@ -5675,6 +5901,7 @@ async def list_blocked_channels(interaction: discord.Interaction):
     app_commands.Choice(name="cfb_data - Player lookup, rankings, matchups, etc.", value="cfb_data"),
     app_commands.Choice(name="league - Timer, charter, rules, dynasty features", value="league"),
     app_commands.Choice(name="hs_stats - High school stats from MaxPreps (scraping)", value="hs_stats"),
+    app_commands.Choice(name="recruiting - 247Sports composite rankings (scraping)", value="recruiting"),
 ])
 async def config_command(
     interaction: discord.Interaction,
