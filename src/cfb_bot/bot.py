@@ -583,8 +583,9 @@ async def on_ready():
         try:
             # Sync to specific guilds for instant command updates (5 seconds instead of 1 hour!)
             guild_ids = [
-                1261662233109205144,  # Main server
-                780882032867803168,   # Second server
+                1261662233109205144,  # CFB 25 Dynasty Bros
+                780882032867803168,   # Test server
+                756923098325975161,   # King's and Queen's of the North
             ]
 
             # Sync to each guild (instant)
