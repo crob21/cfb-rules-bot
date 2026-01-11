@@ -11,6 +11,8 @@ Available cogs:
 - CharterCog: League charter management (/charter group)
 - LeagueCog: League management (/league group)
 - AdminCog: Admin commands (/admin group)
+- AIChatCog: AI-powered chat commands (/harry, /ask, /summarize)
+- CoreCog: Always-available core commands (/help, /version, etc.)
 """
 
 from .hs_stats import HSStatsCog
@@ -19,6 +21,8 @@ from .recruiting import RecruitingCog
 from .charter import CharterCog
 from .league import LeagueCog
 from .admin import AdminCog
+from .ai_chat import AIChatCog
+from .core import CoreCog
 
 __all__ = [
     'HSStatsCog',
@@ -27,4 +31,6 @@ __all__ = [
     'CharterCog',
     'LeagueCog',
     'AdminCog',
+    'AIChatCog',
+    'CoreCog',
 ]
