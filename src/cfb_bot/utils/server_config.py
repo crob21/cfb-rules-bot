@@ -337,7 +337,7 @@ class ServerConfigManager:
         descriptions = {
             FeatureModule.CORE: "🤖 **Core** - Harry's personality, AI chat, `/admin` commands",
             FeatureModule.CFB_DATA: "🏈 **CFB Data** - `/cfb` group: player, rankings, matchups, schedules, transfers",
-            FeatureModule.LEAGUE: "🏆 **League** - `/league`, `/charter`, `/season`, `/timer` groups",
+            FeatureModule.LEAGUE: "🏆 **League** - `/league` (staff, season, timer) & `/charter` groups",
             FeatureModule.HS_STATS: "🏫 **HS Stats** - `/hs` group: high school stats from MaxPreps",
             FeatureModule.RECRUITING: "⭐ **Recruiting** - `/recruiting` group: On3/Rivals or 247Sports data",
         }

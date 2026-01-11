@@ -827,7 +827,7 @@ async def on_message(message):
                         value=format_est_time(status['end_time'], '%A, %B %d at %I:%M %p'),
                         inline=False
                     )
-                    embed.set_footer(text="Harry's Advance Timer 🏈 | Use /time_status to check progress")
+                    embed.set_footer(text="Harry's Advance Timer 🏈 | Use /league timer_status to check progress")
                     # Send to notification channel (#general)
                     notification_channel = get_notification_channel()
                     if notification_channel:
@@ -842,7 +842,7 @@ async def on_message(message):
                 else:
                     embed = discord.Embed(
                         title="❌ Failed to Restart Timer",
-                        description="Couldn't restart the timer, mate. Try using `/advance` instead!",
+                        description="Couldn't restart the timer, mate. Try using `/league timer` instead!",
                         color=Colors.ERROR
                     )
                     await message.channel.send(embed=embed)
@@ -4396,7 +4396,7 @@ async def league_timer(interaction: discord.Interaction, hours: int = 48):
             value=format_est_time(status['end_time'], '%A, %B %d at %I:%M %p'),
             inline=False
         )
-        embed.set_footer(text="Harry's Advance Timer 🏈 | Use /time_status to check progress")
+        embed.set_footer(text="Harry's Advance Timer 🏈 | Use /league timer_status to check progress")
 
         # Send ephemeral confirmation to admin
         await interaction.followup.send("✅ Timer started! Announcement sent to #general.", ephemeral=True)
@@ -4446,7 +4446,7 @@ async def league_timer_status(interaction: discord.Interaction):
         if not status['active']:
             embed = discord.Embed(
                 title="⏰ No Countdown Active",
-                description="There ain't no countdown runnin' right now, mate.\n\nUse `/advance` to start the 48-hour countdown.",
+                description="There ain't no countdown runnin' right now, mate.\n\nUse `/league timer` to start the 48-hour countdown.",
                 color=0x808080
             )
             await interaction.followup.send(embed=embed)
@@ -4587,7 +4587,7 @@ async def league_week(interaction: discord.Interaction):
     if not season_info['season'] or season_info['week'] is None:
         embed = discord.Embed(
             title="📅 Season/Week Not Set",
-            description="The season and week haven't been set yet, mate!\n\nAn admin needs to use `/set_season_week` to set it up.",
+            description="The season and week haven't been set yet, mate!\n\nAn admin needs to use `/league set_week` to set it up.",
             color=0x808080
         )
         await interaction.response.send_message(embed=embed)
@@ -4625,7 +4625,7 @@ async def league_week(interaction: discord.Interaction):
         description=description,
         color=Colors.SUCCESS
     )
-    embed.set_footer(text="Harry's Week Tracker 🏈 | Use /set_season_week to change")
+    embed.set_footer(text="Harry's Week Tracker 🏈 | Use /league set_week to change")
     await interaction.response.send_message(embed=embed)
 
 @league_group.command(name="weeks", description="View the full CFB 26 Dynasty week schedule")
@@ -4677,7 +4677,7 @@ async def league_weeks(interaction: discord.Interaction):
 
         description += "\n───────────────────────\n"
     else:
-        description += "*Season/week not set. Use `/set_season_week` to set it.*\n\n"
+        description += "*Season/week not set. Use `/league set_week` to set it.*\n\n"
 
     description += "**Full Week Schedule:**\n"
 
@@ -4732,7 +4732,7 @@ async def league_weeks(interaction: discord.Interaction):
         inline=True
     )
 
-    embed.set_footer(text="Harry's Week Tracker 🏈 | Use /week for more details")
+    embed.set_footer(text="Harry's Week Tracker 🏈 | Use /league week for more details")
     await interaction.response.send_message(embed=embed)
 
 # ==================== Schedule Commands ====================
@@ -4759,13 +4759,13 @@ async def league_games(interaction: discord.Interaction, week: Optional[int] = N
                 week = season_info['week']
             else:
                 await interaction.response.send_message(
-                    "❌ No week specified and current week is not in regular season. Use `/schedule week:X`",
+                    "❌ No week specified and current week is not in regular season. Use `/league games week:X`",
                     ephemeral=True
                 )
                 return
         else:
             await interaction.response.send_message(
-                "❌ No week specified. Use `/schedule week:X`",
+                "❌ No week specified. Use `/league games week:X`",
                 ephemeral=True
             )
             return
@@ -6662,15 +6662,15 @@ async def whats_new(interaction: discord.Interaction):
 
     # Feature 1: Advance Timer
     embed.add_field(
-        name="⏰ **Advance Timer with Custom Duration** (NEW!)",
+        name="⏰ **Advance Timer with Custom Duration**",
         value=(
             "I can now manage advance countdowns with **custom durations**!\n"
-            "• `/advance` - Default 48 hour countdown\n"
-            "• `/advance 24` - 24 hour countdown\n"
-            "• `/advance 72` - 3 day countdown\n"
+            "• `/league timer` - Default 48 hour countdown\n"
+            "• `/league timer 24` - 24 hour countdown\n"
+            "• `/league timer 72` - 3 day countdown\n"
             "• Automatic reminders at 24h, 12h, 6h, 1h\n"
             "• \"TIME'S UP! LET'S ADVANCE!\" when done\n"
-            "• `/time_status` - Check progress with fancy progress bar!"
+            "• `/league timer_status` - Check progress with fancy progress bar!"
         ),
         inline=False
     )
