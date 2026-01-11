@@ -1,7 +1,7 @@
 # Bot Refactor Plan: OOP with Cogs
 
-**Goal:** Transform 7,200-line `bot.py` into maintainable, modular codebase  
-**Estimated Time:** 2-3 hours  
+**Goal:** Transform 7,200-line `bot.py` into maintainable, modular codebase
+**Estimated Time:** 2-3 hours
 **Risk:** Medium (test thoroughly before deploying)
 
 ---
@@ -219,10 +219,10 @@ def is_admin(user, interaction) -> bool:
 class EmbedBuilder:
     @staticmethod
     def success(title, description) -> discord.Embed: ...
-    
+
     @staticmethod
     def error(title, description) -> discord.Embed: ...
-    
+
     @staticmethod
     def warning(title, description) -> discord.Embed: ...
 ```
@@ -296,24 +296,24 @@ logger = logging.getLogger('CFB26Bot.Example')
 
 class ExampleCog(commands.Cog):
     """Description of what this cog does"""
-    
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-    
+
     # Define command group
     example_group = app_commands.Group(
         name="example",
         description="Example commands"
     )
-    
+
     @example_group.command(name="test")
     async def test_command(self, interaction: discord.Interaction):
         """Test command description"""
         if not await check_module_enabled(interaction, FeatureModule.EXAMPLE):
             return
-        
+
         await interaction.response.send_message("Hello!")
-    
+
     # Event listeners
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -351,15 +351,337 @@ Keep the old `bot.py` as `bot_legacy.py` until confirmed working.
 
 ---
 
+## Testing Strategy
+
+### Directory Structure
+```
+tests/
+├── __init__.py
+├── conftest.py              # Shared fixtures (mock bot, interactions)
+├── test_services/
+│   ├── test_checks.py       # Permission check tests
+│   └── test_embeds.py       # Embed builder tests
+├── test_cogs/
+│   ├── test_recruiting.py
+│   ├── test_cfb_data.py
+│   ├── test_hs_stats.py
+│   ├── test_league.py
+│   ├── test_charter.py
+│   ├── test_admin.py
+│   ├── test_ai_chat.py
+│   └── test_core.py
+├── test_utils/
+│   ├── test_server_config.py
+│   ├── test_on3_scraper.py
+│   └── test_timekeeper.py
+└── test_integration/
+    └── test_full_flow.py    # End-to-end tests
+```
+
+### Testing Tools
+```
+# requirements-dev.txt
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.0.0
+dpytest>=0.7.0              # Discord.py testing utilities
+aioresponses>=0.7.0         # Mock HTTP requests
+```
+
+### Mock Fixtures (`conftest.py`)
+```python
+import pytest
+import discord
+from unittest.mock import AsyncMock, MagicMock
+
+@pytest.fixture
+def mock_bot():
+    """Create a mock Discord bot"""
+    bot = MagicMock(spec=discord.ext.commands.Bot)
+    bot.user = MagicMock()
+    bot.user.id = 123456789
+    bot.guilds = []
+    return bot
+
+@pytest.fixture
+def mock_interaction():
+    """Create a mock Discord interaction"""
+    interaction = AsyncMock(spec=discord.Interaction)
+    interaction.guild = MagicMock()
+    interaction.guild.id = 987654321
+    interaction.channel = MagicMock()
+    interaction.channel.id = 111222333
+    interaction.user = MagicMock()
+    interaction.user.id = 444555666
+    interaction.response = AsyncMock()
+    interaction.followup = AsyncMock()
+    return interaction
+
+@pytest.fixture
+def mock_server_config():
+    """Mock server config with controllable modules"""
+    config = MagicMock()
+    config.get_enabled_modules.return_value = ['recruiting', 'cfb_data']
+    config.is_module_enabled.return_value = True
+    config.is_channel_enabled.return_value = True
+    return config
+```
+
+### Test Categories
+
+#### 1. Unit Tests - Services (~20 tests)
+```python
+# tests/test_services/test_checks.py
+import pytest
+from src.cfb_bot.services.checks import check_module_enabled
+from src.cfb_bot.utils.server_config import FeatureModule
+
+@pytest.mark.asyncio
+async def test_module_enabled_returns_true(mock_interaction, mock_server_config):
+    """Should return True when module is enabled"""
+    mock_server_config.is_module_enabled.return_value = True
+    result = await check_module_enabled(mock_interaction, FeatureModule.RECRUITING)
+    assert result is True
+
+@pytest.mark.asyncio
+async def test_module_disabled_sends_message(mock_interaction, mock_server_config):
+    """Should send ephemeral message when module disabled"""
+    mock_server_config.is_module_enabled.return_value = False
+    result = await check_module_enabled(mock_interaction, FeatureModule.RECRUITING)
+    assert result is False
+    mock_interaction.response.send_message.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_channel_not_whitelisted(mock_interaction, mock_server_config):
+    """Should fail when channel not in whitelist"""
+    mock_server_config.is_channel_enabled.return_value = False
+    result = await check_module_enabled(mock_interaction, FeatureModule.RECRUITING)
+    assert result is False
+```
+
+#### 2. Unit Tests - Cogs (~50 tests)
+```python
+# tests/test_cogs/test_recruiting.py
+import pytest
+from src.cfb_bot.cogs.recruiting import RecruitingCog
+
+@pytest.mark.asyncio
+async def test_player_command_success(mock_bot, mock_interaction):
+    """Should return recruit data for valid name"""
+    cog = RecruitingCog(mock_bot)
+    # Mock scraper response
+    cog.scraper.search_recruit = AsyncMock(return_value={
+        'name': 'Arch Manning',
+        'stars': 5,
+        'rating': 99.5
+    })
+    
+    await cog.player(mock_interaction, name="Arch Manning")
+    
+    mock_interaction.followup.send.assert_called_once()
+    call_args = mock_interaction.followup.send.call_args
+    assert 'Arch Manning' in str(call_args)
+
+@pytest.mark.asyncio
+async def test_player_command_not_found(mock_bot, mock_interaction):
+    """Should handle recruit not found gracefully"""
+    cog = RecruitingCog(mock_bot)
+    cog.scraper.search_recruit = AsyncMock(return_value=None)
+    
+    await cog.player(mock_interaction, name="Nonexistent Player")
+    
+    mock_interaction.followup.send.assert_called_once()
+    call_args = mock_interaction.followup.send.call_args
+    assert 'not found' in str(call_args).lower()
+
+@pytest.mark.asyncio
+async def test_player_module_disabled(mock_bot, mock_interaction, mock_server_config):
+    """Should reject when recruiting module disabled"""
+    mock_server_config.is_module_enabled.return_value = False
+    cog = RecruitingCog(mock_bot)
+    
+    await cog.player(mock_interaction, name="Arch Manning")
+    
+    # Should NOT call scraper
+    cog.scraper.search_recruit.assert_not_called()
+```
+
+#### 3. Unit Tests - Utils/Scrapers (~30 tests)
+```python
+# tests/test_utils/test_server_config.py
+import pytest
+from src.cfb_bot.utils.server_config import ServerConfig, FeatureModule
+
+def test_default_modules_enabled():
+    """New servers should have default modules enabled"""
+    config = ServerConfig()
+    guild_id = 123456789
+    
+    assert config.is_module_enabled(guild_id, FeatureModule.RECRUITING) is True
+    assert config.is_module_enabled(guild_id, FeatureModule.CFB_DATA) is True
+    assert config.is_module_enabled(guild_id, FeatureModule.CORE) is True
+
+def test_disable_module():
+    """Should be able to disable a module"""
+    config = ServerConfig()
+    guild_id = 123456789
+    
+    config.disable_module(guild_id, FeatureModule.LEAGUE)
+    
+    assert config.is_module_enabled(guild_id, FeatureModule.LEAGUE) is False
+
+def test_enable_channel():
+    """Should be able to enable a channel"""
+    config = ServerConfig()
+    guild_id = 123456789
+    channel_id = 111222333
+    
+    config.enable_channel(guild_id, channel_id)
+    
+    assert config.is_channel_enabled(guild_id, channel_id) is True
+```
+
+#### 4. Integration Tests (~10 tests)
+```python
+# tests/test_integration/test_full_flow.py
+import pytest
+
+@pytest.mark.asyncio
+async def test_recruit_search_end_to_end(mock_bot, mock_interaction):
+    """Full flow: user searches recruit -> gets formatted response"""
+    # 1. Load cog
+    from src.cfb_bot.cogs.recruiting import RecruitingCog
+    cog = RecruitingCog(mock_bot)
+    
+    # 2. Simulate command (with real scraper, mocked network)
+    with aioresponses() as mocked:
+        mocked.get(
+            'https://www.on3.com/db/search/player/',
+            payload={'results': [{'name': 'Test Player'}]}
+        )
+        
+        await cog.player(mock_interaction, name="Test Player")
+    
+    # 3. Verify response sent
+    assert mock_interaction.followup.send.called
+
+@pytest.mark.asyncio  
+async def test_module_toggle_affects_commands(mock_bot, mock_interaction):
+    """Disabling module should block all its commands"""
+    from src.cfb_bot.cogs.admin import AdminCog
+    from src.cfb_bot.cogs.recruiting import RecruitingCog
+    
+    admin_cog = AdminCog(mock_bot)
+    recruiting_cog = RecruitingCog(mock_bot)
+    
+    # Disable recruiting
+    await admin_cog.config(mock_interaction, action="disable", module="recruiting")
+    
+    # Try recruiting command - should fail
+    await recruiting_cog.player(mock_interaction, name="Test")
+    
+    # Should have sent "module disabled" message
+    assert 'disabled' in str(mock_interaction.response.send_message.call_args).lower()
+```
+
+### Running Tests
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run with coverage
+pytest tests/ --cov=src/cfb_bot --cov-report=html
+
+# Run specific test file
+pytest tests/test_cogs/test_recruiting.py -v
+
+# Run tests matching pattern
+pytest tests/ -k "recruiting" -v
+
+# Run only fast unit tests (skip integration)
+pytest tests/ -m "not integration" -v
+```
+
+### CI/CD Pipeline (GitHub Actions)
+```yaml
+# .github/workflows/test.yml
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      
+      - name: Run tests
+        run: pytest tests/ -v --cov=src/cfb_bot
+      
+      - name: Check coverage
+        run: |
+          coverage report --fail-under=70
+```
+
+### Test Coverage Goals
+
+| Component | Target | Priority |
+|-----------|--------|----------|
+| `services/checks.py` | 100% | High |
+| `services/embeds.py` | 100% | High |
+| `utils/server_config.py` | 90% | High |
+| `cogs/admin.py` | 80% | High |
+| `cogs/recruiting.py` | 80% | Medium |
+| `cogs/core.py` | 70% | Medium |
+| `cogs/ai_chat.py` | 60% | Low (hard to mock AI) |
+
+### Pre-Push Checklist
+```bash
+# Run before every push to prod
+./scripts/pre_push.sh
+
+# Contents of pre_push.sh:
+#!/bin/bash
+set -e
+
+echo "🧪 Running tests..."
+pytest tests/ -v --tb=short
+
+echo "📊 Checking coverage..."
+pytest tests/ --cov=src/cfb_bot --cov-fail-under=70
+
+echo "🔍 Checking syntax..."
+python -m py_compile src/cfb_bot/bot.py
+
+echo "✅ All checks passed! Safe to push."
+```
+
+---
+
 ## Questions to Resolve Before Starting
 
 1. **Keep backward compatibility?** - Command names stay the same ✓
 2. **Database in future?** - Current Discord DM storage works fine
-3. **Testing framework?** - Optional, can add pytest later
+3. **Testing framework?** - pytest + pytest-asyncio ✓
 4. **Type hints?** - Yes, add throughout
+5. **CI/CD?** - GitHub Actions for automated testing ✓
 
 ---
 
 *Plan created: January 11, 2026*  
+*Updated: Added comprehensive testing strategy*  
 *Ready to execute when you are! 🚀*
-
