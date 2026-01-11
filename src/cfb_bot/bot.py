@@ -4463,6 +4463,25 @@ async def recruiting_portal(
             except Exception as e:
                 logger.debug(f"Cross-reference CFB lookup failed: {e}")
 
+        # Fallback: If we have recruit data but no CFB stats, try last name only
+        # This handles nicknames like "Hollywood Smothers" -> search "Smothers" in CFB
+        if recruit_data and not college_stats:
+            name_parts = (on3_name or name).split()
+            if len(name_parts) >= 2:
+                last_name = name_parts[-1]
+                logger.info(f"🔄 Fallback: trying CFB lookup with last name '{last_name}'")
+                try:
+                    college_stats = await cfb_data.get_full_player_info(last_name, team)
+                    # Verify it's the right person by checking position matches
+                    if college_stats:
+                        cfb_pos = college_stats.get('position', '').upper()
+                        on3_pos = recruit_data.get('position', '').upper()
+                        # If positions don't match at all, might be wrong person
+                        if cfb_pos and on3_pos and cfb_pos[0] != on3_pos[0]:
+                            logger.warning(f"⚠️ Position mismatch: CFB={cfb_pos}, On3={on3_pos} - might be different player")
+                except Exception as e:
+                    logger.debug(f"Last name CFB lookup failed: {e}")
+
         # Cross-reference: If CFB has a different name, try On3 with that name
         if college_stats and not recruit_data and cfb_name and cfb_name.lower() != name.lower():
             logger.info(f"🔄 Cross-reference: trying On3 lookup with CFB name '{cfb_name}'")
