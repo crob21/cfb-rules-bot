@@ -833,6 +833,7 @@ class CFBDataLookup:
                     response_parts.append(f"📊 **{year} Season:**")
                     for part in year_parts:
                         response_parts.append(f"   {part}")
+                    response_parts.append("")  # Blank line between seasons
                     has_any_stats = True
 
             if not has_any_stats:
