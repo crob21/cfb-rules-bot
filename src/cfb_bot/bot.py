@@ -1780,7 +1780,7 @@ async def on_message(message):
                                             recruit_lines.append(f"**Committed to:** {recruit_data['committed_to']} ✅")
                                         predictions = recruit_data.get('top_predictions', [])
                                         if predictions:
-                                            pred_str = ", ".join([f"{p['team']} ({p['pct']}%)" for p in predictions[:3]])
+                                            pred_str = ", ".join([f"{p['team']} ({p.get('prediction', '?')})" for p in predictions[:3]])
                                             recruit_lines.append(f"**Predictions:** {pred_str}")
                                         if recruit_lines:
                                             embed.add_field(
@@ -4529,7 +4529,7 @@ async def recruiting_portal(
             # Top predictions
             predictions = recruit_data.get('top_predictions', [])
             if predictions:
-                pred_str = ", ".join([f"{p['team']} ({p['pct']}%)" for p in predictions[:3]])
+                pred_str = ", ".join([f"{p['team']} ({p.get('prediction', '?')})" for p in predictions[:3]])
                 recruit_lines.append(f"**Predictions:** {pred_str}")
 
             # Offers
