@@ -6346,6 +6346,10 @@ async def config_command(
             )
             return
 
+    # Defer for view action to avoid timeout
+    if action == "view":
+        await interaction.response.defer(ephemeral=True)
+
     if action == "view":
         # Show current configuration
         enabled = server_config.get_enabled_modules(guild_id)
@@ -6443,7 +6447,7 @@ async def config_command(
         )
 
         embed.set_footer(text=Footers.CONFIG)
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     elif action == "enable":
         if not module:
@@ -6747,28 +6751,28 @@ async def channel_command(
 
         # Show available commands based on enabled modules
         enabled_modules = server_config.get_enabled_modules(guild_id)
-        
+
         # Build command list by module
         available_commands = []
-        
+
         if "ai_chat" in enabled_modules:
             available_commands.append("💬 **AI Chat:** `/harry`, `/ask`, `/summarize`")
-        
+
         if "recruiting" in enabled_modules:
             available_commands.append("⭐ **Recruiting:** `/recruiting player`, `top`, `class`, `commits`, `rankings`")
-        
+
         if "cfb_data" in enabled_modules:
             available_commands.append("🏈 **CFB Data:** `/cfb player`, `rankings`, `schedule`, `matchup`, `transfers`")
-        
+
         if "hs_stats" in enabled_modules:
             available_commands.append("🏫 **HS Stats:** `/hs stats`, `/hs bulk`")
-        
+
         if "league" in enabled_modules:
             available_commands.append("🏆 **League:** `/league week`, `timer`, `staff` + `/charter`")
-        
+
         # Always available
         available_commands.append("🤖 **Always On:** `/help`, `/admin`, `/version`")
-        
+
         if channel_enabled:
             embed.add_field(
                 name="⚡ Available Commands",
