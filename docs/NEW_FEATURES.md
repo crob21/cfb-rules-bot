@@ -2,13 +2,13 @@
 
 This document outlines all features of Harry, the CFB 26 League Bot.
 
-**Current Version:** 2.1.0
-**Last Updated:** January 10, 2026
+**Current Version:** 2.3.1
+**Last Updated:** January 11, 2026
 **Status:** ✅ Production Ready
 
 ---
 
-## 🚀 Version 2.1 - Consolidated Command Structure
+## 🚀 Version 2.3 - Channel Whitelist & AI Chat Controls
 
 Commands are organized into **6 logical groups** for better discoverability!
 

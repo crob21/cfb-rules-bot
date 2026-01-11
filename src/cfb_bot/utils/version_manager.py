@@ -11,10 +11,27 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "2.3.0"
+CURRENT_VERSION = "2.3.1"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "2.3.1": {
+        "date": "2026-01-11",
+        "title": "Bug Fixes & UI Consistency",
+        "emoji": "🔧",
+        "features": [
+            {
+                "category": "Fixed",
+                "emoji": "✅",
+                "changes": [
+                    "Fixed `/admin channels` timeout (now defers properly)",
+                    "Fixed `/changelog` crashing when field > 1024 chars",
+                    "Auto-responses now show '💤 Off' when AI Chat disabled",
+                    "Consistent status display in `/admin config` and `/admin channels`"
+                ]
+            }
+        ]
+    },
     "2.2.0": {
         "date": "2026-01-10",
         "title": "AI Chat Toggle - Control Harry's Personality!",
