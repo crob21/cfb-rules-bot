@@ -4353,12 +4353,14 @@ async def ask_ai(interaction: discord.Interaction, question: str):
                 inline=False
             )
 
-    # Add charter link (always)
-    embed.add_field(
-        name="📖 Full Charter",
-        value="[Open League Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
-        inline=False
-    )
+    # Add charter link only if LEAGUE module is enabled
+    guild_id_for_league = interaction.guild.id if interaction.guild else 0
+    if server_config.is_module_enabled(guild_id_for_league, FeatureModule.LEAGUE):
+        embed.add_field(
+            name="📖 Full Charter",
+            value="[Open League Charter](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)",
+            inline=False
+        )
 
     embed.set_footer(text="CFB 26 League Bot - AI Assistant")
 
