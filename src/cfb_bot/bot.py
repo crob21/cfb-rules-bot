@@ -4528,6 +4528,10 @@ async def recruiting_portal(
             color=Colors.RECRUITING if hasattr(Colors, 'RECRUITING') else 0xffd700
         )
 
+        # Add player photo as thumbnail if available
+        if recruit_data and recruit_data.get('image_url'):
+            embed.set_thumbnail(url=recruit_data['image_url'])
+
         # Add recruiting data section
         if recruit_data:
             recruit_lines = []
