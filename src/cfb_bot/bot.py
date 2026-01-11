@@ -6399,8 +6399,14 @@ async def config_command(
         else:
             channel_status += "\n**Enabled Channels:** None (Harry disabled everywhere)"
 
-        auto_status = "✅ On" if auto_responses else "❌ Off"
-        channel_status += f"\n**Rivalry Responses:** {auto_status}"
+        # Show rivalry responses status - but note if AI_CHAT is off, they won't work
+        ai_chat_enabled = FeatureModule.AI_CHAT.value in enabled
+        if not ai_chat_enabled:
+            channel_status += "\n**Rivalry Responses:** 💤 Off (AI Chat disabled)"
+        elif auto_responses:
+            channel_status += "\n**Rivalry Responses:** ✅ On"
+        else:
+            channel_status += "\n**Rivalry Responses:** ❌ Off"
 
         embed.add_field(
             name="📺 Channel Settings",
@@ -6709,7 +6715,7 @@ async def channel_command(
     if action is None or action == "view":
         # Defer immediately to avoid timeout
         await interaction.response.defer(ephemeral=True)
-        
+
         enabled_channels = server_config.get_enabled_channels(guild_id)
         auto_responses = server_config.auto_responses_enabled(guild_id, target_channel.id)
         channel_enabled = server_config.is_channel_enabled(guild_id, target_channel.id)
