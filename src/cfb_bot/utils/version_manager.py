@@ -11,22 +11,39 @@ from typing import Dict, List, Optional
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "2.4.1"
+CURRENT_VERSION = "2.5.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
-    "2.4.1": {
+    "2.5.0": {
         "date": "2026-01-11",
-        "title": "Recruiting Rankings Fix",
-        "emoji": "🛠️",
+        "title": "Transfer Portal Detection! 🌀",
+        "emoji": "🌀",
         "features": [
             {
-                "category": "Bug Fix",
+                "category": "Transfer Portal Detection",
+                "emoji": "🌀",
+                "changes": [
+                    "/recruiting player now shows 🌀 Transfer Portal section for portal players",
+                    "Scrapes previous school, college experience, portal entry date, portal rating",
+                    "/recruiting commits shows 🌀 indicator for transfer players",
+                    "Detects transfers via H.S. graduation year + TR (Transfer Rating) indicator"
+                ]
+            },
+            {
+                "category": "Player Photos",
+                "emoji": "📸",
+                "changes": [
+                    "/recruiting portal now shows player photo thumbnail"
+                ]
+            },
+            {
+                "category": "Bug Fixes",
                 "emoji": "🐛",
                 "changes": [
                     "Fixed /recruiting rankings showing 0 teams",
-                    "Updated On3 page parser for their new HTML structure",
-                    "Team rankings now properly parse listitem elements"
+                    "Fixed header rows appearing as 'Teams' in rankings",
+                    "Updated On3 page parser for their new HTML structure"
                 ]
             }
         ]

@@ -2,13 +2,13 @@
 
 This document outlines all features of Harry, the CFB 26 League Bot.
 
-**Current Version:** 2.4.0
+**Current Version:** 2.5.0
 **Last Updated:** January 11, 2026
 **Status:** ✅ Production Ready
 
 ---
 
-## 🚀 Version 2.4 - Transfer Portal & Fuzzy Search
+## 🚀 Version 2.5 - Transfer Portal Detection! 🌀
 
 Commands are organized into **6 logical groups** for better discoverability!
 
@@ -53,11 +53,28 @@ Look up recruit profiles with rankings, offers, predictions, visits, and photos!
 | `/recruiting portal <name> [team]` | 🆕 Transfer portal lookup (On3 + CFB stats!) |
 | `/recruiting top [position] [state] [year]` | Top recruits list |
 | `/recruiting class <team> [year]` | Team's recruiting class |
-| `/recruiting commits <team> [year]` | List all committed recruits (shows 🏫/🔄) |
+| `/recruiting commits <team> [year]` | List all committed recruits (shows 🌀 for transfers) |
 | `/recruiting rankings [year] [top]` | Top 25 team rankings |
 | `/recruiting source [on3\|247]` | Set data source |
 
-### 🔄 Transfer Portal Lookup (NEW in v2.4.0!)
+### 🌀 Transfer Portal Detection (NEW in v2.5.0!)
+
+Harry now automatically detects transfer portal players and shows their college history!
+
+**In `/recruiting player`:**
+```
+🌀 Transfer Portal
+• Previous School: SHSU
+• College Experience: 2023-2025
+• Entered Portal: 1/2/2026
+• Portal Rating: 90.63
+```
+
+**In `/recruiting commits`:**
+- 🌀 emoji marks transfer portal players (detected via H.S. year + TR rating)
+- Example: `10. 🌀 4⭐ **Kolt Dieterich** (OT) 90.6 • Riesel`
+
+### 🔄 Transfer Portal Lookup
 
 Combined recruiting data AND college stats for transfer portal players:
 
@@ -69,6 +86,7 @@ Combined recruiting data AND college stats for transfer portal players:
 **Shows:**
 - 📊 On3 rating, rankings, predictions, offers
 - 🏈 CFB career stats from previous school
+- 🌀 Transfer Portal section with previous school, experience, entry date
 - Cross-references nicknames (Hollywood Smothers ↔ Daylan Smothers)
 
 **Also works with natural language:**
