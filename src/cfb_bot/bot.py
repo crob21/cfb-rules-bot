@@ -1708,12 +1708,12 @@ async def on_message(message):
                                         if stats_lines:
                                             embed.add_field(name="🏈 College Stats", value='\n'.join(stats_lines), inline=False)
 
-                                    embed.set_footer(text="Harry's Portal Tracker 🔄 | Use /recruiting portal for more details")
+                                    embed.set_footer(text="Harry's Portal Tracker 🔄 | Use /recruiting player for more details")
                                     await message.channel.send(embed=embed)
                                 else:
                                     embed = discord.Embed(
                                         title=f"❓ Not Found: {player_name}",
-                                        description="Couldn't find this player in transfer portal data.\n\nTry `/recruiting portal` for more options.",
+                                        description="Couldn't find this player in transfer portal data.\n\nTry `/recruiting player` for more options.",
                                         color=Colors.WARNING
                                     )
                                     await message.channel.send(embed=embed)
@@ -4119,6 +4119,14 @@ async def recruiting_player(
                 except Exception as e:
                     logger.warning(f"⚠️ Failed to fetch college stats for transfer {name}: {e}")
 
+            # Add profile link at the bottom (after college stats if present)
+            if recruit.get('profile_url'):
+                embed.add_field(
+                    name="🔗 Profile",
+                    value=f"[View Full Profile on On3/Rivals]({recruit['profile_url']})",
+                    inline=False
+                )
+
             footer = f"Harry's Recruiting 🏈 | Data from {source_name}"
             if recruit.get('is_transfer'):
                 footer = f"Harry's Portal Tracker 🔄 | Data from {source_name}"
@@ -4515,8 +4523,8 @@ async def recruiting_portal(
                            f"💡 **Tips:**\n"
                            f"• Check the spelling\n"
                            f"• Try their nickname (e.g., 'Hollywood Smothers' not 'Daylan Smothers')\n"
-                           f"• Add their previous team: `/recruiting portal name:{name} team:Alabama`\n"
-                           f"• Try just `/cfb player` for college stats only",
+                           f"• Add their team: `/recruiting player name:{name}`\n"
+                           f"• Try `/cfb player` for college stats only",
                 color=Colors.WARNING
             )
             await interaction.followup.send(embed=embed, ephemeral=True)
@@ -4640,7 +4648,7 @@ async def recruiting_portal(
                 inline=False
             )
 
-        embed.set_footer(text="Harry's Portal Tracker 🔄 | Recruiting + CFB Data combined")
+        embed.set_footer(text="💡 Tip: /recruiting player now does the same thing!")
         await interaction.followup.send(embed=embed)
 
     except Exception as e:

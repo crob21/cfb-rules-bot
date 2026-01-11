@@ -1398,10 +1398,7 @@ class On3Scraper:
                 type_emoji = "🏛️" if vtype == 'Official' else "👀"
                 lines.append(f"• {type_emoji} {school} - {date} ({vtype})")
 
-        # Profile URL
-        if recruit.get('profile_url'):
-            lines.append("")
-            lines.append(f"[View Full Profile on On3/Rivals]({recruit['profile_url']})")
+        # Note: Profile URL is added separately in bot.py to appear after college stats
 
         return '\n'.join(lines)
 

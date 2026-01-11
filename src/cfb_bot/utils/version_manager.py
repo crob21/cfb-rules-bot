@@ -11,10 +11,33 @@ from typing import Dict, List, Optional
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "2.5.0"
+CURRENT_VERSION = "2.5.1"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "2.5.1": {
+        "date": "2026-01-11",
+        "title": "UI Polish 💅",
+        "emoji": "💅",
+        "features": [
+            {
+                "category": "Recruiting Player",
+                "emoji": "⭐",
+                "changes": [
+                    "Profile link now appears AFTER college stats (not before)",
+                    "Better flow for transfer portal players"
+                ]
+            },
+            {
+                "category": "Command Cleanup",
+                "emoji": "🧹",
+                "changes": [
+                    "/recruiting portal now suggests /recruiting player",
+                    "Hidden from /help since /recruiting player does same thing"
+                ]
+            }
+        ]
+    },
     "2.5.0": {
         "date": "2026-01-11",
         "title": "Transfer Portal Detection! 🌀",
