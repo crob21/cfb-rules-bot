@@ -309,16 +309,77 @@ from .utils.timekeeper import (CFB_DYNASTY_WEEKS, TOTAL_WEEKS_PER_SEASON,
 from .utils.version_manager import VersionManager
 
 
+async def check_channel_allowed(interaction) -> bool:
+    """
+    Check if Harry is allowed to respond in this channel.
+    Returns True if allowed, False if not (and sends error message).
+    Use this BEFORE defer() - uses interaction.response
+    """
+    if not interaction.guild:
+        return True  # Allow in DMs
+
+    guild_id = interaction.guild.id
+    channel_id = interaction.channel.id if interaction.channel else 0
+
+    if server_config.is_channel_enabled(guild_id, channel_id):
+        return True
+
+    # Channel not whitelisted
+    await interaction.response.send_message(
+        "🔇 Harry isn't enabled in this channel.\n"
+        "An admin can enable it with `/admin channels enable`",
+        ephemeral=True
+    )
+    return False
+
+
+async def check_channel_allowed_deferred(interaction) -> bool:
+    """
+    Check if Harry is allowed to respond in this channel (for use AFTER defer()).
+    Returns True if allowed, False if not (and sends error message).
+    Use this AFTER defer() - uses interaction.followup
+    """
+    if not interaction.guild:
+        return True  # Allow in DMs
+
+    guild_id = interaction.guild.id
+    channel_id = interaction.channel.id if interaction.channel else 0
+
+    if server_config.is_channel_enabled(guild_id, channel_id):
+        return True
+
+    # Channel not whitelisted
+    await interaction.followup.send(
+        "🔇 Harry isn't enabled in this channel.\n"
+        "An admin can enable it with `/admin channels enable`",
+        ephemeral=True
+    )
+    return False
+
+
 async def check_module_enabled(interaction, module) -> bool:
     """
-    Check if a module is enabled for this server.
+    Check if a module is enabled for this server AND channel is whitelisted.
     Returns True if enabled, False if disabled (and sends error message).
     Use this BEFORE defer() - uses interaction.response
     """
     if not interaction.guild:
         return True  # Allow in DMs
 
-    if server_config.is_module_enabled(interaction.guild.id, module):
+    guild_id = interaction.guild.id
+    channel_id = interaction.channel.id if interaction.channel else 0
+
+    # First check channel whitelist
+    if not server_config.is_channel_enabled(guild_id, channel_id):
+        await interaction.response.send_message(
+            "🔇 Harry isn't enabled in this channel.\n"
+            "An admin can enable it with `/admin channels enable`",
+            ephemeral=True
+        )
+        return False
+
+    # Then check module
+    if server_config.is_module_enabled(guild_id, module):
         return True
 
     # Module is disabled - send helpful message
@@ -326,12 +387,14 @@ async def check_module_enabled(interaction, module) -> bool:
         FeatureModule.CFB_DATA: "CFB Data",
         FeatureModule.LEAGUE: "League Features",
         FeatureModule.HS_STATS: "High School Stats",
+        FeatureModule.RECRUITING: "Recruiting",
+        FeatureModule.AI_CHAT: "AI Chat",
     }
     name = module_names.get(module, module.value)
 
     await interaction.response.send_message(
         f"❌ **{name}** module is not enabled on this server.\n"
-        f"An admin can enable it with: `/config enable {module.value}`",
+        f"An admin can enable it with: `/admin config enable {module.value}`",
         ephemeral=True
     )
     return False
@@ -339,14 +402,27 @@ async def check_module_enabled(interaction, module) -> bool:
 
 async def check_module_enabled_deferred(interaction, module) -> bool:
     """
-    Check if a module is enabled for this server (for use AFTER defer()).
+    Check if a module is enabled for this server AND channel is whitelisted (for use AFTER defer()).
     Returns True if enabled, False if disabled (and sends error message).
     Use this AFTER defer() - uses interaction.followup
     """
     if not interaction.guild:
         return True  # Allow in DMs
 
-    if server_config.is_module_enabled(interaction.guild.id, module):
+    guild_id = interaction.guild.id
+    channel_id = interaction.channel.id if interaction.channel else 0
+
+    # First check channel whitelist
+    if not server_config.is_channel_enabled(guild_id, channel_id):
+        await interaction.followup.send(
+            "🔇 Harry isn't enabled in this channel.\n"
+            "An admin can enable it with `/admin channels enable`",
+            ephemeral=True
+        )
+        return False
+
+    # Then check module
+    if server_config.is_module_enabled(guild_id, module):
         return True
 
     # Module is disabled - send helpful message
@@ -354,12 +430,14 @@ async def check_module_enabled_deferred(interaction, module) -> bool:
         FeatureModule.CFB_DATA: "CFB Data",
         FeatureModule.LEAGUE: "League Features",
         FeatureModule.HS_STATS: "High School Stats",
+        FeatureModule.RECRUITING: "Recruiting",
+        FeatureModule.AI_CHAT: "AI Chat",
     }
     name = module_names.get(module, module.value)
 
     await interaction.followup.send(
         f"❌ **{name}** module is not enabled on this server.\n"
-        f"An admin can enable it with: `/config enable {module.value}`",
+        f"An admin can enable it with: `/admin config enable {module.value}`",
         ephemeral=True
     )
     return False
@@ -3818,6 +3896,10 @@ async def recruiting_player(
     deep_search: bool = False
 ):
     """Look up a recruit from configured recruiting source (On3/Rivals or 247Sports)"""
+    # Check channel + module enabled
+    if not await check_module_enabled(interaction, FeatureModule.RECRUITING):
+        return
+
     try:
         await interaction.response.defer()
     except discord.errors.NotFound:
@@ -6461,6 +6543,10 @@ async def recruiting_source(
     On3/Rivals (default): Server-side rendered, fast and reliable
     247Sports: Legacy source with more detailed data but slower scraping
     """
+    # Check channel + module enabled
+    if not await check_module_enabled(interaction, FeatureModule.RECRUITING):
+        return
+
     if not interaction.guild:
         await interaction.response.send_message("❌ This command only works in servers!", ephemeral=True)
         return
