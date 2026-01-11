@@ -18,7 +18,8 @@ logger = logging.getLogger('CFB26Bot.ServerConfig')
 
 class FeatureModule(Enum):
     """Available feature modules"""
-    CORE = "core"           # Always on - Harry's personality, general AI
+    CORE = "core"           # Always on - /admin, /help, /version (can't disable)
+    AI_CHAT = "ai_chat"     # Harry's AI chat - /harry, /ask, @mentions, auto-responses
     CFB_DATA = "cfb_data"   # Player lookup, rankings, matchups, etc.
     LEAGUE = "league"       # Timer, charter, rules, league staff
     HS_STATS = "hs_stats"   # High school stats scraping (MaxPreps)
@@ -36,6 +37,7 @@ class RecruitingSource:
 DEFAULT_CONFIG = {
     "modules": {
         FeatureModule.CORE.value: True,      # Always True, can't disable
+        FeatureModule.AI_CHAT.value: True,   # Enabled by default - Harry's personality
         FeatureModule.CFB_DATA.value: True,  # Enabled by default
         FeatureModule.LEAGUE.value: False,   # Disabled by default (opt-in)
         FeatureModule.HS_STATS.value: False, # Disabled by default (opt-in, uses web scraping)
@@ -130,15 +132,17 @@ COMMAND_MODULES = {
     "/admin unblock": FeatureModule.CORE,
     "/admin blocked": FeatureModule.CORE,
 
-    # Core standalone commands
-    "/harry": FeatureModule.CORE,
-    "/ask": FeatureModule.CORE,
+    # AI Chat commands (can be disabled)
+    "/harry": FeatureModule.AI_CHAT,
+    "/ask": FeatureModule.AI_CHAT,
+    "/summarize": FeatureModule.AI_CHAT,
+
+    # Core standalone commands (always enabled)
     "/help": FeatureModule.CORE,
     "/whats_new": FeatureModule.CORE,
     "/changelog": FeatureModule.CORE,
     "/version": FeatureModule.CORE,
     "/tokens": FeatureModule.CORE,
-    "/summarize": FeatureModule.CORE,
 }
 
 
@@ -335,7 +339,8 @@ class ServerConfigManager:
     def get_module_description(self, module: FeatureModule) -> str:
         """Get human-readable description of a module"""
         descriptions = {
-            FeatureModule.CORE: "🤖 **Core** - Harry's personality, AI chat, `/admin` commands",
+            FeatureModule.CORE: "🤖 **Core** - `/admin`, `/help`, `/version` (always on)",
+            FeatureModule.AI_CHAT: "💬 **AI Chat** - `/harry`, `/ask`, `/summarize`, @mentions, auto-responses",
             FeatureModule.CFB_DATA: "🏈 **CFB Data** - `/cfb` group: player, rankings, matchups, schedules, transfers",
             FeatureModule.LEAGUE: "🏆 **League** - `/league` (staff, season, timer) & `/charter` groups",
             FeatureModule.HS_STATS: "🏫 **HS Stats** - `/hs` group: high school stats from MaxPreps",

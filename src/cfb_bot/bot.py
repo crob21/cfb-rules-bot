@@ -861,6 +861,21 @@ async def on_message(message):
     if not bot_mentioned and not channel_allows_unprompted:
         return
 
+    # Check if AI_CHAT module is enabled for this server
+    # If disabled, Harry won't respond to @mentions or auto-responses
+    ai_chat_enabled = server_config.is_module_enabled(guild_id, FeatureModule.AI_CHAT)
+    if not ai_chat_enabled:
+        # If someone @mentions Harry but AI chat is disabled, let them know
+        if bot_mentioned:
+            try:
+                await message.channel.send(
+                    "💬 AI Chat is disabled on this server. "
+                    "An admin can enable it with `/admin config enable ai_chat`"
+                )
+            except Exception:
+                pass  # Silently fail if we can't send
+        return
+
     # Comprehensive logging (only after deduplication and channel checks)
     guild_name = message.guild.name if message.guild else "DM"
     logger.info(f"📨 Message received: '{message.content}' from {message.author} in #{message.channel} (Server: {guild_name})")
@@ -4122,12 +4137,21 @@ async def recruiting_rankings(
 @bot.tree.command(name="harry", description="Ask Harry about college football")
 async def ask_harry(interaction: discord.Interaction, question: str):
     """Ask Harry (the bot) about college football or league rules"""
+    # Check if AI_CHAT module is enabled
+    guild_id = interaction.guild.id if interaction.guild else 0
+    if not server_config.is_module_enabled(guild_id, FeatureModule.AI_CHAT):
+        await interaction.response.send_message(
+            "💬 AI Chat is disabled on this server.\n"
+            "An admin can enable it with `/admin config enable ai_chat`",
+            ephemeral=True
+        )
+        return
+
     embed = discord.Embed(
         title="🏈 Harry's Response",
         color=Colors.PRIMARY
     )
 
-    guild_id = interaction.guild.id if interaction.guild else 0
     league_enabled = server_config.is_module_enabled(guild_id, FeatureModule.LEAGUE)
 
     if AI_AVAILABLE and ai_assistant:
@@ -4215,6 +4239,16 @@ async def ask_harry(interaction: discord.Interaction, question: str):
 @bot.tree.command(name="ask", description="Ask Harry general questions (not league-specific)")
 async def ask_ai(interaction: discord.Interaction, question: str):
     """Ask AI general questions (use /harry for league-specific questions)"""
+    # Check if AI_CHAT module is enabled
+    guild_id = interaction.guild.id if interaction.guild else 0
+    if not server_config.is_module_enabled(guild_id, FeatureModule.AI_CHAT):
+        await interaction.response.send_message(
+            "💬 AI Chat is disabled on this server.\n"
+            "An admin can enable it with `/admin config enable ai_chat`",
+            ephemeral=True
+        )
+        return
+
     embed = discord.Embed(
         title="🤖 AI Assistant Response",
         color=0x9b59b6
@@ -5538,6 +5572,16 @@ async def summarize_channel(
         hours: Number of hours to look back (default: 24)
         focus: Optional focus area for the summary (e.g., "rules", "voting", "decisions")
     """
+    # Check if AI_CHAT module is enabled
+    guild_id = interaction.guild.id if interaction.guild else 0
+    if not server_config.is_module_enabled(guild_id, FeatureModule.AI_CHAT):
+        await interaction.response.send_message(
+            "💬 AI Chat is disabled on this server.\n"
+            "An admin can enable it with `/admin config enable ai_chat`",
+            ephemeral=True
+        )
+        return
+
     if not channel_summarizer:
         await interaction.response.send_message("❌ Channel summarizer not available", ephemeral=True)
         return

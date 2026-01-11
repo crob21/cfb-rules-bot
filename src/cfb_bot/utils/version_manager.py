@@ -11,10 +11,37 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "2.1.0"
+CURRENT_VERSION = "2.2.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "2.2.0": {
+        "date": "2026-01-10",
+        "title": "AI Chat Toggle - Control Harry's Personality!",
+        "emoji": "💬",
+        "features": [
+            {
+                "category": "New AI_CHAT Module",
+                "emoji": "🤖",
+                "changes": [
+                    "New toggleable `ai_chat` module for Harry's AI features",
+                    "Disable `/harry`, `/ask`, `/summarize` per-server",
+                    "Disable @Harry mentions and auto-responses",
+                    "Keep recruiting/data features while silencing the chat"
+                ]
+            },
+            {
+                "category": "Usage",
+                "emoji": "⚙️",
+                "changes": [
+                    "`/admin config disable ai_chat` - Silence Harry's chat",
+                    "`/admin config enable ai_chat` - Enable Harry's chat",
+                    "Core commands (`/help`, `/admin`) always available",
+                    "Perfect for servers that only want data features!"
+                ]
+            }
+        ]
+    },
     "2.1.0": {
         "date": "2026-01-10",
         "title": "League Consolidation - Season & Timer Merged!",
