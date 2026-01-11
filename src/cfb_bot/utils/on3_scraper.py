@@ -1426,7 +1426,7 @@ class On3Scraper:
 
             # HS vs Transfer indicator
             # If they have a high school, they're HS recruit; otherwise likely transfer
-            player_type = "🏫" if high_school else "🔄"
+            player_type = "🏫" if high_school else "🌀"  # 🌀 = portal (Dr. Strange style!)
 
             # Compact star display
             star_str = f"{stars}⭐" if stars else ""
@@ -1447,7 +1447,7 @@ class On3Scraper:
 
         # Legend
         lines.append("")
-        lines.append("_🏫 = HS | 🔄 = Transfer | ✅ = Signed | 📝 = Committed_")
+        lines.append("_🏫 = HS | 🌀 = Portal | ✅ = Signed | 📝 = Committed_")
 
         # Link to full page
         if data.get('commits_url'):
