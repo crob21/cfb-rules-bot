@@ -6707,6 +6707,9 @@ async def channel_command(
             return
 
     if action is None or action == "view":
+        # Defer immediately to avoid timeout
+        await interaction.response.defer(ephemeral=True)
+        
         enabled_channels = server_config.get_enabled_channels(guild_id)
         auto_responses = server_config.auto_responses_enabled(guild_id, target_channel.id)
         channel_enabled = server_config.is_channel_enabled(guild_id, target_channel.id)
@@ -6836,7 +6839,7 @@ async def channel_command(
         )
 
         embed.set_footer(text="Harry's Channel Config 🏈 | Channels = WHERE, Modules = WHAT")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     elif action == "enable":
         server_config.enable_channel(guild_id, target_channel.id)
@@ -7091,6 +7094,9 @@ async def view_changelog(interaction: discord.Interaction, version: str = None):
         )
 
         summary = version_manager.get_version_summary()
+        # Discord embed fields have a 1024 character limit
+        if len(summary) > 1000:
+            summary = summary[:997] + "..."
         embed.add_field(
             name="📋 All Versions",
             value=summary,
