@@ -1035,7 +1035,9 @@ class On3Scraper:
                     'position_rank': None,
                     'state_rank': None,
                     'status': None,
-                    'status_date': None
+                    'status_date': None,
+                    'is_transfer': False,
+                    'previous_school': None
                 }
 
                 # Position - look for common position abbreviations
@@ -1424,9 +1426,8 @@ class On3Scraper:
             loc_short = loc.split(',')[0].strip() if loc else ''  # Just city
             high_school = c.get('high_school', '')
 
-            # HS vs Transfer indicator
-            # If they have a high school, they're HS recruit; otherwise likely transfer
-            player_type = "🏫" if high_school else "🌀"  # 🌀 = portal (Dr. Strange style!)
+            # Note: Can't reliably detect HS vs Transfer from team commits page
+            # Use /recruiting player or /recruiting portal for individual player type
 
             # Compact star display
             star_str = f"{stars}⭐" if stars else ""
@@ -1436,9 +1437,9 @@ class On3Scraper:
             status = c.get('status', '')
             status_emoji = "✅" if status == 'Signed' else "📝" if status == 'Committed' else ""
 
-            # Format: 1. 🏫 4⭐ Kodi Greene (OT) 96.5 • Santa Ana ✅
+            # Format: 1. 4⭐ Kodi Greene (OT) 96.5 • Santa Ana ✅
             loc_part = f" • {loc_short}" if loc_short else ""
-            lines.append(f"`{i:2d}.` {player_type} {star_str} **{name}** ({pos}) {rating_str}{loc_part} {status_emoji}")
+            lines.append(f"`{i:2d}.` {star_str} **{name}** ({pos}) {rating_str}{loc_part} {status_emoji}")
 
         # Show truncation message if needed
         if len(commits) > limit:
@@ -1447,7 +1448,7 @@ class On3Scraper:
 
         # Legend
         lines.append("")
-        lines.append("_🏫 = HS | 🌀 = Portal | ✅ = Signed | 📝 = Committed_")
+        lines.append("_✅ = Signed | 📝 = Committed_")
 
         # Link to full page
         if data.get('commits_url'):
