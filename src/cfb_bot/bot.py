@@ -2905,7 +2905,7 @@ async def help_command(interaction: discord.Interaction):
     # Get enabled modules for this server
     guild_id = interaction.guild.id if interaction.guild else 0
     enabled_modules = server_config.get_enabled_modules(guild_id) if guild_id else []
-    
+
     # Track disabled modules for footer note
     disabled_modules = []
 
