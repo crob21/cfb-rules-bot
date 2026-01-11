@@ -4137,12 +4137,23 @@ async def recruiting_rankings(
 @bot.tree.command(name="harry", description="Ask Harry about college football")
 async def ask_harry(interaction: discord.Interaction, question: str):
     """Ask Harry (the bot) about college football or league rules"""
-    # Check if AI_CHAT module is enabled
     guild_id = interaction.guild.id if interaction.guild else 0
+    channel_id = interaction.channel.id if interaction.channel else 0
+
+    # Check if AI_CHAT module is enabled
     if not server_config.is_module_enabled(guild_id, FeatureModule.AI_CHAT):
         await interaction.response.send_message(
             "💬 AI Chat is disabled on this server.\n"
             "An admin can enable it with `/admin config enable ai_chat`",
+            ephemeral=True
+        )
+        return
+
+    # Check if Harry is enabled in this channel
+    if not server_config.is_channel_enabled(guild_id, channel_id):
+        await interaction.response.send_message(
+            "🔇 Harry isn't enabled in this channel.\n"
+            "An admin can enable it with `/admin channels`",
             ephemeral=True
         )
         return
@@ -4239,12 +4250,23 @@ async def ask_harry(interaction: discord.Interaction, question: str):
 @bot.tree.command(name="ask", description="Ask Harry general questions (not league-specific)")
 async def ask_ai(interaction: discord.Interaction, question: str):
     """Ask AI general questions (use /harry for league-specific questions)"""
-    # Check if AI_CHAT module is enabled
     guild_id = interaction.guild.id if interaction.guild else 0
+    channel_id = interaction.channel.id if interaction.channel else 0
+
+    # Check if AI_CHAT module is enabled
     if not server_config.is_module_enabled(guild_id, FeatureModule.AI_CHAT):
         await interaction.response.send_message(
             "💬 AI Chat is disabled on this server.\n"
             "An admin can enable it with `/admin config enable ai_chat`",
+            ephemeral=True
+        )
+        return
+
+    # Check if Harry is enabled in this channel
+    if not server_config.is_channel_enabled(guild_id, channel_id):
+        await interaction.response.send_message(
+            "🔇 Harry isn't enabled in this channel.\n"
+            "An admin can enable it with `/admin channels`",
             ephemeral=True
         )
         return
@@ -5572,12 +5594,23 @@ async def summarize_channel(
         hours: Number of hours to look back (default: 24)
         focus: Optional focus area for the summary (e.g., "rules", "voting", "decisions")
     """
-    # Check if AI_CHAT module is enabled
     guild_id = interaction.guild.id if interaction.guild else 0
+    channel_id = interaction.channel.id if interaction.channel else 0
+
+    # Check if AI_CHAT module is enabled
     if not server_config.is_module_enabled(guild_id, FeatureModule.AI_CHAT):
         await interaction.response.send_message(
             "💬 AI Chat is disabled on this server.\n"
             "An admin can enable it with `/admin config enable ai_chat`",
+            ephemeral=True
+        )
+        return
+
+    # Check if Harry is enabled in this channel
+    if not server_config.is_channel_enabled(guild_id, channel_id):
+        await interaction.response.send_message(
+            "🔇 Harry isn't enabled in this channel.\n"
+            "An admin can enable it with `/admin channels`",
             ephemeral=True
         )
         return
