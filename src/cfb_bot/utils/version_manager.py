@@ -11,10 +11,47 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "2.3.1"
+CURRENT_VERSION = "2.4.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "2.4.0": {
+        "date": "2026-01-11",
+        "title": "Transfer Portal Command & Fuzzy Search!",
+        "emoji": "🔄",
+        "features": [
+            {
+                "category": "New /recruiting portal Command",
+                "emoji": "🔄",
+                "changes": [
+                    "Combined recruiting data + college stats for transfers!",
+                    "Shows On3 rating, predictions, offers + CFB career stats",
+                    "Cross-references names between On3/CFB (handles nicknames)",
+                    "Natural language: '@Harry tell me about portal player John Smith'"
+                ]
+            },
+            {
+                "category": "Fuzzy Name Matching",
+                "emoji": "🔍",
+                "changes": [
+                    "Typos in first names now work! (Gavinn → Gavin)",
+                    "Case insensitive search (JOHN SMITH → John Smith)",
+                    "Falls back to last-name-only search for better matching",
+                    "Prevents false positives with strict name validation"
+                ]
+            },
+            {
+                "category": "UI Improvements",
+                "emoji": "✨",
+                "changes": [
+                    "/recruiting commits: wider display, 30 players, shows city",
+                    "Shows 🏫 HS or 🔄 Transfer indicator on commits",
+                    "CFB player stats: spacing between seasons",
+                    "'Not found' messages now ephemeral (only you see them)"
+                ]
+            }
+        ]
+    },
     "2.3.1": {
         "date": "2026-01-11",
         "title": "Bug Fixes & UI Consistency",
