@@ -11,7 +11,7 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "2.2.1"
+CURRENT_VERSION = "2.2.2"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
