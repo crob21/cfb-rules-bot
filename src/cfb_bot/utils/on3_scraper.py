@@ -1343,31 +1343,22 @@ class On3Scraper:
             pos = c.get('position', '?')
             rating = c.get('rating')
             stars = c.get('stars', 0)
+            
+            # Location info
+            loc = c.get('location', '')
+            loc_short = loc.split(',')[0].strip() if loc else ''  # Just city
 
-            # Star emoji
-            if stars >= 5:
-                star_emoji = '⭐⭐⭐⭐⭐'
-            elif stars >= 4:
-                star_emoji = '⭐⭐⭐⭐'
-            elif stars >= 3:
-                star_emoji = '⭐⭐⭐'
-            else:
-                star_emoji = '⭐' * stars if stars else ''
+            # Compact star display
+            star_str = f"{stars}⭐" if stars else ""
 
-            # Build line with rating
-            rating_str = f" ({rating:.2f})" if rating else ""
+            # Build line - more compact format with location
+            rating_str = f"{rating:.1f}" if rating else ""
             status = c.get('status', '')
             status_emoji = "✅" if status == 'Signed' else "📝" if status == 'Committed' else ""
 
-            # Format: 1. ⭐⭐⭐⭐⭐ Kodi Greene (OT) - 96.58 ✅
-            lines.append(f"`{i:2d}.` {star_emoji} **{name}** ({pos}){rating_str} {status_emoji}")
-
-            # Add location if available (on a second line for top recruits)
-            if i <= 5 and c.get('high_school'):
-                hs = c.get('high_school', '')
-                loc = c.get('location', '')
-                if loc:
-                    lines.append(f"     📍 {hs} ({loc})")
+            # Format: 1. 4⭐ Kodi Greene (OT) 96.5 - Santa Ana ✅
+            loc_part = f" • {loc_short}" if loc_short else ""
+            lines.append(f"`{i:2d}.` {star_str} **{name}** ({pos}) {rating_str}{loc_part} {status_emoji}")
 
         # Show truncation message if needed
         if len(commits) > limit:

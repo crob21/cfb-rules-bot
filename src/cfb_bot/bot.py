@@ -4107,13 +4107,13 @@ async def recruiting_class(
 @app_commands.describe(
     team="Team name (e.g., 'Washington', 'Ohio State')",
     year="Recruiting class year (default: current)",
-    show="Number of commits to show (default: 15)"
+    show="Number of commits to show (default: 30, max: 50)"
 )
 async def recruiting_commits(
     interaction: discord.Interaction,
     team: str,
     year: Optional[int] = None,
-    show: Optional[int] = 15
+    show: Optional[int] = 30
 ):
     """Get list of committed recruits for a team"""
     try:
