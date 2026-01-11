@@ -1762,10 +1762,41 @@ async def on_message(message):
                                     color=Colors.PRIMARY
                                 )
 
+                                # Try to find recruiting/portal data for this player
+                                is_portal_player = False
+                                try:
+                                    recruit_data = await on3_scraper.search_recruit(name)
+                                    if recruit_data and recruit_data.get('is_transfer'):
+                                        is_portal_player = True
+                                        recruit_lines = []
+                                        stars = recruit_data.get('stars', 0)
+                                        rating = recruit_data.get('rating')
+                                        if rating:
+                                            star_display = '⭐' * stars if stars else ''
+                                            recruit_lines.append(f"**Rating:** {rating} ({star_display})")
+                                        if recruit_data.get('national_rank'):
+                                            recruit_lines.append(f"**Rank:** #{recruit_data['national_rank']} Nationally")
+                                        if recruit_data.get('committed_to'):
+                                            recruit_lines.append(f"**Committed to:** {recruit_data['committed_to']} ✅")
+                                        predictions = recruit_data.get('top_predictions', [])
+                                        if predictions:
+                                            pred_str = ", ".join([f"{p['team']} ({p['pct']}%)" for p in predictions[:3]])
+                                            recruit_lines.append(f"**Predictions:** {pred_str}")
+                                        if recruit_lines:
+                                            embed.add_field(
+                                                name="🔄 Transfer Portal",
+                                                value='\n'.join(recruit_lines),
+                                                inline=False
+                                            )
+                                except Exception as e:
+                                    logger.debug(f"No recruiting data for {name}: {e}")
+
                                 # Check if it's an Oregon player and add snark (Harry always hates Oregon)
                                 player_team = player_info.get('player', {}).get('team', '').lower()
                                 if 'oregon' in player_team and 'oregon state' not in player_team:
                                     embed.set_footer(text="Harry's Player Lookup 🏈 | Though why you'd care about a Duck is beyond me...")
+                                elif is_portal_player:
+                                    embed.set_footer(text="Harry's Portal Tracker 🔄 | CFB + Recruiting combined")
                                 else:
                                     embed.set_footer(text=Footers.PLAYER_LOOKUP)
 
@@ -4061,7 +4092,7 @@ async def recruiting_player(
                         team_name = college_stats.get('team', '')
                         if team_name:
                             stats_lines.append(f"**Previous School:** {team_name}")
-                        
+
                         stats = college_stats.get('stats', {})
                         years = sorted(stats.keys(), reverse=True)
                         for yr in years[:2]:  # Show last 2 seasons
@@ -4078,7 +4109,7 @@ async def recruiting_player(
                                 stat_str = f"🛡️ {d.get('TOT', d.get('SOLO', 0))} TKL | {d.get('TFL', 0)} TFL | {d.get('SACKS', 0)} Sacks"
                             if stat_str:
                                 stats_lines.append(f"**{yr}:** {stat_str}")
-                        
+
                         if stats_lines:
                             embed.add_field(
                                 name="🏈 College Stats (Transfer)",
