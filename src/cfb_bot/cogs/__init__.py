@@ -10,6 +10,7 @@ Available cogs:
 - RecruitingCog: Recruiting data (/recruiting group)
 - CharterCog: League charter management (/charter group)
 - LeagueCog: League management (/league group)
+- AdminCog: Admin commands (/admin group)
 """
 
 from .hs_stats import HSStatsCog
@@ -17,6 +18,7 @@ from .cfb_data import CFBDataCog
 from .recruiting import RecruitingCog
 from .charter import CharterCog
 from .league import LeagueCog
+from .admin import AdminCog
 
 __all__ = [
     'HSStatsCog',
@@ -24,4 +26,5 @@ __all__ = [
     'RecruitingCog',
     'CharterCog',
     'LeagueCog',
+    'AdminCog',
 ]
