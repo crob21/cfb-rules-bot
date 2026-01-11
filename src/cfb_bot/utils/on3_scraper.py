@@ -1152,6 +1152,21 @@ class On3Scraper:
                 if date_match:
                     commit['status_date'] = date_match.group(1)
 
+                # Transfer detection from team commits page:
+                # 1. Check for "TR" indicator after rating (Transfer Rating)
+                # 2. Check if H.S. year is earlier than recruiting class year
+                if re.search(r'\d{2}\.\d{2}\s*TR\b', row_text) or re.search(r'\bTR\b', row_text):
+                    commit['is_transfer'] = True
+                
+                # Also check H.S. year - if it's earlier than the recruiting class, it's a transfer
+                hs_year_match = re.search(r'H\.S\.\s*(\d{4})', row_text)
+                if hs_year_match:
+                    hs_year = int(hs_year_match.group(1))
+                    commit['hs_class_year'] = hs_year
+                    # If their HS year is earlier than recruiting class, they're a transfer
+                    if hs_year < year:
+                        commit['is_transfer'] = True
+
                 result['commits'].append(commit)
 
             # Update total if we didn't get it from page text
@@ -1471,8 +1486,9 @@ class On3Scraper:
             loc_short = loc.split(',')[0].strip() if loc else ''  # Just city
             high_school = c.get('high_school', '')
 
-            # Note: Can't reliably detect HS vs Transfer from team commits page
-            # Use /recruiting player or /recruiting portal for individual player type
+            # HS vs Transfer indicator - detected from H.S. year and TR indicator
+            is_transfer = c.get('is_transfer', False)
+            player_type = "🌀" if is_transfer else ""  # Only show portal indicator for transfers
 
             # Compact star display
             star_str = f"{stars}⭐" if stars else ""
@@ -1482,9 +1498,10 @@ class On3Scraper:
             status = c.get('status', '')
             status_emoji = "✅" if status == 'Signed' else "📝" if status == 'Committed' else ""
 
-            # Format: 1. 4⭐ Kodi Greene (OT) 96.5 • Santa Ana ✅
+            # Format: 1. 🌀 4⭐ Kodi Greene (OT) 96.5 • Santa Ana ✅
             loc_part = f" • {loc_short}" if loc_short else ""
-            lines.append(f"`{i:2d}.` {star_str} **{name}** ({pos}) {rating_str}{loc_part} {status_emoji}")
+            portal_str = f"{player_type} " if player_type else ""
+            lines.append(f"`{i:2d}.` {portal_str}{star_str} **{name}** ({pos}) {rating_str}{loc_part} {status_emoji}")
 
         # Show truncation message if needed
         if len(commits) > limit:
@@ -1493,7 +1510,7 @@ class On3Scraper:
 
         # Legend
         lines.append("")
-        lines.append("_✅ = Signed | 📝 = Committed_")
+        lines.append("_🌀 = Portal | ✅ = Signed | 📝 = Committed_")
 
         # Link to full page
         if data.get('commits_url'):
