@@ -11,12 +11,69 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.18.0"
+CURRENT_VERSION = "2.0.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "2.0.0": {
+        "date": "2026-01-10",
+        "title": "🚀 Command Reorganization - Grouped Commands!",
+        "emoji": "🎉",
+        "features": [
+            {
+                "category": "BREAKING: Command Structure",
+                "emoji": "⚠️",
+                "changes": [
+                    "All 63 commands reorganized into 8 logical groups!",
+                    "Type `/group` to see all subcommands (e.g., `/recruiting`, `/cfb`)",
+                    "Better discoverability - related commands are now together",
+                    "Old commands like `/recruit` are now `/recruiting player`"
+                ]
+            },
+            {
+                "category": "Command Groups",
+                "emoji": "📂",
+                "changes": [
+                    "`/recruiting` - Recruits, rankings, commits, class data (6 commands)",
+                    "`/cfb` - College football stats, rankings, schedules (9 commands)",
+                    "`/hs` - High school stats from MaxPreps (2 commands)",
+                    "`/season` - Dynasty week/schedule management (6 commands)",
+                    "`/timer` - Advance countdown controls (6 commands)",
+                    "`/league` - Staff, team info, rules (7 commands)",
+                    "`/charter` - Rules lookup, search, editing (10 commands)",
+                    "`/admin` - Config, channels, bot admins (9 commands)"
+                ]
+            },
+            {
+                "category": "Command Mapping (Old → New)",
+                "emoji": "🔄",
+                "changes": [
+                    "`/recruit` → `/recruiting player`",
+                    "`/top_recruits` → `/recruiting top`",
+                    "`/recruiting_class` → `/recruiting class`",
+                    "`/team_commits` → `/recruiting commits`",
+                    "`/player` → `/cfb player`",
+                    "`/rankings` → `/cfb rankings`",
+                    "`/hs_stats` → `/hs stats`",
+                    "`/week` → `/season current`",
+                    "`/advance` → `/timer start`",
+                    "`/config` → `/admin config`",
+                    "...and 50+ more! Use `/help` for full reference"
+                ]
+            },
+            {
+                "category": "Updated Help",
+                "emoji": "❓",
+                "changes": [
+                    "New `/help` command (renamed from `/help_cfb`)",
+                    "Shows all 8 command groups with subcommands",
+                    "Quick reference for the new structure"
+                ]
+            }
+        ]
+    },
     "1.18.0": {
-        "date": "2026-01-11",
+        "date": "2026-01-10",
         "title": "Team Commits List - See Who's Committed!",
         "emoji": "📋",
         "features": [

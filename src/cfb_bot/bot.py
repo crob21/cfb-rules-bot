@@ -33,7 +33,6 @@ from discord import app_commands
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
-
 # =============================================================================
 # CONSTANTS
 # =============================================================================
@@ -293,9 +292,14 @@ async def send_week_schedule(channel, week_num):
 from .utils import \
     timekeeper as timekeeper_module  # For updating NOTIFICATION_CHANNEL_ID
 from .utils.admin_check import AdminManager
+from .utils.cfb_data import cfb_data
 from .utils.channel_manager import ChannelManager
 from .utils.charter_editor import CharterEditor
+from .utils.hs_stats_scraper import hs_stats_scraper
+from .utils.on3_scraper import on3_scraper
+from .utils.recruiting_scraper import recruiting_scraper
 from .utils.schedule_manager import ScheduleManager, get_schedule_manager
+from .utils.server_config import FeatureModule, RecruitingSource, server_config
 from .utils.summarizer import ChannelSummarizer
 # Import timekeeper, summarizer, charter editor, admin manager, version manager, and channel manager
 from .utils.timekeeper import (CFB_DYNASTY_WEEKS, TOTAL_WEEKS_PER_SEASON,
@@ -303,11 +307,6 @@ from .utils.timekeeper import (CFB_DYNASTY_WEEKS, TOTAL_WEEKS_PER_SEASON,
                                get_week_actions, get_week_info, get_week_name,
                                get_week_notes, get_week_phase)
 from .utils.version_manager import VersionManager
-from .utils.cfb_data import cfb_data
-from .utils.hs_stats_scraper import hs_stats_scraper
-from .utils.recruiting_scraper import recruiting_scraper
-from .utils.on3_scraper import on3_scraper
-from .utils.server_config import server_config, FeatureModule, RecruitingSource
 
 
 async def check_module_enabled(interaction, module) -> bool:
@@ -440,6 +439,59 @@ intents.guilds = True
 intents.message_content = True  # Required to read message content
 
 bot = commands.Bot(command_prefix='!', intents=intents)
+
+# =============================================================================
+# COMMAND GROUPS
+# Organized command structure for better discoverability
+# =============================================================================
+
+# Recruiting data commands (On3/247Sports)
+recruiting_group = app_commands.Group(
+    name="recruiting",
+    description="🏈 Recruiting data - players, rankings, team commits"
+)
+
+# High School stats commands (MaxPreps)
+hs_group = app_commands.Group(
+    name="hs",
+    description="🏫 High school football stats from MaxPreps"
+)
+
+# CFB data commands (CollegeFootballData.com)
+cfb_group = app_commands.Group(
+    name="cfb",
+    description="📊 College football data - players, rankings, schedules"
+)
+
+# Charter/rules commands
+charter_group = app_commands.Group(
+    name="charter",
+    description="📜 League charter - rules, search, history"
+)
+
+# League management commands
+league_group = app_commands.Group(
+    name="league",
+    description="🏆 League info - staff, teams, dynasty rules"
+)
+
+# Season/schedule commands
+season_group = app_commands.Group(
+    name="season",
+    description="📅 Season management - week, schedule, games"
+)
+
+# Timer/advance commands
+timer_group = app_commands.Group(
+    name="timer",
+    description="⏱️ Advance timer - start, stop, status"
+)
+
+# Admin commands
+admin_group = app_commands.Group(
+    name="admin",
+    description="⚙️ Bot administration - config, channels, permissions"
+)
 
 # Background task to clean up expired pending requests
 @tasks.loop(minutes=5)
@@ -2326,8 +2378,9 @@ async def load_league_data():
         logger.error(f"❌ Error parsing league data: {e}")
         bot.league_data = {"league_info": {"name": "CFB 26 Online Dynasty"}}
 
-@bot.tree.command(name="rule", description="Look up CFB 26 league rules")
-async def rule(interaction: discord.Interaction, rule_name: str):
+@charter_group.command(name="lookup", description="Look up CFB 26 league rules")
+@app_commands.describe(rule_name="Rule keyword or topic to search for")
+async def charter_lookup(interaction: discord.Interaction, rule_name: str):
     """Look up a specific league rule"""
     # This command requires LEAGUE module
     if not await check_module_enabled(interaction, FeatureModule.LEAGUE):
@@ -2366,8 +2419,9 @@ async def rule(interaction: discord.Interaction, rule_name: str):
 
     await interaction.followup.send(embed=embed)
 
-@bot.tree.command(name="recruiting", description="Get recruiting rules and policies")
-async def recruiting(interaction: discord.Interaction, topic: str):
+@league_group.command(name="rules", description="Get recruiting rules and policies")
+@app_commands.describe(topic="Rule topic to look up")
+async def league_rules(interaction: discord.Interaction, topic: str):
     """Get information about recruiting rules"""
     await interaction.response.defer()
 
@@ -2399,8 +2453,9 @@ async def recruiting(interaction: discord.Interaction, topic: str):
 
     await interaction.followup.send(embed=embed)
 
-@bot.tree.command(name="team", description="Get team information")
-async def team(interaction: discord.Interaction, team_name: str):
+@league_group.command(name="team", description="Get team information")
+@app_commands.describe(team_name="Team name to look up")
+async def league_team(interaction: discord.Interaction, team_name: str):
     """Get information about a college football team"""
     await interaction.response.defer()
 
@@ -2414,8 +2469,9 @@ async def team(interaction: discord.Interaction, team_name: str):
 
     await interaction.followup.send(embed=embed)
 
-@bot.tree.command(name="dynasty", description="Get dynasty management rules")
-async def dynasty(interaction: discord.Interaction, topic: str):
+@league_group.command(name="dynasty", description="Get dynasty management rules")
+@app_commands.describe(topic="Dynasty topic to look up")
+async def league_dynasty(interaction: discord.Interaction, topic: str):
     """Get information about dynasty management rules"""
     await interaction.response.defer()
 
@@ -2459,8 +2515,8 @@ async def dynasty(interaction: discord.Interaction, topic: str):
 
     await interaction.followup.send(embed=embed)
 
-@bot.tree.command(name="charter", description="Get link to the official league charter")
-async def charter(interaction: discord.Interaction):
+@charter_group.command(name="link", description="Get link to the official league charter")
+async def charter_link(interaction: discord.Interaction):
     """Get the official league charter link"""
     # Check if league module is enabled
     if not await check_module_enabled(interaction, FeatureModule.LEAGUE):
@@ -2488,12 +2544,12 @@ async def charter(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="scan_rules", description="Scan a channel for rule changes and votes")
-@discord.app_commands.describe(
+@charter_group.command(name="scan", description="Scan a channel for rule changes and votes")
+@app_commands.describe(
     channel="Channel to scan (e.g., #offseason-voting)",
     hours="Hours of history to scan (default: 168 = 1 week)"
 )
-async def scan_rules(
+async def charter_scan(
     interaction: discord.Interaction,
     channel: discord.TextChannel,
     hours: int = 168
@@ -2678,8 +2734,8 @@ async def scan_rules(
         logger.error(f"❌ Error scanning rules: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Error scanning for rules: {str(e)}")
 
-@bot.tree.command(name="sync_charter", description="Sync charter to Discord for persistence (Admin only)")
-async def sync_charter(interaction: discord.Interaction):
+@charter_group.command(name="sync", description="Sync charter to Discord for persistence (Admin only)")
+async def charter_sync(interaction: discord.Interaction):
     """Manually sync the charter file to Discord for persistence across deployments"""
     # Check if user is admin
     if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
@@ -2712,7 +2768,7 @@ async def sync_charter(interaction: discord.Interaction):
         await interaction.followup.send("❌ Failed to sync charter to Discord", ephemeral=True)
 
 
-@bot.tree.command(name="charter_history", description="View recent charter changes")
+@charter_group.command(name="history", description="View recent charter changes")
 async def charter_history(interaction: discord.Interaction):
     """View recent charter update history"""
     if not charter_editor:
@@ -2758,159 +2814,150 @@ async def charter_history(interaction: discord.Interaction):
     embed.set_footer(text="Use @Harry to update charter rules interactively 🏈")
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="help_cfb", description="Show all available commands")
-async def help_cfb(interaction: discord.Interaction):
-    """Show help information"""
+@bot.tree.command(name="help", description="Show all available commands")
+async def help_command(interaction: discord.Interaction):
+    """Show help information with new grouped command structure"""
+    from .utils.version_manager import VersionManager
+    version_mgr = VersionManager()
+    current_version = version_mgr.get_current_version()
+
     embed = discord.Embed(
-        title="🏈 CFB 26 League Bot Commands",
-        description="Oi! Here's what I can do for ya, mate! **v1.3.0**",
+        title="🏈 Harry - Command Reference",
+        description=f"Commands are now organized into groups! Type `/` and the group name to see all options.\n\n**Version {current_version}**",
         color=Colors.PRIMARY
     )
 
-    # AI Commands
+    # Recruiting Group
     embed.add_field(
-        name="🤖 **AI Assistant**",
+        name="🏈 `/recruiting`",
         value=(
-            "• `/harry <question>` - Ask me league questions\n"
-            "• `/ask <question>` - General AI answers\n"
-            "• `@Harry <message>` - Chat naturally!"
+            "`player` - Look up a recruit\n"
+            "`top` - Top recruits by pos/state\n"
+            "`class` - Team's recruiting class\n"
+            "`commits` - List team's commits\n"
+            "`rankings` - Top 25 team rankings\n"
+            "`source` - Switch data source"
+        ),
+        inline=True
+    )
+
+    # CFB Data Group
+    embed.add_field(
+        name="📊 `/cfb`",
+        value=(
+            "`player` - College player lookup\n"
+            "`rankings` - AP/Coaches/CFP polls\n"
+            "`schedule` - Team's schedule\n"
+            "`matchup` - Head-to-head history\n"
+            "`transfers` - Portal activity\n"
+            "`draft` - NFL draft picks\n"
+            "`betting` - Game lines\n"
+            "`ratings` - SP+/SRS/Elo"
+        ),
+        inline=True
+    )
+
+    # HS Stats Group
+    embed.add_field(
+        name="🏫 `/hs`",
+        value=(
+            "`stats` - HS player stats\n"
+            "`bulk` - Multiple players"
+        ),
+        inline=True
+    )
+
+    # Season Group
+    embed.add_field(
+        name="📅 `/season`",
+        value=(
+            "`current` - Current week\n"
+            "`schedule` - Full season\n"
+            "`games` - Week's matchups\n"
+            "`find` - Team's opponent\n"
+            "`byes` - Bye teams\n"
+            "`set` - Set week *(Admin)*"
+        ),
+        inline=True
+    )
+
+    # Timer Group
+    embed.add_field(
+        name="⏱️ `/timer`",
+        value=(
+            "`start` - Start countdown\n"
+            "`status` - Check progress\n"
+            "`stop` - Stop timer\n"
+            "`channel` - Set channel\n"
+            "`nag` - Nag owner 😈"
+        ),
+        inline=True
+    )
+
+    # League Group
+    embed.add_field(
+        name="🏆 `/league`",
+        value=(
+            "`staff` - Owner & commish\n"
+            "`team` - Team info\n"
+            "`rules` - Recruiting rules\n"
+            "`dynasty` - Dynasty rules\n"
+            "`set_owner` - Set owner\n"
+            "`set_commish` - Set commish"
+        ),
+        inline=True
+    )
+
+    # Charter Group
+    embed.add_field(
+        name="📜 `/charter`",
+        value=(
+            "`lookup` - Find a rule\n"
+            "`search` - Search charter\n"
+            "`link` - Charter URL\n"
+            "`history` - Recent changes\n"
+            "`scan` - Scan for votes\n"
+            "`add`/`update` - Edit rules"
+        ),
+        inline=True
+    )
+
+    # Admin Group
+    embed.add_field(
+        name="⚙️ `/admin`",
+        value=(
+            "`config` - Module settings\n"
+            "`channels` - Channel perms\n"
+            "`add`/`remove` - Bot admins\n"
+            "`block`/`unblock` - Channels\n"
+            "`set_channel` - Admin channel"
+        ),
+        inline=True
+    )
+
+    # Standalone Commands
+    embed.add_field(
+        name="🤖 **Standalone**",
+        value=(
+            "`/harry` - Ask about CFB/league\n"
+            "`/ask` - General AI questions\n"
+            "`/summarize` - Channel summary\n"
+            "`/whats_new` - Latest features\n"
+            "`/version` `/changelog`"
+        ),
+        inline=True
+    )
+
+    embed.add_field(
+        name="💬 **Chat with Harry**",
+        value=(
+            "• `@Harry <question>` - Chat naturally!\n"
+            "• React with ❓ for help"
         ),
         inline=False
     )
 
-    # Dynasty Week Commands
-    embed.add_field(
-        name="📅 **Dynasty Week**",
-        value=(
-            "• `/week` - Current week, phase & actions\n"
-            "• `/weeks` - Full 30-week schedule\n"
-            "• `/set_season_week` - Set week **(Admin)**"
-        ),
-        inline=True
-    )
-
-    # Advance Timer Commands
-    embed.add_field(
-        name="⏰ **Advance Timer**",
-        value=(
-            "• `/advance [hours]` - Start countdown **(Admin)**\n"
-            "• `/time_status` - Check progress\n"
-            "• `/stop_countdown` - Stop timer **(Admin)**\n"
-            "• `/set_timer_channel` - Set notification channel **(Admin)**"
-        ),
-        inline=True
-    )
-
-    # Schedule Commands
-    embed.add_field(
-        name="📊 **Schedule**",
-        value=(
-            "• `/schedule [week]` - Week matchups\n"
-            "• `/find_game <team>` - Team's opponent\n"
-            "• `/byes [week]` - Bye teams"
-        ),
-        inline=True
-    )
-
-    # League Staff
-    embed.add_field(
-        name="👔 **League Staff**",
-        value=(
-            "• `/league_staff` - View owner & co-commish\n"
-            "• `/set_league_owner` - Set owner **(Admin)**\n"
-            "• `/set_co_commish` - Set co-commish **(Admin)**\n"
-            "• `/pick_commish [#channel]` - AI picks co-commish! 👑"
-        ),
-        inline=True
-    )
-
-    # Interactive Charter
-    embed.add_field(
-        name="📝 **Charter Updates**",
-        value=(
-            "• `@Harry update <rule>` - Natural language!\n"
-            "• `/scan_rules #channel` - Find rule votes\n"
-            "• `/charter_history` - Recent changes\n"
-            "• `/charter` - Link to charter"
-        ),
-        inline=True
-    )
-
-    # Channel Summary
-    embed.add_field(
-        name="💬 **Summaries**",
-        value=(
-            "• `/summarize [hours] [focus]` - Summarize\n"
-            "• `@Harry what happened?` - Natural!"
-        ),
-        inline=True
-    )
-
-    # Admin Commands
-    embed.add_field(
-        name="🔐 **Bot Admin**",
-        value=(
-            "• `/add_bot_admin` `/remove_bot_admin`\n"
-            "• `/list_bot_admins`\n"
-            "• `/block_channel` `/unblock_channel`"
-        ),
-        inline=True
-    )
-
-    # Version Info
-    embed.add_field(
-        name="ℹ️ **Info**",
-        value=(
-            "• `/whats_new` - Latest features\n"
-            "• `/version` - Bot version\n"
-            "• `/changelog` - Version history"
-        ),
-        inline=True
-    )
-
-    embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈 | @Harry works anywhere!")
-
-    # Admin Management Commands
-    embed.add_field(
-        name="🔐 **Admin Management**",
-        value=(
-            "• `/add_bot_admin @user` - Add bot admin **(Admin only)**\n"
-            "• `/remove_bot_admin @user` - Remove bot admin **(Admin only)**\n"
-            "• `/list_bot_admins` - List all bot admins"
-        ),
-        inline=False
-    )
-
-    # Channel Management Commands
-    embed.add_field(
-        name="🔇 **Channel Management (Admin Only)**",
-        value=(
-            "• `/block_channel #channel` - Block unprompted responses\n"
-            "• `/unblock_channel #channel` - Allow unprompted responses\n"
-            "• `/list_blocked_channels` - Show blocked channels\n"
-            "\n*Note: @mentions still work in blocked channels!*"
-        ),
-        inline=False
-    )
-
-    embed.add_field(
-        name="💬 **Chat Interactions**",
-        value=(
-            "• Mention me: `@Harry what are the rules?`\n"
-            "• Ask questions: `What's the transfer policy?`\n"
-            "• Say hi: `Hi Harry!`\n"
-            "• React with ❓ to my messages for help"
-        ),
-        inline=False
-    )
-
-    embed.add_field(
-        name="📖 **OFFICIAL LEAGUE CHARTER**",
-        value="[**📋 View Complete Rules & Policies**](https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit)\n\n*This is the official source for all CFB 26 league rules!*",
-        inline=False
-    )
-
-    embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈 | Ready to help!")
+    embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈 | Type /group_name to see all subcommands!")
 
     await interaction.response.send_message(embed=embed)
 
@@ -2951,8 +2998,9 @@ async def show_tokens(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("❌ AI integration not available")
 
-@bot.tree.command(name="search", description="Search the official league charter")
-async def search_charter(interaction: discord.Interaction, search_term: str):
+@charter_group.command(name="search", description="Search the official league charter")
+@app_commands.describe(search_term="Text to search for in the charter")
+async def charter_search(interaction: discord.Interaction, search_term: str):
     """Search for specific terms in the league charter"""
     await interaction.response.send_message("🔍 Searching...", ephemeral=True)
 
@@ -2991,8 +3039,12 @@ async def search_charter(interaction: discord.Interaction, search_term: str):
     await interaction.followup.send(embed=embed)
 
 
-@bot.tree.command(name="player", description="Look up a college football player's stats and info")
-async def lookup_player(
+@cfb_group.command(name="player", description="Look up a college football player's stats and info")
+@app_commands.describe(
+    name="Player name to search for (e.g., 'James Smith')",
+    team="Optional team name to filter results (e.g., 'Alabama')"
+)
+async def cfb_player(
     interaction: discord.Interaction,
     name: str,
     team: str = None
@@ -3057,8 +3109,11 @@ async def lookup_player(
         await interaction.followup.send(f"❌ Error looking up player: {str(e)}", ephemeral=True)
 
 
-@bot.tree.command(name="players", description="Look up multiple players at once")
-async def lookup_players_bulk(
+@cfb_group.command(name="players", description="Look up multiple players at once")
+@app_commands.describe(
+    player_list="Players separated by commas, e.g., 'James Smith (Bama DT); Isaiah Horton (Bama WR)'"
+)
+async def cfb_players(
     interaction: discord.Interaction,
     player_list: str
 ):
@@ -3137,8 +3192,15 @@ async def lookup_players_bulk(
         await interaction.followup.send(f"❌ Error looking up players: {str(e)}", ephemeral=True)
 
 
-@bot.tree.command(name="rankings", description="Get college football rankings (AP, Coaches, CFP)")
-async def get_rankings(
+@cfb_group.command(name="rankings", description="Get college football rankings (AP, Coaches, CFP)")
+@app_commands.describe(
+    team="Optional team to highlight",
+    year="Season year (default: current)",
+    week="Week number (default: latest)",
+    poll="Poll type: AP, Coaches, or CFP",
+    top="Number of teams to show (default: 10)"
+)
+async def cfb_rankings(
     interaction: discord.Interaction,
     team: str = None,
     year: int = None,
@@ -3224,8 +3286,12 @@ async def get_rankings(
         await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
 
 
-@bot.tree.command(name="matchup", description="Get historical matchup data between two teams")
-async def get_matchup(
+@cfb_group.command(name="matchup", description="Get historical matchup data between two teams")
+@app_commands.describe(
+    team1="First team (e.g., 'Alabama')",
+    team2="Second team (e.g., 'Auburn')"
+)
+async def cfb_matchup(
     interaction: discord.Interaction,
     team1: str,
     team2: str
@@ -3267,8 +3333,12 @@ async def get_matchup(
         await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
 
 
-@bot.tree.command(name="cfb_schedule", description="Get a team's schedule and results")
-async def get_cfb_schedule(
+@cfb_group.command(name="schedule", description="Get a team's schedule and results")
+@app_commands.describe(
+    team="Team name (e.g., 'Nebraska')",
+    year="Season year (default: current)"
+)
+async def cfb_schedule(
     interaction: discord.Interaction,
     team: str,
     year: int = None
@@ -3310,8 +3380,12 @@ async def get_cfb_schedule(
         await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
 
 
-@bot.tree.command(name="draft_picks", description="Get NFL draft picks from a college")
-async def get_draft_picks(
+@cfb_group.command(name="draft", description="Get NFL draft picks from a college")
+@app_commands.describe(
+    team="Optional college team to filter by",
+    year="Draft year (default: current year)"
+)
+async def cfb_draft(
     interaction: discord.Interaction,
     team: str = None,
     year: int = None
@@ -3350,8 +3424,12 @@ async def get_draft_picks(
         await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
 
 
-@bot.tree.command(name="transfers", description="Get transfer portal activity for a team")
-async def get_transfers(
+@cfb_group.command(name="transfers", description="Get transfer portal activity for a team")
+@app_commands.describe(
+    team="Team name (e.g., 'USC')",
+    year="Year to check (default: current)"
+)
+async def cfb_transfers(
     interaction: discord.Interaction,
     team: str,
     year: int = None
@@ -3393,8 +3471,13 @@ async def get_transfers(
         await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
 
 
-@bot.tree.command(name="betting", description="Get betting lines for games")
-async def get_betting(
+@cfb_group.command(name="betting", description="Get betting lines for games")
+@app_commands.describe(
+    team="Optional team to filter by",
+    year="Season year (default: current)",
+    week="Week number (default: current)"
+)
+async def cfb_betting(
     interaction: discord.Interaction,
     team: str = None,
     year: int = None,
@@ -3451,8 +3534,12 @@ async def get_betting(
         await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
 
 
-@bot.tree.command(name="team_ratings", description="Get advanced ratings (SP+, SRS, Elo) for a team")
-async def get_team_ratings(
+@cfb_group.command(name="ratings", description="Get advanced ratings (SP+, SRS, Elo) for a team")
+@app_commands.describe(
+    team="Team name (e.g., 'Ohio State')",
+    year="Season year (default: current)"
+)
+async def cfb_ratings(
     interaction: discord.Interaction,
     team: str,
     year: int = None
@@ -3499,8 +3586,13 @@ async def get_team_ratings(
 # =============================================================================
 
 
-@bot.tree.command(name="hs_stats", description="Look up high school football player stats from MaxPreps")
-async def get_hs_stats(
+@hs_group.command(name="stats", description="Look up high school football player stats from MaxPreps")
+@app_commands.describe(
+    name="Player name (e.g., 'Arch Manning')",
+    state="Optional state to narrow search (e.g., 'Louisiana', 'TX')",
+    school="Optional high school name to narrow search"
+)
+async def hs_stats(
     interaction: discord.Interaction,
     name: str,
     state: str = None,
@@ -3592,8 +3684,11 @@ async def get_hs_stats(
         )
 
 
-@bot.tree.command(name="hs_stats_bulk", description="Look up multiple HS players at once")
-async def get_hs_stats_bulk(
+@hs_group.command(name="bulk", description="Look up multiple HS players at once")
+@app_commands.describe(
+    players="Comma-separated player names, e.g., 'Arch Manning (LA), Dylan Raiola (AZ)'"
+)
+async def hs_bulk(
     interaction: discord.Interaction,
     players: str
 ):
@@ -3735,13 +3830,13 @@ def get_recruiting_scraper(guild_id: int):
         return on3_scraper, "On3/Rivals"
 
 
-@bot.tree.command(name="recruit", description="Look up a recruit's ranking")
+@recruiting_group.command(name="player", description="Look up a recruit's ranking")
 @app_commands.describe(
     name="Recruit name (e.g., 'Arch Manning')",
     year="Recruiting class year (default: current)",
     deep_search="(247Sports only) Search ALL ranked recruits (~3000+) instead of top 1000"
 )
-async def get_recruit(
+async def recruiting_player(
     interaction: discord.Interaction,
     name: str,
     year: Optional[int] = None,
@@ -3808,7 +3903,7 @@ async def get_recruit(
         await interaction.followup.send(f"❌ Error looking up recruit: {str(e)}", ephemeral=True)
 
 
-@bot.tree.command(name="top_recruits", description="Get top recruits by position or state")
+@recruiting_group.command(name="top", description="Get top recruits by position or state")
 @app_commands.describe(
     position="Filter by position (QB, WR, RB, etc.)",
     state="Filter by state (TX, CA, FL, etc.)",
@@ -3827,7 +3922,7 @@ async def get_recruit(
     app_commands.Choice(name="CB - Cornerback", value="CB"),
     app_commands.Choice(name="S - Safety", value="S"),
 ])
-async def get_top_recruits(
+async def recruiting_top(
     interaction: discord.Interaction,
     position: Optional[str] = None,
     state: Optional[str] = None,
@@ -3893,12 +3988,12 @@ async def get_top_recruits(
         await interaction.followup.send(f"❌ Error getting recruits: {str(e)}", ephemeral=True)
 
 
-@bot.tree.command(name="recruiting_class", description="Get a team's recruiting class ranking")
+@recruiting_group.command(name="class", description="Get a team's recruiting class ranking")
 @app_commands.describe(
     team="Team name (e.g., 'Georgia', 'Ohio State')",
     year="Recruiting class year (default: current)"
 )
-async def get_recruiting_class(
+async def recruiting_class(
     interaction: discord.Interaction,
     team: str,
     year: Optional[int] = None
@@ -3942,13 +4037,13 @@ async def get_recruiting_class(
         await interaction.followup.send(f"❌ Error getting class: {str(e)}", ephemeral=True)
 
 
-@bot.tree.command(name="team_commits", description="List all committed recruits for a team")
+@recruiting_group.command(name="commits", description="List all committed recruits for a team")
 @app_commands.describe(
     team="Team name (e.g., 'Washington', 'Ohio State')",
     year="Recruiting class year (default: current)",
     show="Number of commits to show (default: 15)"
 )
-async def get_team_commits(
+async def recruiting_commits(
     interaction: discord.Interaction,
     team: str,
     year: Optional[int] = None,
@@ -4002,12 +4097,12 @@ async def get_team_commits(
         await interaction.followup.send(f"❌ Error getting commits: {str(e)}", ephemeral=True)
 
 
-@bot.tree.command(name="recruiting_rankings", description="Get top team recruiting class rankings")
+@recruiting_group.command(name="rankings", description="Get top team recruiting class rankings")
 @app_commands.describe(
     year="Recruiting class year (default: current)",
     top="Number of teams to show (default: 25)"
 )
-async def get_recruiting_rankings(
+async def recruiting_rankings(
     interaction: discord.Interaction,
     year: Optional[int] = None,
     top: Optional[int] = 25
@@ -4261,8 +4356,9 @@ async def ask_ai(interaction: discord.Interaction, question: str):
         except Exception as e:
             logger.error(f"❌ Failed to send /ask response: {str(e)}", exc_info=True)
 
-@bot.tree.command(name="advance", description="Start advance countdown timer (Admin only)")
-async def start_advance(interaction: discord.Interaction, hours: int = 48):
+@timer_group.command(name="start", description="Start advance countdown timer (Admin only)")
+@app_commands.describe(hours="Number of hours for the countdown (default: 48)")
+async def timer_start(interaction: discord.Interaction, hours: int = 48):
     """
     Start the advance countdown timer
 
@@ -4366,8 +4462,8 @@ async def start_advance(interaction: discord.Interaction, hours: int = 48):
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="time_status", description="Check the current advance countdown status")
-async def check_time_status(interaction: discord.Interaction):
+@timer_group.command(name="status", description="Check the current advance countdown status")
+async def timer_status(interaction: discord.Interaction):
     """Check the current advance countdown status"""
     # Check if league module is enabled
     if not await check_module_enabled(interaction, FeatureModule.LEAGUE):
@@ -4489,8 +4585,8 @@ async def check_time_status(interaction: discord.Interaction):
         logger.error(f"❌ Error in /time_status: {str(e)}", exc_info=True)
         await interaction.followup.send(f"❌ Error checking timer status: {str(e)}", ephemeral=True)
 
-@bot.tree.command(name="stop_countdown", description="Stop the current advance countdown (Admin only)")
-async def stop_countdown(interaction: discord.Interaction):
+@timer_group.command(name="stop", description="Stop the current advance countdown (Admin only)")
+async def timer_stop(interaction: discord.Interaction):
     """Stop the current advance countdown"""
     # Check if user is admin
     if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
@@ -4519,8 +4615,8 @@ async def stop_countdown(interaction: discord.Interaction):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="week", description="Check the current season and week")
-async def check_week(interaction: discord.Interaction):
+@season_group.command(name="current", description="Check the current season and week")
+async def season_current(interaction: discord.Interaction):
     """Check the current season and week"""
     if not timekeeper_manager:
         await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
@@ -4572,8 +4668,8 @@ async def check_week(interaction: discord.Interaction):
     embed.set_footer(text="Harry's Week Tracker 🏈 | Use /set_season_week to change")
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="weeks", description="View the full CFB 26 Dynasty week schedule")
-async def view_weeks(interaction: discord.Interaction):
+@season_group.command(name="schedule", description="View the full CFB 26 Dynasty week schedule")
+async def season_schedule(interaction: discord.Interaction):
     """View the full week schedule for a CFB 26 Dynasty season"""
     # Get current week info
     current_week = None
@@ -4681,11 +4777,11 @@ async def view_weeks(interaction: discord.Interaction):
 
 # ==================== Schedule Commands ====================
 
-@bot.tree.command(name="schedule", description="View the schedule for a specific week")
-@discord.app_commands.describe(
+@season_group.command(name="games", description="View the games for a specific week")
+@app_commands.describe(
     week="Week number (0-13 for regular season, leave empty for current week)"
 )
-async def view_schedule(interaction: discord.Interaction, week: Optional[int] = None):
+async def season_games(interaction: discord.Interaction, week: Optional[int] = None):
     """View the schedule for a specific week"""
     # Check if league module is enabled
     if not await check_module_enabled(interaction, FeatureModule.LEAGUE):
@@ -4759,12 +4855,12 @@ async def view_schedule(interaction: discord.Interaction, week: Optional[int] = 
     embed.set_footer(text="Harry's Schedule Tracker 🏈 | Use /find_game for specific team info")
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="find_game", description="Find a team's game for a specific week")
-@discord.app_commands.describe(
+@season_group.command(name="find", description="Find a team's game for a specific week")
+@app_commands.describe(
     team="Team name (e.g., Hawaii, LSU, Notre Dame)",
     week="Week number (0-13, leave empty for current week)"
 )
-async def find_game(interaction: discord.Interaction, team: str, week: Optional[int] = None):
+async def season_find(interaction: discord.Interaction, team: str, week: Optional[int] = None):
     """Find a specific team's game in the dynasty schedule"""
     if not schedule_manager:
         await interaction.response.send_message("❌ Schedule manager not available", ephemeral=True)
@@ -4836,11 +4932,11 @@ async def find_game(interaction: discord.Interaction, team: str, week: Optional[
     embed.set_footer(text="Harry's Schedule Tracker 🏈")
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="byes", description="Show which teams have a bye this week")
-@discord.app_commands.describe(
+@season_group.command(name="byes", description="Show which teams have a bye this week")
+@app_commands.describe(
     week="Week number (0-13, leave empty for current week)"
 )
-async def view_byes(interaction: discord.Interaction, week: Optional[int] = None):
+async def season_byes(interaction: discord.Interaction, week: Optional[int] = None):
     """Show teams on bye for a specific week"""
     if not schedule_manager:
         await interaction.response.send_message("❌ Schedule manager not available", ephemeral=True)
@@ -4880,8 +4976,12 @@ async def view_byes(interaction: discord.Interaction, week: Optional[int] = None
     embed.set_footer(text="Harry's Schedule Tracker 🏈")
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="set_season_week", description="Set the current season and week (Admin only)")
-async def set_season_week(interaction: discord.Interaction, season: int, week: int):
+@season_group.command(name="set", description="Set the current season and week (Admin only)")
+@app_commands.describe(
+    season="Season number",
+    week="Week number (0-13 for regular season)"
+)
+async def season_set(interaction: discord.Interaction, season: int, week: int):
     """Set the current season and week"""
     # Check if user is admin
     if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
@@ -4933,8 +5033,9 @@ async def set_season_week(interaction: discord.Interaction, season: int, week: i
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="set_timer_channel", description="Set the channel for timer notifications (Admin only)")
-async def set_timer_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+@timer_group.command(name="channel", description="Set the channel for timer notifications (Admin only)")
+@app_commands.describe(channel="Channel for timer notifications")
+async def timer_channel(interaction: discord.Interaction, channel: discord.TextChannel):
     """Set the channel where timer notifications (advance announcements, countdowns) will be sent"""
     global GENERAL_CHANNEL_ID
 
@@ -4964,12 +5065,12 @@ async def set_timer_channel(interaction: discord.Interaction, channel: discord.T
         await interaction.response.send_message("❌ Failed to save the timer channel setting!", ephemeral=True)
 
 
-@bot.tree.command(name="set_admin_channel", description="Set the channel for admin outputs and bot updates (Admin only)")
+@admin_group.command(name="set_channel", description="Set the channel for admin outputs and bot updates (Admin only)")
 @app_commands.describe(
     channel="Select a channel from the list (for visible channels)",
     channel_id="Or paste a channel ID directly (for private channels)"
 )
-async def set_admin_channel(
+async def admin_set_channel(
     interaction: discord.Interaction,
     channel: discord.TextChannel = None,
     channel_id: str = None
@@ -5022,8 +5123,8 @@ async def set_admin_channel(
 
 # ==================== League Staff Commands ====================
 
-@bot.tree.command(name="league_staff", description="View the current league owner and co-commissioner")
-async def view_league_staff(interaction: discord.Interaction):
+@league_group.command(name="staff", description="View the current league owner and co-commissioner")
+async def league_staff(interaction: discord.Interaction):
     """View current league staff"""
     if not timekeeper_manager:
         await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
@@ -5060,8 +5161,9 @@ async def view_league_staff(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="set_league_owner", description="Set the league owner (Admin only)")
-async def set_league_owner(interaction: discord.Interaction, user: discord.User):
+@league_group.command(name="set_owner", description="Set the league owner (Admin only)")
+@app_commands.describe(user="User to set as league owner")
+async def league_set_owner(interaction: discord.Interaction, user: discord.User):
     """Set the league owner"""
     # Check if user is admin
     if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
@@ -5086,12 +5188,12 @@ async def set_league_owner(interaction: discord.Interaction, user: discord.User)
     else:
         await interaction.response.send_message("❌ Failed to set league owner, mate!", ephemeral=True)
 
-@bot.tree.command(name="set_co_commish", description="Set the co-commissioner (Admin only)")
-@discord.app_commands.describe(
+@league_group.command(name="set_commish", description="Set the co-commissioner (Admin only)")
+@app_commands.describe(
     user="The user to set as co-commissioner (leave empty if setting to 'none')",
     none="Set to 'We don't fucking have one'"
 )
-async def set_co_commish(
+async def league_set_commish(
     interaction: discord.Interaction,
     user: Optional[discord.User] = None,
     none: bool = False
@@ -5145,12 +5247,12 @@ async def set_co_commish(
     else:
         await interaction.response.send_message("❌ Failed to set co-commish, mate!", ephemeral=True)
 
-@bot.tree.command(name="pick_commish", description="Harry analyzes the chat and picks a co-commissioner")
-@discord.app_commands.describe(
+@league_group.command(name="pick_commish", description="Harry analyzes the chat and picks a co-commissioner")
+@app_commands.describe(
     channel="Channel to analyze (default: current channel)",
     hours="How many hours of chat history to analyze (default: 168 = 1 week)"
 )
-async def pick_commish(
+async def league_pick_commish(
     interaction: discord.Interaction,
     channel: Optional[discord.TextChannel] = None,
     hours: int = 168
@@ -5353,11 +5455,11 @@ Be extremely sarcastic, funny, and insane. Give each person a proper roast!"""
 
 # ==================== Owner Nagging Commands (Bot Owner Only) ====================
 
-@bot.tree.command(name="nag_owner", description="Start spamming the league owner to advance (Bot Owner only)")
-@discord.app_commands.describe(
+@timer_group.command(name="nag", description="Start spamming the league owner to advance (Bot Owner only)")
+@app_commands.describe(
     interval="How often to nag in minutes (default: 5)"
 )
-async def nag_owner(interaction: discord.Interaction, interval: int = 5):
+async def timer_nag(interaction: discord.Interaction, interval: int = 5):
     """Start nagging the league owner to advance the week"""
     # This is for the bot owner ONLY - check application info
     try:
@@ -5420,8 +5522,8 @@ async def nag_owner(interaction: discord.Interaction, interval: int = 5):
     else:
         await interaction.response.send_message("❌ Failed to start nagging!", ephemeral=True)
 
-@bot.tree.command(name="stop_nag", description="Stop spamming the league owner (Bot Owner only)")
-async def stop_nag(interaction: discord.Interaction):
+@timer_group.command(name="stop_nag", description="Stop spamming the league owner (Bot Owner only)")
+async def timer_stop_nag(interaction: discord.Interaction):
     """Stop nagging the league owner"""
     # This is for the bot owner ONLY
     try:
@@ -5562,8 +5664,13 @@ async def summarize_channel(
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="add_rule", description="Add a new rule to the charter (Admin only)")
-async def add_charter_rule(
+@charter_group.command(name="add", description="Add a new rule to the charter (Admin only)")
+@app_commands.describe(
+    section_title="Title for the new rule section",
+    rule_content="The rule text content",
+    position="Where to add: 'end' or 'start' (default: end)"
+)
+async def charter_add(
     interaction: discord.Interaction,
     section_title: str,
     rule_content: str,
@@ -5631,8 +5738,12 @@ async def add_charter_rule(
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="update_rule", description="Update an existing rule in the charter (Admin only)")
-async def update_charter_rule(
+@charter_group.command(name="update", description="Update an existing rule in the charter (Admin only)")
+@app_commands.describe(
+    section_identifier="Section title or number to update",
+    new_content="New content for the section"
+)
+async def charter_update(
     interaction: discord.Interaction,
     section_identifier: str,
     new_content: str
@@ -5697,8 +5808,8 @@ async def update_charter_rule(
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="view_charter_backups", description="View available charter backups (Admin only)")
-async def view_backups(interaction: discord.Interaction):
+@charter_group.command(name="backups", description="View available charter backups (Admin only)")
+async def charter_backups(interaction: discord.Interaction):
     """View available charter backups"""
     # Check if user has admin permissions
     if not interaction.user.guild_permissions.administrator:
@@ -5757,8 +5868,9 @@ async def view_backups(interaction: discord.Interaction):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="restore_charter_backup", description="Restore charter from a backup (Admin only)")
-async def restore_backup(interaction: discord.Interaction, backup_filename: str):
+@charter_group.command(name="restore", description="Restore charter from a backup (Admin only)")
+@app_commands.describe(backup_filename="Name of the backup file to restore")
+async def charter_restore(interaction: discord.Interaction, backup_filename: str):
     """
     Restore the charter from a backup
 
@@ -5806,8 +5918,9 @@ async def restore_backup(interaction: discord.Interaction, backup_filename: str)
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="add_bot_admin", description="Add a user as bot admin (Admin only)")
-async def add_bot_admin(interaction: discord.Interaction, user: discord.Member):
+@admin_group.command(name="add", description="Add a user as bot admin (Admin only)")
+@app_commands.describe(user="The Discord user to make a bot admin")
+async def admin_add(interaction: discord.Interaction, user: discord.Member):
     """
     Add a user as bot admin
 
@@ -5843,8 +5956,9 @@ async def add_bot_admin(interaction: discord.Interaction, user: discord.Member):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="remove_bot_admin", description="Remove a user as bot admin (Admin only)")
-async def remove_bot_admin(interaction: discord.Interaction, user: discord.Member):
+@admin_group.command(name="remove", description="Remove a user as bot admin (Admin only)")
+@app_commands.describe(user="The Discord user to remove as bot admin")
+async def admin_remove(interaction: discord.Interaction, user: discord.Member):
     """
     Remove a user as bot admin
 
@@ -5880,8 +5994,8 @@ async def remove_bot_admin(interaction: discord.Interaction, user: discord.Membe
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="list_bot_admins", description="List all bot admins")
-async def list_bot_admins(interaction: discord.Interaction):
+@admin_group.command(name="list", description="List all bot admins")
+async def admin_list(interaction: discord.Interaction):
     """List all bot admins"""
     if not admin_manager:
         await interaction.response.send_message("❌ Admin manager not available", ephemeral=True)
@@ -5928,8 +6042,9 @@ async def list_bot_admins(interaction: discord.Interaction):
     embed.set_footer(text="CFB 26 League Bot - Admin Management")
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="block_channel", description="Block unprompted responses in a channel (Admin only)")
-async def block_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+@admin_group.command(name="block", description="Block unprompted responses in a channel (Admin only)")
+@app_commands.describe(channel="The channel to block")
+async def admin_block(interaction: discord.Interaction, channel: discord.TextChannel):
     """
     Block unprompted responses in a channel (Harry can still be @mentioned)
 
@@ -5969,8 +6084,9 @@ async def block_channel(interaction: discord.Interaction, channel: discord.TextC
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="unblock_channel", description="Allow unprompted responses in a channel (Admin only)")
-async def unblock_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+@admin_group.command(name="unblock", description="Allow unprompted responses in a channel (Admin only)")
+@app_commands.describe(channel="The channel to unblock")
+async def admin_unblock(interaction: discord.Interaction, channel: discord.TextChannel):
     """
     Allow unprompted responses in a channel
 
@@ -6005,8 +6121,8 @@ async def unblock_channel(interaction: discord.Interaction, channel: discord.Tex
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="list_blocked_channels", description="Show all blocked channels")
-async def list_blocked_channels(interaction: discord.Interaction):
+@admin_group.command(name="blocked", description="Show all blocked channels")
+async def admin_blocked(interaction: discord.Interaction):
     """Show all channels where unprompted responses are blocked"""
     if not channel_manager:
         await interaction.response.send_message("❌ Channel manager not available", ephemeral=True)
@@ -6057,10 +6173,10 @@ async def list_blocked_channels(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-@bot.tree.command(name="config", description="Configure Harry's features for this server")
+@admin_group.command(name="config", description="Configure Harry's features for this server")
 @app_commands.describe(
     action="What to do: view, enable, or disable",
-    module="Which module: cfb_data, league, or hs_stats"
+    module="Which module: cfb_data, league, hs_stats, or recruiting"
 )
 @app_commands.choices(action=[
     app_commands.Choice(name="view", value="view"),
@@ -6283,7 +6399,7 @@ async def config_command(
         )
 
 
-@bot.tree.command(name="recruit_source", description="Set the recruiting data source (On3/Rivals or 247Sports)")
+@recruiting_group.command(name="source", description="Set the recruiting data source (On3/Rivals or 247Sports)")
 @app_commands.describe(
     source="Which recruiting data source to use"
 )
@@ -6291,7 +6407,7 @@ async def config_command(
     app_commands.Choice(name="On3/Rivals (default) - Server-side rendered, reliable", value="on3"),
     app_commands.Choice(name="247Sports Composite - Legacy, more data but slower", value="247"),
 ])
-async def recruit_source_command(
+async def recruiting_source(
     interaction: discord.Interaction,
     source: str = None
 ):
@@ -6377,7 +6493,7 @@ async def recruit_source_command(
     )
 
 
-@bot.tree.command(name="channel", description="View/manage which channels Harry can respond in (no args = view status)")
+@admin_group.command(name="channels", description="View/manage which channels Harry can respond in (no args = view status)")
 @app_commands.describe(
     action="What to do (leave empty to view current status)",
     channel="Which channel to configure (defaults to current channel)"
@@ -6786,9 +6902,23 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
         return
     elif isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send("❌ Missing required argument. Use `/help_cfb` for command usage.")
+        await ctx.send("❌ Missing required argument. Use `/help` for command usage.")
     else:
         print(f"Error: {error}")
+
+
+# =============================================================================
+# ADD COMMAND GROUPS TO BOT TREE
+# =============================================================================
+bot.tree.add_command(recruiting_group)
+bot.tree.add_command(hs_group)
+bot.tree.add_command(cfb_group)
+bot.tree.add_command(charter_group)
+bot.tree.add_command(league_group)
+bot.tree.add_command(season_group)
+bot.tree.add_command(timer_group)
+bot.tree.add_command(admin_group)
+
 
 def main():
     """Main function to run the bot"""

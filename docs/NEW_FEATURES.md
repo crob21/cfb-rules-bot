@@ -2,25 +2,73 @@
 
 This document outlines all features of Harry, the CFB 26 League Bot.
 
-**Current Version:** 1.18.0
-**Last Updated:** January 11, 2026
+**Current Version:** 2.0.0
+**Last Updated:** January 10, 2026
 **Status:** ✅ Production Ready
 
 ---
 
-## ⭐ Recruiting Module
+## 🚀 Version 2.0 - Command Reorganization
+
+All 63 commands have been reorganized into 8 logical groups for better discoverability!
+
+### New Command Structure
+
+| Group | Description | Example |
+|-------|-------------|---------|
+| `/recruiting` | Recruits, rankings, commits | `/recruiting player Arch Manning` |
+| `/cfb` | College football stats | `/cfb rankings` |
+| `/hs` | High school stats | `/hs stats Gavin Day` |
+| `/season` | Dynasty week/schedule | `/season current` |
+| `/timer` | Advance countdown | `/timer start 48` |
+| `/league` | Staff, team info, rules | `/league staff` |
+| `/charter` | Rules lookup & editing | `/charter search transfers` |
+| `/admin` | Config & bot admins | `/admin config view` |
+
+### Quick Migration Guide
+
+| Old Command | New Command |
+|-------------|-------------|
+| `/recruit name` | `/recruiting player name` |
+| `/top_recruits` | `/recruiting top` |
+| `/recruiting_class` | `/recruiting class` |
+| `/team_commits` | `/recruiting commits` |
+| `/player name` | `/cfb player name` |
+| `/rankings` | `/cfb rankings` |
+| `/hs_stats name` | `/hs stats name` |
+| `/week` | `/season current` |
+| `/advance 48` | `/timer start 48` |
+| `/config` | `/admin config` |
+
+---
+
+## 🏈 `/recruiting` - Recruiting Module
 
 Look up recruit profiles with rankings, offers, predictions, visits, and photos!
 
-> **Data Sources:** On3/Rivals (default) or 247Sports Composite. Switch with `/recruit_source`
+> **Data Sources:** On3/Rivals (default) or 247Sports Composite. Switch with `/recruiting source`
 
-### Single Recruit Lookup
+### Commands
 
-**Command:** `/recruit <name> [year]`
+| Command | Description |
+|---------|-------------|
+| `/recruiting player <name> [year]` | Look up a recruit |
+| `/recruiting top [position] [state] [year]` | Top recruits list |
+| `/recruiting class <team> [year]` | Team's recruiting class |
+| `/recruiting commits <team> [year]` | List all committed recruits |
+| `/recruiting rankings [year] [top]` | Top 25 team rankings |
+| `/recruiting source [on3\|247]` | Set data source |
 
-**Natural Language:** `@Harry recruit Arch Manning`
+### Example Usage
 
-**Shows:**
+```
+/recruiting player Arch Manning
+/recruiting top position:QB state:TX
+/recruiting class Georgia 2026
+/recruiting commits Washington 2026
+```
+
+### Recruit Profile Shows:
 - Player photo (thumbnail in embed)
 - ⭐ Star rating and composite rating
 - 🏆 National, position, and state rankings
@@ -31,67 +79,9 @@ Look up recruit profiles with rankings, offers, predictions, visits, and photos!
 - ✈️ Visit history (official/unofficial with dates)
 - 🔗 Link to full On3/Rivals profile
 
-### Top Recruits
-
-**Command:** `/top_recruits [position] [state] [year] [top]`
-
-**Examples:**
-- `/top_recruits position:QB` - Top QBs nationally
-- `/top_recruits state:TX` - Top recruits from Texas
-- `/top_recruits top:50` - Top 50 overall
-
-### Recruiting Class Rankings
-
-**Command:** `/recruiting_class <team> [year]`
-
-**Shows:**
-- Team's national ranking
-- Total commits
-- Average rating
-- Star breakdown
-- Average NIL value
-
-### Team Commits List ⭐ NEW!
-
-**Command:** `/team_commits <team> [year] [show]`
-
-**Examples:**
-- `/team_commits Washington` - All Washington commits (current year)
-- `/team_commits "Ohio State" 2026` - Ohio State's 2026 class
-- `/team_commits Georgia 2026 show:25` - Show 25 Georgia commits
-
-**Shows:**
-- Each committed recruit with:
-  - ⭐ Star rating (calculated from industry rating)
-  - 📍 Position (QB, RB, WR, etc.)
-  - 📊 Industry composite rating
-  - ✅ Status (Signed/Committed)
-  - 🏫 High school and location (for top 5)
-- Sorted by rating (highest first)
-- Link to full class on On3/Rivals
-
-> **Note:** Currently only available with On3/Rivals data source
-
-### Team Rankings
-
-**Command:** `/recruiting_rankings [year] [top]`
-
-**Shows:**
-- Top 25 (or custom) team recruiting rankings
-- Points, average rating per team
-
-### Data Source Selection
-
-**Command:** `/recruit_source [on3|247]`
-
-| Source | Description |
-|--------|-------------|
-| **On3/Rivals** | Default. Server-side rendered, fast & reliable. Includes predictions, offers, visits. |
-| **247Sports** | Legacy. Deep search option for ~3000 recruits. |
-
 ---
 
-## 🏈 CFB Data Module
+## 📊 `/cfb` - CFB Data Module
 
 Access comprehensive college football data powered by CollegeFootballData.com API.
 
@@ -103,110 +93,53 @@ Access comprehensive college football data powered by CollegeFootballData.com AP
 - `/player <name> [team]` - Look up a single player
 - `/players <list>` - Bulk lookup (up to 15 players)
 
-**Natural Language:**
-- `@Harry what do you know about Jalen Milroe from Alabama?`
-- `@Harry stats for Caleb Williams USC`
-- Just paste a list of players and Harry will look them all up!
+Access comprehensive college football data powered by CollegeFootballData.com API.
 
-**Features:**
-- Player vitals (height, weight, position, year, hometown)
-- Season stats (rushing, passing, receiving, defense)
-- Recruiting info (stars, national rank, position rank)
-- Transfer portal status
-- Smart suggestions for players not found
-- FCS school detection with limited-data warnings
+### Commands
 
-### Rankings
+| Command | Description |
+|---------|-------------|
+| `/cfb player <name> [team]` | Look up a college player |
+| `/cfb players <list>` | Bulk player lookup |
+| `/cfb rankings [poll] [year] [week]` | AP/Coaches/CFP polls |
+| `/cfb matchup <team1> <team2>` | Head-to-head history |
+| `/cfb schedule <team> [year]` | Team's schedule |
+| `/cfb draft [team] [year]` | NFL draft picks |
+| `/cfb transfers <team> [year]` | Portal activity |
+| `/cfb betting [team] [year] [week]` | Game lines |
+| `/cfb ratings <team> [year]` | SP+/SRS/Elo ratings |
 
-**Command:** `/rankings [poll]`
+### Example Usage
 
-**Natural Language:** `@Harry where is Ohio State ranked?`
-
-**Supported Polls:**
-- AP Top 25
-- Coaches Poll
-- College Football Playoff
-
-### Matchup History
-
-**Command:** `/matchup <team1> <team2>`
-
-**Natural Language:** `@Harry Alabama vs Auburn all-time record`
-
-**Shows:**
-- All-time series record
-- Recent game results
-- Home/away splits
-
-### Team Schedules
-
-**Command:** `/cfb_schedule <team> [year]`
-
-**Natural Language:** `@Harry when does Nebraska play next?`
-
-**Shows:**
-- Full season schedule
-- Game results (W/L, scores)
-- Upcoming opponents
-- Bye weeks
-
-### NFL Draft
-
-**Command:** `/draft_picks <team> [year]`
-
-**Natural Language:** `@Harry who got drafted from Georgia?`
-
-**Shows:**
-- Draft picks by school
-- Round, pick number
-- Position, NFL team
-
-### Transfer Portal
-
-**Command:** `/transfers <team>`
-
-**Natural Language:** `@Harry USC transfer portal activity`
-
-**Shows:**
-- Incoming transfers (with origin school)
-- Outgoing transfers (with destination)
-- Player ratings
-
-### Betting Lines
-
-**Command:** `/betting [team]` - Shows upcoming games, or filter by team
-
-**Natural Language:** `@Harry who's favored in Bama vs Georgia?`
-
-**Shows:**
-- Point spread
-- Over/under
-- Moneyline (when available)
-- Auto-detects postseason/playoff games
-
-### Advanced Ratings
-
-**Command:** `/team_ratings <team>`
-
-**Natural Language:** `@Harry how good is Texas?`
-
-**Shows:**
-- SP+ ratings (overall, offense, defense)
-- SRS (Simple Rating System)
-- Elo rating
-- FPI (when available)
+```
+/cfb player Jalen Milroe Alabama
+/cfb rankings poll:AP
+/cfb matchup Alabama Auburn
+/cfb schedule Nebraska 2025
+/cfb transfers USC
+```
 
 ---
 
-## 🏫 High School Stats Module
+## 🏫 `/hs` - High School Stats Module
 
 Look up high school football career stats from MaxPreps for recruiting research.
 
-> **Note:** This module uses web scraping and is disabled by default. Enable with `/config enable hs_stats`
+> **Note:** This module uses web scraping and is disabled by default. Enable with `/admin config enable hs_stats`
 
-### Single Player Lookup
+### Commands
 
-**Command:** `/hs_stats <name> [state] [school]`
+| Command | Description |
+|---------|-------------|
+| `/hs stats <name> [state] [school]` | Look up a player |
+| `/hs bulk <player_list>` | Bulk lookup |
+
+### Example Usage
+
+```
+/hs stats Gavin Day NV
+/hs stats "Arch Manning" Louisiana
+```
 
 **Natural Language:** `@Harry hs stats Gavin Day NV`
 
@@ -239,22 +172,9 @@ Jr. 24-25 (12 GP)
   🛡️ Defense: 210 Solo/283 TKL
 ```
 
-### Bulk Lookup
-
-**Command:** `/hs_stats_bulk <player_list>`
-
-Look up multiple high school players at once for recruiting boards.
-
-**Format:**
-```
-Player Name, State
-Player Name 2, State
-Player Name 3
-```
-
 ---
 
-## ⏰ Advance Timer / Timekeeper
+## ⏱️ `/timer` - Advance Timer
 
 Server-wide countdown timers for league advances.
 
@@ -262,33 +182,23 @@ Server-wide countdown timers for league advances.
 
 | Command | Description | Access |
 |---------|-------------|--------|
-| `/advance [hours]` | Start countdown (default 48h) | Admin |
-| `/time_status` | Check countdown progress | Everyone |
-| `/stop_countdown` | Stop the timer | Admin |
-| `/set_timer_channel #channel` | Set notification channel | Admin |
+| `/timer start [hours]` | Start countdown (default 48h) | Admin |
+| `/timer status` | Check countdown progress | Everyone |
+| `/timer stop` | Stop the timer | Admin |
+| `/timer channel #channel` | Set notification channel | Admin |
+| `/timer nag [interval]` | Spam owner to advance 😈 | Bot Owner |
+| `/timer stop_nag` | Stop the chaos | Bot Owner |
 
 ### Features
 
 - **Custom Duration**: 1-336 hours (default 48h)
 - **Automatic Notifications**: 24h, 12h, 6h, 1h remaining
 - **Visual Progress Bar**: Color-coded urgency levels
-- **Server-Wide**: One timer for the whole Discord
 - **Persistence**: Survives bot restarts and deployments!
-- **Centralized Notifications**: All alerts go to one channel (#general by default)
-
-### Progress Bar Colors
-
-| Time Remaining | Color |
-|----------------|-------|
-| 24+ hours | 🟢 Green |
-| 12-24 hours | 🟠 Orange |
-| 6-12 hours | 🟠 Dark Orange |
-| 1-6 hours | 🔴 Red |
-| < 1 hour | 🔴 Bright Red |
 
 ---
 
-## 📅 Dynasty Week System
+## 📅 `/season` - Dynasty Week System
 
 Full 30-week CFB 26 season tracking with actions and notes.
 
@@ -296,76 +206,65 @@ Full 30-week CFB 26 season tracking with actions and notes.
 
 | Command | Description |
 |---------|-------------|
-| `/week` | Show current week, phase, and actions |
-| `/weeks` | Show full 30-week dynasty schedule |
-| `/set_season_week <season> <week>` | Set current season and week (Admin) |
+| `/season current` | Show current week, phase, and actions |
+| `/season schedule` | Show full 30-week dynasty schedule |
+| `/season games [week]` | Show week's matchups |
+| `/season find <team> [week]` | Find team's opponent |
+| `/season byes [week]` | Show bye teams |
+| `/season set <season> <week>` | Set current season/week (Admin) |
 
 ### Season Structure
 
-**Regular Season (Weeks 0-15)**
-- Week 0: Season Kickoff
-- Weeks 1-12: Regular Season
-- Week 13: Rivalry Week
-- Week 14-15: Conference Championships
-
-**Post-Season (Weeks 16-21)**
-- Weeks 16-19: Bowl Games / Playoffs
-- Week 20: End of Season Recap
-- Week 21: Award Show
-
-**Offseason (Weeks 22-29)**
-- Weeks 22-25: Transfer Portal
-- Week 26: National Signing Day
-- Week 27: Training Results
-- Week 28: Encourage Transfers
-- Week 29: Preseason → New Season!
+- **Regular Season** (Weeks 0-15): Season Kickoff → Conference Championships
+- **Post-Season** (Weeks 16-21): Bowl Games → Award Show
+- **Offseason** (Weeks 22-29): Transfer Portal → New Season!
 
 ---
 
-## 📝 Charter Management
+## 📜 `/charter` - Charter Management
 
 Interactive charter editing and rule scanning.
 
-### Interactive Updates
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/charter lookup <rule>` | Look up a rule |
+| `/charter search <term>` | Search the charter |
+| `/charter link` | Get charter URL |
+| `/charter history` | Recent changes |
+| `/charter scan #channel [hours]` | Scan for rule votes |
+| `/charter add <title> <content>` | Add new rule (Admin) |
+| `/charter update <section> <content>` | Update rule (Admin) |
+| `/charter sync` | Sync to Discord (Admin) |
+| `/charter backups` | View backups (Admin) |
+| `/charter restore <file>` | Restore backup (Admin) |
+
+### Natural Language Updates
 
 Talk to Harry naturally:
 ```
 @Harry update the advance time to 10am EST
 @Harry add a rule: no trading during playoffs
-@Harry change quarter length to 5 minutes
 ```
-
-**Features:**
-- Before/after preview
-- ✅/❌ confirmation buttons
-- Automatic backups
-- Changelog tracking
-
-### Rule Scanning
-
-**Command:** `/scan_rules #channel [hours]`
-
-**Natural Language:** `@Harry scan #voting for rule changes`
-
-**Features:**
-- Detects passed, failed, and proposed rules
-- Extracts vote counts from Discord polls
-- Apply all passed rules with one click
-- AI-powered rule identification
-
-### Charter History
-
-**Command:** `/charter_history`
-
-View recent charter changes with who changed what and when.
 
 ---
 
-## 👑 Co-Commissioner Picker
+## 🏆 `/league` - League Management
 
-AI-powered co-commissioner recommendations.
+League staff and rules.
 
-**Command:** `/pick_commish [hours] [#channel]`
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/league staff` | View owner & co-commish |
+| `/league team <name>` | Team info |
+| `/league rules <topic>` | Recruiting rules |
+| `/league dynasty <topic>` | Dynasty rules |
+| `/league set_owner @user` | Set owner (Admin) |
+| `/league set_commish @user` | Set co-commish (Admin) |
+| `/league pick_commish [hours]` | AI picks commish! 👑 |
 
 ### The Asshole Detector 🚨
 
@@ -383,11 +282,23 @@ Includes personalized roasts for each candidate!
 
 ---
 
-## ⚙️ Configuration System
+## ⚙️ `/admin` - Configuration & Admin
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/admin config [view\|enable\|disable] [module]` | Module settings |
+| `/admin channels [action] [#channel]` | Channel permissions |
+| `/admin set_channel #channel` | Set admin notifications channel |
+| `/admin add @user` | Add a bot admin |
+| `/admin remove @user` | Remove a bot admin |
+| `/admin list` | View all bot admins |
+| `/admin block #channel` | Block unprompted responses |
+| `/admin unblock #channel` | Allow responses |
+| `/admin blocked` | Show blocked channels |
 
 ### Per-Server Modules
-
-**Command:** `/config [module]`
 
 | Module | Description | Default |
 |--------|-------------|---------|
@@ -399,43 +310,14 @@ Includes personalized roasts for each candidate!
 
 ### Per-Channel Controls
 
-**Command:** `/channel <action>`
-
 | Action | Description |
 |--------|-------------|
-| `view` | See current channel settings |
 | `enable` | Enable Harry in this channel |
 | `disable` | Disable Harry in this channel |
 | `disable_all` | Clear whitelist for server |
 | `toggle_rivalry` | Toggle rivalry auto-responses |
 
-**Important:** Harry is disabled by default! Use `/channel enable` to activate.
-
-### Web Dashboard
-
-Run the dashboard for visual configuration:
-```bash
-python run_dashboard.py
-# Visit http://localhost:8080
-```
-
-**Features:**
-- Discord OAuth login
-- Visual module toggles
-- Bot admin management
-- Multi-server support
-
----
-
-## 🔐 Bot Admin System
-
-### Commands
-
-| Command | Description |
-|---------|-------------|
-| `/add_bot_admin @user` | Add a bot admin |
-| `/remove_bot_admin @user` | Remove a bot admin |
-| `/list_bot_admins` | View all bot admins |
+**Important:** Harry is disabled by default! Use `/admin channels enable` to activate.
 
 ### Who Can Be Admin?
 
