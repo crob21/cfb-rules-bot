@@ -2897,120 +2897,129 @@ async def charter_history(interaction: discord.Interaction):
 
 @bot.tree.command(name="help", description="Show all available commands")
 async def help_command(interaction: discord.Interaction):
-    """Show help information with new grouped command structure"""
+    """Show help information - filtered to show only enabled modules"""
     from .utils.version_manager import VersionManager
     version_mgr = VersionManager()
     current_version = version_mgr.get_current_version()
 
+    # Get enabled modules for this server
+    guild_id = interaction.guild.id if interaction.guild else 0
+    enabled_modules = server_config.get_enabled_modules(guild_id) if guild_id else []
+    
+    # Track disabled modules for footer note
+    disabled_modules = []
+
     embed = discord.Embed(
         title="🏈 Harry - Command Reference",
-        description=f"Commands are now organized into groups! Type `/` and the group name to see all options.\n\n**Version {current_version}**",
+        description=f"Type `/` and the group name to see all options.\n**Version {current_version}**",
         color=Colors.PRIMARY
     )
 
-    # Recruiting Group
+    # Recruiting Group - requires RECRUITING module
+    if "recruiting" in enabled_modules:
+        embed.add_field(
+            name="⭐ `/recruiting`",
+            value=(
+                "`player` - Look up a recruit\n"
+                "`top` - Top recruits by pos/state\n"
+                "`class` - Team's recruiting class\n"
+                "`commits` - List team's commits\n"
+                "`rankings` - Top 25 team rankings"
+            ),
+            inline=True
+        )
+    else:
+        disabled_modules.append("Recruiting")
+
+    # CFB Data Group - requires CFB_DATA module
+    if "cfb_data" in enabled_modules:
+        embed.add_field(
+            name="📊 `/cfb`",
+            value=(
+                "`player` - College player lookup\n"
+                "`rankings` - AP/Coaches/CFP polls\n"
+                "`schedule` - Team's schedule\n"
+                "`matchup` - Head-to-head history\n"
+                "`transfers` - Portal activity"
+            ),
+            inline=True
+        )
+    else:
+        disabled_modules.append("CFB Data")
+
+    # HS Stats Group - requires HS_STATS module
+    if "hs_stats" in enabled_modules:
+        embed.add_field(
+            name="🏫 `/hs`",
+            value=(
+                "`stats` - HS player stats\n"
+                "`bulk` - Multiple players"
+            ),
+            inline=True
+        )
+    else:
+        disabled_modules.append("HS Stats")
+
+    # League Group - requires LEAGUE module
+    if "league" in enabled_modules:
+        embed.add_field(
+            name="🏆 `/league`",
+            value=(
+                "**Season:** `week`, `weeks`, `games`, `byes`\n"
+                "**Timer:** `timer`, `timer_status`, `timer_stop`\n"
+                "**Staff:** `staff`, `set_owner`, `set_commish`"
+            ),
+            inline=True
+        )
+        # Charter is part of League
+        embed.add_field(
+            name="📜 `/charter`",
+            value=(
+                "`lookup` - Find a rule\n"
+                "`search` - Search charter\n"
+                "`link` - Charter URL\n"
+                "`history` - Recent changes"
+            ),
+            inline=True
+        )
+    else:
+        disabled_modules.append("League")
+
+    # AI Chat commands - requires AI_CHAT module
+    if "ai_chat" in enabled_modules:
+        embed.add_field(
+            name="💬 **AI Chat**",
+            value=(
+                "`/harry` - Ask about CFB/league\n"
+                "`/ask` - General AI questions\n"
+                "`/summarize` - Channel summary\n"
+                "`@Harry` - Chat naturally!"
+            ),
+            inline=True
+        )
+    else:
+        disabled_modules.append("AI Chat")
+
+    # Always available commands
     embed.add_field(
-        name="🏈 `/recruiting`",
+        name="🤖 **Always Available**",
         value=(
-            "`player` - Look up a recruit\n"
-            "`top` - Top recruits by pos/state\n"
-            "`class` - Team's recruiting class\n"
-            "`commits` - List team's commits\n"
-            "`rankings` - Top 25 team rankings\n"
-            "`source` - Switch data source"
+            "`/help` - This menu\n"
+            "`/version` - Bot version\n"
+            "`/whats_new` - Latest features"
         ),
         inline=True
     )
 
-    # CFB Data Group
-    embed.add_field(
-        name="📊 `/cfb`",
-        value=(
-            "`player` - College player lookup\n"
-            "`rankings` - AP/Coaches/CFP polls\n"
-            "`schedule` - Team's schedule\n"
-            "`matchup` - Head-to-head history\n"
-            "`transfers` - Portal activity\n"
-            "`draft` - NFL draft picks\n"
-            "`betting` - Game lines\n"
-            "`ratings` - SP+/SRS/Elo"
-        ),
-        inline=True
-    )
+    # Show disabled modules note if any
+    if disabled_modules:
+        embed.add_field(
+            name="ℹ️ Additional Features",
+            value=f"_{', '.join(disabled_modules)}_ disabled on this server.\nAsk an admin about `/admin config`",
+            inline=False
+        )
 
-    # HS Stats Group
-    embed.add_field(
-        name="🏫 `/hs`",
-        value=(
-            "`stats` - HS player stats\n"
-            "`bulk` - Multiple players"
-        ),
-        inline=True
-    )
-
-    # League Group (consolidated)
-    embed.add_field(
-        name="🏆 `/league`",
-        value=(
-            "**Staff:** `staff`, `set_owner`, `set_commish`\n"
-            "**Season:** `week`, `weeks`, `games`, `byes`\n"
-            "**Timer:** `timer`, `timer_status`, `timer_stop`\n"
-            "**Info:** `team`, `rules`, `dynasty`\n"
-            "**Fun:** `pick_commish`, `nag` 😈"
-        ),
-        inline=False
-    )
-
-    # Charter Group
-    embed.add_field(
-        name="📜 `/charter`",
-        value=(
-            "`lookup` - Find a rule\n"
-            "`search` - Search charter\n"
-            "`link` - Charter URL\n"
-            "`history` - Recent changes\n"
-            "`scan` - Scan for votes\n"
-            "`add`/`update` - Edit rules"
-        ),
-        inline=True
-    )
-
-    # Admin Group
-    embed.add_field(
-        name="⚙️ `/admin`",
-        value=(
-            "`config` - Module settings\n"
-            "`channels` - Channel perms\n"
-            "`add`/`remove` - Bot admins\n"
-            "`block`/`unblock` - Channels\n"
-            "`set_channel` - Admin channel"
-        ),
-        inline=True
-    )
-
-    # Standalone Commands
-    embed.add_field(
-        name="🤖 **Standalone**",
-        value=(
-            "`/harry` - Ask about CFB/league\n"
-            "`/ask` - General AI questions\n"
-            "`/summarize` - Channel summary\n"
-            "`/whats_new` - Latest features\n"
-            "`/version` `/changelog`"
-        ),
-        inline=True
-    )
-
-    embed.add_field(
-        name="💬 **Chat with Harry**",
-        value=(
-            "• `@Harry <question>` - Chat naturally!\n"
-            "• React with ❓ for help"
-        ),
-        inline=False
-    )
-
-    embed.set_footer(text="Harry - Your CFB 26 League Assistant 🏈 | Type /group_name to see all subcommands!")
+    embed.set_footer(text="Harry 🏈 | Type /group to see subcommands")
 
     await interaction.response.send_message(embed=embed)
 
