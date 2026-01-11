@@ -4469,16 +4469,33 @@ async def recruiting_portal(
             name_parts = (on3_name or name).split()
             if len(name_parts) >= 2:
                 last_name = name_parts[-1]
-                logger.info(f"🔄 Fallback: trying CFB lookup with last name '{last_name}'")
+                on3_pos = recruit_data.get('position', '').upper()
+                logger.info(f"🔄 Fallback: trying CFB lookup with last name '{last_name}' (pos: {on3_pos})")
                 try:
-                    college_stats = await cfb_data.get_full_player_info(last_name, team)
-                    # Verify it's the right person by checking position matches
-                    if college_stats:
-                        cfb_pos = college_stats.get('position', '').upper()
-                        on3_pos = recruit_data.get('position', '').upper()
-                        # If positions don't match at all, might be wrong person
-                        if cfb_pos and on3_pos and cfb_pos[0] != on3_pos[0]:
-                            logger.warning(f"⚠️ Position mismatch: CFB={cfb_pos}, On3={on3_pos} - might be different player")
+                    # Search for all players with this last name
+                    players = await cfb_data.search_player(last_name, team)
+                    if players and on3_pos:
+                        # Position mapping (On3 -> CFB equivalents)
+                        pos_groups = {
+                            'RB': ['RB', 'HB', 'FB'], 'WR': ['WR'], 'QB': ['QB'], 'TE': ['TE'],
+                            'OT': ['OT', 'OL', 'T'], 'OG': ['OG', 'OL', 'G'], 'OL': ['OL', 'OT', 'OG', 'C'],
+                            'DL': ['DL', 'DE', 'DT', 'NT'], 'DE': ['DE', 'DL', 'EDGE'], 'DT': ['DT', 'DL', 'NT'],
+                            'LB': ['LB', 'ILB', 'OLB', 'MLB'], 'CB': ['CB', 'DB'], 'S': ['S', 'SS', 'FS', 'DB'],
+                            'DB': ['DB', 'CB', 'S'], 'K': ['K', 'PK'], 'P': ['P'],
+                        }
+                        valid_pos = pos_groups.get(on3_pos, [on3_pos])
+                        # Find player with matching position
+                        for p in players:
+                            cfb_pos = (p.get('position') or '').upper()
+                            if cfb_pos in valid_pos or on3_pos in cfb_pos:
+                                logger.info(f"✅ Position match: {p.get('name')} ({cfb_pos}) = On3 ({on3_pos})")
+                                college_stats = await cfb_data.get_full_player_info(p.get('name'), p.get('team'))
+                                break
+                        else:
+                            logger.warning(f"⚠️ No position match in {len(players)} results")
+                    elif players:
+                        # No position from On3, use first result
+                        college_stats = await cfb_data.get_full_player_info(players[0].get('name'), players[0].get('team'))
                 except Exception as e:
                     logger.debug(f"Last name CFB lookup failed: {e}")
 
