@@ -499,4 +499,3 @@ async def setup(bot: commands.Bot):
     # Add the command group to the tree
     bot.tree.add_command(cog.cfb_group)
     logger.info("✅ CFBDataCog loaded")
-

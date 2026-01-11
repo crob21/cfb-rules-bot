@@ -7,13 +7,15 @@ Each cog can be loaded/unloaded independently.
 Available cogs:
 - HSStatsCog: High school stats from MaxPreps (/hs group)
 - CFBDataCog: College football data (/cfb group)
+- RecruitingCog: Recruiting data (/recruiting group)
 """
 
 from .hs_stats import HSStatsCog
 from .cfb_data import CFBDataCog
+from .recruiting import RecruitingCog
 
 __all__ = [
     'HSStatsCog',
     'CFBDataCog',
+    'RecruitingCog',
 ]
-
