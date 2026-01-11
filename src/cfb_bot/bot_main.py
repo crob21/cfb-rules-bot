@@ -80,7 +80,7 @@ async def setup_dependencies():
     This is called after bot is ready so we can access Discord objects.
     """
     logger.info("⚙️ Setting up cog dependencies...")
-    
+
     # Import optional dependencies
     ai_assistant = None
     AI_AVAILABLE = False
@@ -90,50 +90,50 @@ async def setup_dependencies():
     channel_manager = None
     timekeeper_manager = None
     schedule_manager = None
-    
+
     try:
         from .utils.ai_assistant import ai_assistant as _ai, AI_AVAILABLE as _ai_avail
         ai_assistant = _ai
         AI_AVAILABLE = _ai_avail
     except ImportError:
         logger.warning("⚠️ AI assistant not available")
-    
+
     try:
         from .utils.charter_editor import CharterEditor
         charter_editor = CharterEditor()
     except ImportError:
         logger.warning("⚠️ Charter editor not available")
-    
+
     try:
         from .utils.channel_summarizer import ChannelSummarizer
         channel_summarizer = ChannelSummarizer()
     except ImportError:
         logger.warning("⚠️ Channel summarizer not available")
-    
+
     try:
         from .utils.admin_manager import AdminManager
         admin_manager = AdminManager()
     except ImportError:
         logger.warning("⚠️ Admin manager not available")
-    
+
     try:
         from .utils.channel_manager import ChannelManager
         channel_manager = ChannelManager()
     except ImportError:
         logger.warning("⚠️ Channel manager not available")
-    
+
     try:
         from .utils.timekeeper import TimekeeperManager
         timekeeper_manager = TimekeeperManager(bot)
     except ImportError:
         logger.warning("⚠️ Timekeeper not available")
-    
+
     try:
         from .utils.schedule_manager import ScheduleManager
         schedule_manager = ScheduleManager()
     except ImportError:
         logger.warning("⚠️ Schedule manager not available")
-    
+
     # Set dependencies on cogs
     for cog_name, cog in bot.cogs.items():
         if hasattr(cog, 'set_dependencies'):
@@ -151,7 +151,7 @@ async def setup_dependencies():
                 if hasattr(cog, 'admin_manager'):
                     cog.admin_manager = admin_manager
             logger.info(f"  ✓ Dependencies set for {cog_name}")
-    
+
     logger.info("✅ All dependencies configured")
 
 
@@ -162,22 +162,22 @@ async def on_ready():
     """Called when the bot is ready"""
     logger.info(f"🏈 {bot.user} is online!")
     logger.info(f"📊 Connected to {len(bot.guilds)} server(s)")
-    
+
     # Setup dependencies
     await setup_dependencies()
-    
+
     # Sync commands
     try:
         for guild in bot.guilds:
             synced = await bot.tree.sync(guild=guild)
             logger.info(f"✅ Synced {len(synced)} command(s) to {guild.name}")
-        
+
         # Global sync
         global_synced = await bot.tree.sync()
         logger.info(f"✅ Synced {len(global_synced)} command(s) globally")
     except Exception as e:
         logger.error(f"❌ Failed to sync commands: {e}")
-    
+
     # Send startup notification to admin channels
     for guild in bot.guilds:
         admin_channel_id = server_config.get_admin_channel(guild.id)
@@ -205,7 +205,7 @@ async def on_ready():
 async def on_guild_join(guild):
     """Called when the bot joins a new guild"""
     logger.info(f"🎉 Joined new guild: {guild.name} (ID: {guild.id})")
-    
+
     # Sync commands to new guild
     try:
         synced = await bot.tree.sync(guild=guild)
@@ -220,10 +220,10 @@ async def on_message(message):
     # Ignore bot messages
     if message.author.bot:
         return
-    
+
     # Let cogs handle their own message processing
     await bot.process_commands(message)
-    
+
     # @mention handling is done in AIChatCog
     # Rivalry responses are also handled there
 
@@ -237,7 +237,7 @@ async def main():
     if not token:
         logger.error("❌ DISCORD_BOT_TOKEN environment variable not set!")
         sys.exit(1)
-    
+
     # Load cogs
     async with bot:
         await load_cogs()
@@ -257,4 +257,3 @@ def run():
 
 if __name__ == "__main__":
     run()
-

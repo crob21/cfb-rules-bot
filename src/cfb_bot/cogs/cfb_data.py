@@ -496,6 +496,5 @@ async def setup(bot: commands.Bot):
     """Required setup function for loading cog"""
     cog = CFBDataCog(bot)
     await bot.add_cog(cog)
-    # Add the command group to the tree
-    bot.tree.add_command(cog.cfb_group)
+    logger.info("✅ CFBDataCog loaded")
     logger.info("✅ CFBDataCog loaded")

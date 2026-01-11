@@ -517,6 +517,5 @@ async def setup(bot: commands.Bot):
     """Required setup function for loading cog"""
     cog = CharterCog(bot)
     await bot.add_cog(cog)
-    bot.tree.add_command(cog.charter_group)
     logger.info("✅ CharterCog loaded")
 

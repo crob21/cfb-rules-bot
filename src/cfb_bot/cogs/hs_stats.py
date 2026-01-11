@@ -273,7 +273,6 @@ async def setup(bot: commands.Bot):
     """Required setup function for loading cog"""
     cog = HSStatsCog(bot)
     await bot.add_cog(cog)
-    # Add the command group to the tree
-    bot.tree.add_command(cog.hs_group)
+    logger.info("✅ HSStatsCog loaded")
     logger.info("✅ HSStatsCog loaded")
 

@@ -716,6 +716,5 @@ async def setup(bot: commands.Bot):
     """Required setup function for loading cog"""
     cog = RecruitingCog(bot)
     await bot.add_cog(cog)
-    bot.tree.add_command(cog.recruiting_group)
     logger.info("✅ RecruitingCog loaded")
 

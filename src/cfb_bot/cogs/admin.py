@@ -521,6 +521,5 @@ async def setup(bot: commands.Bot):
     """Required setup function for loading cog"""
     cog = AdminCog(bot)
     await bot.add_cog(cog)
-    bot.tree.add_command(cog.admin_group)
     logger.info("✅ AdminCog loaded")
 
