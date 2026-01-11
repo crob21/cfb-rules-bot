@@ -6728,7 +6728,15 @@ async def channel_command(
 
         # Current channel status
         current_status = "✅ Enabled" if channel_enabled else "❌ Disabled"
-        auto_status = "✅ On" if auto_responses else "❌ Off"
+        
+        # Auto-responses only work if AI_CHAT is enabled
+        ai_chat_on = server_config.is_module_enabled(guild_id, FeatureModule.AI_CHAT)
+        if not ai_chat_on:
+            auto_status = "💤 Off (AI Chat disabled)"
+        elif auto_responses:
+            auto_status = "✅ On"
+        else:
+            auto_status = "❌ Off"
 
         embed.add_field(
             name=f"#{target_channel.name}",
