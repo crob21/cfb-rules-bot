@@ -199,19 +199,31 @@ class On3Scraper:
         if cached:
             return cached
 
-        # Try two searches:
-        # 1. First with class year filter (for high school recruits)
-        # 2. If not found, try broader search without year (for transfer portal)
+        # Build search strategies:
+        # 1. Full name with class year (high school recruits)
+        # 2. Full name without year (transfer portal)
+        # 3. Last name only with year (handles first name typos)
+        # 4. Last name only without year (transfers with first name typos)
+        name_parts = name.strip().split()
+        last_name = name_parts[-1] if name_parts else name
+        
         search_urls = [
-            (self.SEARCH_URL.format(name=quote_plus(name), year=year), f"class {year}"),
-            (self.SEARCH_URL_ALL.format(name=quote_plus(name)), "all players (including transfers)"),
+            (self.SEARCH_URL.format(name=quote_plus(name), year=year), f"class {year}", name),
+            (self.SEARCH_URL_ALL.format(name=quote_plus(name)), "all players (including transfers)", name),
         ]
+        
+        # Add last-name-only searches if name has multiple parts
+        if len(name_parts) >= 2:
+            search_urls.extend([
+                (self.SEARCH_URL.format(name=quote_plus(last_name), year=year), f"class {year} (last name)", name),
+                (self.SEARCH_URL_ALL.format(name=quote_plus(last_name)), "all players (last name)", name),
+            ])
 
         profile_url = None
         player_name = None
         is_transfer = False
 
-        for search_url, search_type in search_urls:
+        for search_url, search_type, search_name in search_urls:
             html = await self._fetch_page(search_url)
 
             if not html:
@@ -266,22 +278,30 @@ class On3Scraper:
                         is_transfer = (search_type == "all players (including transfers)")
                         logger.info(f"✅ Found profile (exact): {player_name} -> {profile_url} ({search_type})")
                         break
-                    
+
                     # Fuzzy matching for typos (e.g., "Daylon" vs "Daylan")
                     if FUZZY_AVAILABLE and not profile_url:
-                        # Compare full names using token_sort_ratio (handles word order)
-                        fuzzy_score = fuzz.token_sort_ratio(name_lower, link_text_lower)
+                        # Split into parts to check first AND last name
+                        search_parts = name_lower.split()
+                        result_parts = link_text_lower.split()
                         
-                        # Also try partial ratio for partial matches
-                        partial_score = fuzz.partial_ratio(name_lower, link_text_lower)
-                        
-                        # Use the better score
-                        score = max(fuzzy_score, partial_score)
-                        
-                        if score > best_fuzzy_score and score >= 80:  # 80% threshold
-                            best_fuzzy_score = score
-                            best_fuzzy_match = (href, link_text)
-                            logger.debug(f"🔍 Fuzzy candidate: {link_text} (score: {score}%)")
+                        # Only consider if both have at least 2 parts (first + last)
+                        if len(search_parts) >= 2 and len(result_parts) >= 2:
+                            # Check first name similarity
+                            first_score = fuzz.ratio(search_parts[0], result_parts[0])
+                            # Check last name similarity  
+                            last_score = fuzz.ratio(search_parts[-1], result_parts[-1])
+                            
+                            # BOTH first AND last name must be reasonably similar (>= 70%)
+                            # This prevents "Emmanuel Karnley" matching "Emmanuel Poag"
+                            if first_score >= 70 and last_score >= 70:
+                                # Overall score is average of both
+                                score = (first_score + last_score) // 2
+                                
+                                if score > best_fuzzy_score and score >= 75:  # 75% overall threshold
+                                    best_fuzzy_score = score
+                                    best_fuzzy_match = (href, link_text)
+                                    logger.debug(f"🔍 Fuzzy candidate: {link_text} (first:{first_score}%, last:{last_score}%, avg:{score}%)")
 
                 # If no exact match but we have a good fuzzy match, use it
                 if not profile_url and best_fuzzy_match:
