@@ -6741,22 +6741,42 @@ async def channel_command(
         else:
             embed.add_field(
                 name="🔇 No Channels Enabled",
-                value="Harry is **disabled everywhere**.\nUse `/channel enable` to enable him in specific channels.",
+                value="Harry is **disabled everywhere**.\nUse `/admin channels enable` to enable him in specific channels.",
                 inline=False
             )
+
+        # Show enabled modules (what works in whitelisted channels)
+        enabled_modules = server_config.get_enabled_modules(guild_id)
+        module_list = []
+        module_icons = {
+            "core": "🤖",
+            "ai_chat": "💬",
+            "cfb_data": "🏈",
+            "league": "🏆",
+            "hs_stats": "🏫",
+            "recruiting": "⭐",
+        }
+        for mod_name in enabled_modules:
+            icon = module_icons.get(mod_name, "📦")
+            module_list.append(f"{icon} {mod_name}")
+
+        embed.add_field(
+            name="📦 Enabled Modules",
+            value="\n".join(module_list) if module_list else "None",
+            inline=True
+        )
 
         embed.add_field(
             name="💡 Commands",
             value=(
-                "`/channel enable` - Enable Harry in this channel\n"
-                "`/channel disable` - Disable Harry in this channel\n"
-                "`/channel disable_all` - Disable Harry everywhere\n"
-                "`/channel toggle_rivalry` - Toggle 'Fuck Oregon!' jump-ins"
+                "`/admin channels enable` - Enable in channel\n"
+                "`/admin channels disable` - Disable in channel\n"
+                "`/admin config` - Manage modules"
             ),
-            inline=False
+            inline=True
         )
 
-        embed.set_footer(text="Harry's Channel Config 🏈")
+        embed.set_footer(text="Harry's Channel Config 🏈 | Channels control WHERE, Modules control WHAT")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     elif action == "enable":
