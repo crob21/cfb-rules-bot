@@ -1347,6 +1347,11 @@ class On3Scraper:
             # Location info
             loc = c.get('location', '')
             loc_short = loc.split(',')[0].strip() if loc else ''  # Just city
+            high_school = c.get('high_school', '')
+            
+            # HS vs Transfer indicator
+            # If they have a high school, they're HS recruit; otherwise likely transfer
+            player_type = "🏫" if high_school else "🔄"
 
             # Compact star display
             star_str = f"{stars}⭐" if stars else ""
@@ -1356,18 +1361,21 @@ class On3Scraper:
             status = c.get('status', '')
             status_emoji = "✅" if status == 'Signed' else "📝" if status == 'Committed' else ""
 
-            # Format: 1. 4⭐ Kodi Greene (OT) 96.5 - Santa Ana ✅
+            # Format: 1. 🏫 4⭐ Kodi Greene (OT) 96.5 • Santa Ana ✅
             loc_part = f" • {loc_short}" if loc_short else ""
-            lines.append(f"`{i:2d}.` {star_str} **{name}** ({pos}) {rating_str}{loc_part} {status_emoji}")
+            lines.append(f"`{i:2d}.` {player_type} {star_str} **{name}** ({pos}) {rating_str}{loc_part} {status_emoji}")
 
         # Show truncation message if needed
         if len(commits) > limit:
             lines.append(f"")
             lines.append(f"_...and {len(commits) - limit} more commits_")
 
+        # Legend
+        lines.append("")
+        lines.append("_🏫 = HS | 🔄 = Transfer | ✅ = Signed | 📝 = Committed_")
+
         # Link to full page
         if data.get('commits_url'):
-            lines.append("")
             lines.append(f"[View Full Class on On3/Rivals]({data['commits_url']})")
 
         return '\n'.join(lines)
