@@ -84,23 +84,7 @@ COMMAND_MODULES = {
     "/recruiting rankings": FeatureModule.RECRUITING,
     "/recruiting source": FeatureModule.RECRUITING,
 
-    # Timer commands (/timer group)
-    "/timer start": FeatureModule.LEAGUE,
-    "/timer stop": FeatureModule.LEAGUE,
-    "/timer status": FeatureModule.LEAGUE,
-    "/timer channel": FeatureModule.LEAGUE,
-    "/timer nag": FeatureModule.LEAGUE,
-    "/timer stop_nag": FeatureModule.LEAGUE,
-
-    # Season commands (/season group)
-    "/season current": FeatureModule.LEAGUE,
-    "/season schedule": FeatureModule.LEAGUE,
-    "/season games": FeatureModule.LEAGUE,
-    "/season find": FeatureModule.LEAGUE,
-    "/season byes": FeatureModule.LEAGUE,
-    "/season set": FeatureModule.LEAGUE,
-
-    # League commands (/league group)
+    # League commands (/league group - includes season & timer)
     "/league staff": FeatureModule.LEAGUE,
     "/league rules": FeatureModule.LEAGUE,
     "/league team": FeatureModule.LEAGUE,
@@ -108,6 +92,20 @@ COMMAND_MODULES = {
     "/league set_owner": FeatureModule.LEAGUE,
     "/league set_commish": FeatureModule.LEAGUE,
     "/league pick_commish": FeatureModule.LEAGUE,
+    # Season commands (merged into /league)
+    "/league week": FeatureModule.LEAGUE,
+    "/league weeks": FeatureModule.LEAGUE,
+    "/league games": FeatureModule.LEAGUE,
+    "/league find_game": FeatureModule.LEAGUE,
+    "/league byes": FeatureModule.LEAGUE,
+    "/league set_week": FeatureModule.LEAGUE,
+    # Timer commands (merged into /league)
+    "/league timer": FeatureModule.LEAGUE,
+    "/league timer_status": FeatureModule.LEAGUE,
+    "/league timer_stop": FeatureModule.LEAGUE,
+    "/league timer_channel": FeatureModule.LEAGUE,
+    "/league nag": FeatureModule.LEAGUE,
+    "/league stop_nag": FeatureModule.LEAGUE,
 
     # Charter commands (/charter group)
     "/charter lookup": FeatureModule.LEAGUE,

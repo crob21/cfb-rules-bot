@@ -11,10 +11,48 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "2.0.0"
+CURRENT_VERSION = "2.1.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "2.1.0": {
+        "date": "2026-01-10",
+        "title": "League Consolidation - Season & Timer Merged!",
+        "emoji": "🏆",
+        "features": [
+            {
+                "category": "Simplified Structure",
+                "emoji": "📦",
+                "changes": [
+                    "Merged `/season` and `/timer` into `/league` group",
+                    "All league management now under ONE command group!",
+                    "Reduced from 8 groups to 6 groups",
+                    "`/league` now has 19 commands covering everything"
+                ]
+            },
+            {
+                "category": "New /league Commands",
+                "emoji": "🏆",
+                "changes": [
+                    "**Season:** `week`, `weeks`, `games`, `find_game`, `byes`, `set_week`",
+                    "**Timer:** `timer`, `timer_status`, `timer_stop`, `timer_channel`",
+                    "**Staff:** `staff`, `set_owner`, `set_commish`, `pick_commish`",
+                    "**Fun:** `nag`, `stop_nag` 😈"
+                ]
+            },
+            {
+                "category": "Migration Guide",
+                "emoji": "🔄",
+                "changes": [
+                    "`/season current` → `/league week`",
+                    "`/season schedule` → `/league weeks`",
+                    "`/timer start` → `/league timer`",
+                    "`/timer status` → `/league timer_status`",
+                    "`/timer stop` → `/league timer_stop`"
+                ]
+            }
+        ]
+    },
     "2.0.0": {
         "date": "2026-01-10",
         "title": "🚀 Command Reorganization - Grouped Commands!",
@@ -24,7 +62,7 @@ CHANGELOG: Dict[str, Dict] = {
                 "category": "BREAKING: Command Structure",
                 "emoji": "⚠️",
                 "changes": [
-                    "All 63 commands reorganized into 8 logical groups!",
+                    "All 63 commands reorganized into logical groups!",
                     "Type `/group` to see all subcommands (e.g., `/recruiting`, `/cfb`)",
                     "Better discoverability - related commands are now together",
                     "Old commands like `/recruit` are now `/recruiting player`"
@@ -34,31 +72,12 @@ CHANGELOG: Dict[str, Dict] = {
                 "category": "Command Groups",
                 "emoji": "📂",
                 "changes": [
-                    "`/recruiting` - Recruits, rankings, commits, class data (6 commands)",
-                    "`/cfb` - College football stats, rankings, schedules (9 commands)",
-                    "`/hs` - High school stats from MaxPreps (2 commands)",
-                    "`/season` - Dynasty week/schedule management (6 commands)",
-                    "`/timer` - Advance countdown controls (6 commands)",
-                    "`/league` - Staff, team info, rules (7 commands)",
-                    "`/charter` - Rules lookup, search, editing (10 commands)",
-                    "`/admin` - Config, channels, bot admins (9 commands)"
-                ]
-            },
-            {
-                "category": "Command Mapping (Old → New)",
-                "emoji": "🔄",
-                "changes": [
-                    "`/recruit` → `/recruiting player`",
-                    "`/top_recruits` → `/recruiting top`",
-                    "`/recruiting_class` → `/recruiting class`",
-                    "`/team_commits` → `/recruiting commits`",
-                    "`/player` → `/cfb player`",
-                    "`/rankings` → `/cfb rankings`",
-                    "`/hs_stats` → `/hs stats`",
-                    "`/week` → `/season current`",
-                    "`/advance` → `/timer start`",
-                    "`/config` → `/admin config`",
-                    "...and 50+ more! Use `/help` for full reference"
+                    "`/recruiting` - Recruits, rankings, commits, class data",
+                    "`/cfb` - College football stats, rankings, schedules",
+                    "`/hs` - High school stats from MaxPreps",
+                    "`/league` - Staff, season, timer, dynasty (consolidated)",
+                    "`/charter` - Rules lookup, search, editing",
+                    "`/admin` - Config, channels, bot admins"
                 ]
             },
             {
@@ -66,7 +85,7 @@ CHANGELOG: Dict[str, Dict] = {
                 "emoji": "❓",
                 "changes": [
                     "New `/help` command (renamed from `/help_cfb`)",
-                    "Shows all 8 command groups with subcommands",
+                    "Shows all command groups with subcommands",
                     "Quick reference for the new structure"
                 ]
             }

@@ -2,26 +2,24 @@
 
 This document outlines all features of Harry, the CFB 26 League Bot.
 
-**Current Version:** 2.0.0
+**Current Version:** 2.1.0
 **Last Updated:** January 10, 2026
 **Status:** ✅ Production Ready
 
 ---
 
-## 🚀 Version 2.0 - Command Reorganization
+## 🚀 Version 2.1 - Consolidated Command Structure
 
-All 63 commands have been reorganized into 8 logical groups for better discoverability!
+Commands are organized into **6 logical groups** for better discoverability!
 
-### New Command Structure
+### Command Groups
 
 | Group | Description | Example |
 |-------|-------------|---------|
 | `/recruiting` | Recruits, rankings, commits | `/recruiting player Arch Manning` |
 | `/cfb` | College football stats | `/cfb rankings` |
 | `/hs` | High school stats | `/hs stats Gavin Day` |
-| `/season` | Dynasty week/schedule | `/season current` |
-| `/timer` | Advance countdown | `/timer start 48` |
-| `/league` | Staff, team info, rules | `/league staff` |
+| `/league` | **Staff, season, timer, dynasty** | `/league week`, `/league timer` |
 | `/charter` | Rules lookup & editing | `/charter search transfers` |
 | `/admin` | Config & bot admins | `/admin config view` |
 
@@ -31,13 +29,12 @@ All 63 commands have been reorganized into 8 logical groups for better discovera
 |-------------|-------------|
 | `/recruit name` | `/recruiting player name` |
 | `/top_recruits` | `/recruiting top` |
-| `/recruiting_class` | `/recruiting class` |
-| `/team_commits` | `/recruiting commits` |
 | `/player name` | `/cfb player name` |
 | `/rankings` | `/cfb rankings` |
 | `/hs_stats name` | `/hs stats name` |
-| `/week` | `/season current` |
-| `/advance 48` | `/timer start 48` |
+| `/week` | `/league week` |
+| `/advance 48` | `/league timer 48` |
+| `/time_status` | `/league timer_status` |
 | `/config` | `/admin config` |
 
 ---
@@ -172,52 +169,6 @@ Jr. 24-25 (12 GP)
   🛡️ Defense: 210 Solo/283 TKL
 ```
 
----
-
-## ⏱️ `/timer` - Advance Timer
-
-Server-wide countdown timers for league advances.
-
-### Commands
-
-| Command | Description | Access |
-|---------|-------------|--------|
-| `/timer start [hours]` | Start countdown (default 48h) | Admin |
-| `/timer status` | Check countdown progress | Everyone |
-| `/timer stop` | Stop the timer | Admin |
-| `/timer channel #channel` | Set notification channel | Admin |
-| `/timer nag [interval]` | Spam owner to advance 😈 | Bot Owner |
-| `/timer stop_nag` | Stop the chaos | Bot Owner |
-
-### Features
-
-- **Custom Duration**: 1-336 hours (default 48h)
-- **Automatic Notifications**: 24h, 12h, 6h, 1h remaining
-- **Visual Progress Bar**: Color-coded urgency levels
-- **Persistence**: Survives bot restarts and deployments!
-
----
-
-## 📅 `/season` - Dynasty Week System
-
-Full 30-week CFB 26 season tracking with actions and notes.
-
-### Commands
-
-| Command | Description |
-|---------|-------------|
-| `/season current` | Show current week, phase, and actions |
-| `/season schedule` | Show full 30-week dynasty schedule |
-| `/season games [week]` | Show week's matchups |
-| `/season find <team> [week]` | Find team's opponent |
-| `/season byes [week]` | Show bye teams |
-| `/season set <season> <week>` | Set current season/week (Admin) |
-
-### Season Structure
-
-- **Regular Season** (Weeks 0-15): Season Kickoff → Conference Championships
-- **Post-Season** (Weeks 16-21): Bowl Games → Award Show
-- **Offseason** (Weeks 22-29): Transfer Portal → New Season!
 
 ---
 
@@ -252,19 +203,46 @@ Talk to Harry naturally:
 
 ## 🏆 `/league` - League Management
 
-League staff and rules.
+Complete league management: staff, season, timer, and more!
 
-### Commands
+### Staff Commands
 
 | Command | Description |
 |---------|-------------|
 | `/league staff` | View owner & co-commish |
-| `/league team <name>` | Team info |
-| `/league rules <topic>` | Recruiting rules |
-| `/league dynasty <topic>` | Dynasty rules |
 | `/league set_owner @user` | Set owner (Admin) |
 | `/league set_commish @user` | Set co-commish (Admin) |
 | `/league pick_commish [hours]` | AI picks commish! 👑 |
+
+### Season Commands
+
+| Command | Description |
+|---------|-------------|
+| `/league week` | Current season & week |
+| `/league weeks` | Full 30-week schedule |
+| `/league games [week]` | Week's matchups |
+| `/league find_game <team> [week]` | Find team's opponent |
+| `/league byes [week]` | Bye teams |
+| `/league set_week <season> <week>` | Set week (Admin) |
+
+### Timer Commands
+
+| Command | Description |
+|---------|-------------|
+| `/league timer [hours]` | Start advance countdown (default 48h) |
+| `/league timer_status` | Check countdown progress |
+| `/league timer_stop` | Stop the countdown |
+| `/league timer_channel #channel` | Set notification channel |
+| `/league nag [interval]` | Spam owner to advance 😈 |
+| `/league stop_nag` | Stop the chaos |
+
+### Info Commands
+
+| Command | Description |
+|---------|-------------|
+| `/league team <name>` | Team info |
+| `/league rules <topic>` | Recruiting rules |
+| `/league dynasty <topic>` | Dynasty rules |
 
 ### The Asshole Detector 🚨
 

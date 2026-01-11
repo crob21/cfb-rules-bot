@@ -469,22 +469,10 @@ charter_group = app_commands.Group(
     description="📜 League charter - rules, search, history"
 )
 
-# League management commands
+# League management commands (includes season & timer)
 league_group = app_commands.Group(
     name="league",
-    description="🏆 League info - staff, teams, dynasty rules"
-)
-
-# Season/schedule commands
-season_group = app_commands.Group(
-    name="season",
-    description="📅 Season management - week, schedule, games"
-)
-
-# Timer/advance commands
-timer_group = app_commands.Group(
-    name="timer",
-    description="⏱️ Advance timer - start, stop, status"
+    description="🏆 League management - staff, season, timer, dynasty"
 )
 
 # Admin commands
@@ -2867,45 +2855,17 @@ async def help_command(interaction: discord.Interaction):
         inline=True
     )
 
-    # Season Group
-    embed.add_field(
-        name="📅 `/season`",
-        value=(
-            "`current` - Current week\n"
-            "`schedule` - Full season\n"
-            "`games` - Week's matchups\n"
-            "`find` - Team's opponent\n"
-            "`byes` - Bye teams\n"
-            "`set` - Set week *(Admin)*"
-        ),
-        inline=True
-    )
-
-    # Timer Group
-    embed.add_field(
-        name="⏱️ `/timer`",
-        value=(
-            "`start` - Start countdown\n"
-            "`status` - Check progress\n"
-            "`stop` - Stop timer\n"
-            "`channel` - Set channel\n"
-            "`nag` - Nag owner 😈"
-        ),
-        inline=True
-    )
-
-    # League Group
+    # League Group (consolidated)
     embed.add_field(
         name="🏆 `/league`",
         value=(
-            "`staff` - Owner & commish\n"
-            "`team` - Team info\n"
-            "`rules` - Recruiting rules\n"
-            "`dynasty` - Dynasty rules\n"
-            "`set_owner` - Set owner\n"
-            "`set_commish` - Set commish"
+            "**Staff:** `staff`, `set_owner`, `set_commish`\n"
+            "**Season:** `week`, `weeks`, `games`, `byes`\n"
+            "**Timer:** `timer`, `timer_status`, `timer_stop`\n"
+            "**Info:** `team`, `rules`, `dynasty`\n"
+            "**Fun:** `pick_commish`, `nag` 😈"
         ),
-        inline=True
+        inline=False
     )
 
     # Charter Group
@@ -4356,9 +4316,9 @@ async def ask_ai(interaction: discord.Interaction, question: str):
         except Exception as e:
             logger.error(f"❌ Failed to send /ask response: {str(e)}", exc_info=True)
 
-@timer_group.command(name="start", description="Start advance countdown timer (Admin only)")
+@league_group.command(name="timer", description="Start advance countdown timer (Admin only)")
 @app_commands.describe(hours="Number of hours for the countdown (default: 48)")
-async def timer_start(interaction: discord.Interaction, hours: int = 48):
+async def league_timer(interaction: discord.Interaction, hours: int = 48):
     """
     Start the advance countdown timer
 
@@ -4462,8 +4422,8 @@ async def timer_start(interaction: discord.Interaction, hours: int = 48):
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-@timer_group.command(name="status", description="Check the current advance countdown status")
-async def timer_status(interaction: discord.Interaction):
+@league_group.command(name="timer_status", description="Check the current advance countdown status")
+async def league_timer_status(interaction: discord.Interaction):
     """Check the current advance countdown status"""
     # Check if league module is enabled
     if not await check_module_enabled(interaction, FeatureModule.LEAGUE):
@@ -4585,8 +4545,8 @@ async def timer_status(interaction: discord.Interaction):
         logger.error(f"❌ Error in /time_status: {str(e)}", exc_info=True)
         await interaction.followup.send(f"❌ Error checking timer status: {str(e)}", ephemeral=True)
 
-@timer_group.command(name="stop", description="Stop the current advance countdown (Admin only)")
-async def timer_stop(interaction: discord.Interaction):
+@league_group.command(name="timer_stop", description="Stop the current advance countdown (Admin only)")
+async def league_timer_stop(interaction: discord.Interaction):
     """Stop the current advance countdown"""
     # Check if user is admin
     if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
@@ -4615,8 +4575,8 @@ async def timer_stop(interaction: discord.Interaction):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-@season_group.command(name="current", description="Check the current season and week")
-async def season_current(interaction: discord.Interaction):
+@league_group.command(name="week", description="Check the current season and week")
+async def league_week(interaction: discord.Interaction):
     """Check the current season and week"""
     if not timekeeper_manager:
         await interaction.response.send_message("❌ Timekeeper not available", ephemeral=True)
@@ -4668,8 +4628,8 @@ async def season_current(interaction: discord.Interaction):
     embed.set_footer(text="Harry's Week Tracker 🏈 | Use /set_season_week to change")
     await interaction.response.send_message(embed=embed)
 
-@season_group.command(name="schedule", description="View the full CFB 26 Dynasty week schedule")
-async def season_schedule(interaction: discord.Interaction):
+@league_group.command(name="weeks", description="View the full CFB 26 Dynasty week schedule")
+async def league_weeks(interaction: discord.Interaction):
     """View the full week schedule for a CFB 26 Dynasty season"""
     # Get current week info
     current_week = None
@@ -4777,11 +4737,11 @@ async def season_schedule(interaction: discord.Interaction):
 
 # ==================== Schedule Commands ====================
 
-@season_group.command(name="games", description="View the games for a specific week")
+@league_group.command(name="games", description="View the games for a specific week")
 @app_commands.describe(
     week="Week number (0-13 for regular season, leave empty for current week)"
 )
-async def season_games(interaction: discord.Interaction, week: Optional[int] = None):
+async def league_games(interaction: discord.Interaction, week: Optional[int] = None):
     """View the schedule for a specific week"""
     # Check if league module is enabled
     if not await check_module_enabled(interaction, FeatureModule.LEAGUE):
@@ -4855,12 +4815,12 @@ async def season_games(interaction: discord.Interaction, week: Optional[int] = N
     embed.set_footer(text="Harry's Schedule Tracker 🏈 | Use /find_game for specific team info")
     await interaction.response.send_message(embed=embed)
 
-@season_group.command(name="find", description="Find a team's game for a specific week")
+@league_group.command(name="find_game", description="Find a team's game for a specific week")
 @app_commands.describe(
     team="Team name (e.g., Hawaii, LSU, Notre Dame)",
     week="Week number (0-13, leave empty for current week)"
 )
-async def season_find(interaction: discord.Interaction, team: str, week: Optional[int] = None):
+async def league_find_game(interaction: discord.Interaction, team: str, week: Optional[int] = None):
     """Find a specific team's game in the dynasty schedule"""
     if not schedule_manager:
         await interaction.response.send_message("❌ Schedule manager not available", ephemeral=True)
@@ -4932,11 +4892,11 @@ async def season_find(interaction: discord.Interaction, team: str, week: Optiona
     embed.set_footer(text="Harry's Schedule Tracker 🏈")
     await interaction.response.send_message(embed=embed)
 
-@season_group.command(name="byes", description="Show which teams have a bye this week")
+@league_group.command(name="byes", description="Show which teams have a bye this week")
 @app_commands.describe(
     week="Week number (0-13, leave empty for current week)"
 )
-async def season_byes(interaction: discord.Interaction, week: Optional[int] = None):
+async def league_byes(interaction: discord.Interaction, week: Optional[int] = None):
     """Show teams on bye for a specific week"""
     if not schedule_manager:
         await interaction.response.send_message("❌ Schedule manager not available", ephemeral=True)
@@ -4976,12 +4936,12 @@ async def season_byes(interaction: discord.Interaction, week: Optional[int] = No
     embed.set_footer(text="Harry's Schedule Tracker 🏈")
     await interaction.response.send_message(embed=embed)
 
-@season_group.command(name="set", description="Set the current season and week (Admin only)")
+@league_group.command(name="set_week", description="Set the current season and week (Admin only)")
 @app_commands.describe(
     season="Season number",
     week="Week number (0-13 for regular season)"
 )
-async def season_set(interaction: discord.Interaction, season: int, week: int):
+async def league_set_week(interaction: discord.Interaction, season: int, week: int):
     """Set the current season and week"""
     # Check if user is admin
     if not admin_manager or not admin_manager.is_admin(interaction.user, interaction):
@@ -5033,9 +4993,9 @@ async def season_set(interaction: discord.Interaction, season: int, week: int):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-@timer_group.command(name="channel", description="Set the channel for timer notifications (Admin only)")
+@league_group.command(name="timer_channel", description="Set the channel for timer notifications (Admin only)")
 @app_commands.describe(channel="Channel for timer notifications")
-async def timer_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+async def league_timer_channel(interaction: discord.Interaction, channel: discord.TextChannel):
     """Set the channel where timer notifications (advance announcements, countdowns) will be sent"""
     global GENERAL_CHANNEL_ID
 
@@ -5455,11 +5415,11 @@ Be extremely sarcastic, funny, and insane. Give each person a proper roast!"""
 
 # ==================== Owner Nagging Commands (Bot Owner Only) ====================
 
-@timer_group.command(name="nag", description="Start spamming the league owner to advance (Bot Owner only)")
+@league_group.command(name="nag", description="Start spamming the league owner to advance (Bot Owner only)")
 @app_commands.describe(
     interval="How often to nag in minutes (default: 5)"
 )
-async def timer_nag(interaction: discord.Interaction, interval: int = 5):
+async def league_nag(interaction: discord.Interaction, interval: int = 5):
     """Start nagging the league owner to advance the week"""
     # This is for the bot owner ONLY - check application info
     try:
@@ -5522,8 +5482,8 @@ async def timer_nag(interaction: discord.Interaction, interval: int = 5):
     else:
         await interaction.response.send_message("❌ Failed to start nagging!", ephemeral=True)
 
-@timer_group.command(name="stop_nag", description="Stop spamming the league owner (Bot Owner only)")
-async def timer_stop_nag(interaction: discord.Interaction):
+@league_group.command(name="stop_nag", description="Stop spamming the league owner (Bot Owner only)")
+async def league_stop_nag(interaction: discord.Interaction):
     """Stop nagging the league owner"""
     # This is for the bot owner ONLY
     try:
@@ -6915,9 +6875,7 @@ bot.tree.add_command(recruiting_group)
 bot.tree.add_command(hs_group)
 bot.tree.add_command(cfb_group)
 bot.tree.add_command(charter_group)
-bot.tree.add_command(league_group)
-bot.tree.add_command(season_group)
-bot.tree.add_command(timer_group)
+bot.tree.add_command(league_group)  # Includes season & timer commands
 bot.tree.add_command(admin_group)
 
 
