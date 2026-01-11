@@ -1164,18 +1164,24 @@ class On3Scraper:
             soup = BeautifulSoup(html, 'html.parser')
             teams = []
 
-            rows = soup.select('tr, [role="row"]')
+            # On3 uses listitem/li elements, not table rows
+            rows = soup.select('listitem, li, tr, [role="row"]')
+            logger.debug(f"Found {len(rows)} potential team rows")
 
             for row in rows:
                 if len(teams) >= limit:
                     break
 
-                team_link = row.select_one('a[href*="/college/"]')
+                # Look for team links with commits URL pattern
+                team_link = row.select_one('a[href*="/industry-comparison-commits/"]')
+                if not team_link:
+                    # Fallback to college links
+                    team_link = row.select_one('a[href*="/college/"]')
                 if not team_link:
                     continue
 
                 team_name = team_link.get_text(strip=True)
-                if not team_name:
+                if not team_name or len(team_name) < 2:
                     continue
 
                 row_text = row.get_text()
@@ -1190,10 +1196,15 @@ class On3Scraper:
                     'source': 'On3/Rivals'
                 }
 
-                # Average rating
+                # Average rating (format: 92.45)
                 avg_match = re.search(r'(\d{2}\.\d{2})', row_text)
                 if avg_match:
                     team_data['avg_rating'] = float(avg_match.group(1))
+
+                # Commits count
+                commits_match = re.search(r'(\d{1,2})\s*(?:commits?|total)', row_text, re.IGNORECASE)
+                if commits_match:
+                    team_data['total_commits'] = int(commits_match.group(1))
 
                 teams.append(team_data)
 

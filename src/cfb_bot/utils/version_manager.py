@@ -11,10 +11,26 @@ from typing import Dict, List, Optional
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "2.4.0"
+CURRENT_VERSION = "2.4.1"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "2.4.1": {
+        "date": "2026-01-11",
+        "title": "Recruiting Rankings Fix",
+        "emoji": "🛠️",
+        "features": [
+            {
+                "category": "Bug Fix",
+                "emoji": "🐛",
+                "changes": [
+                    "Fixed /recruiting rankings showing 0 teams",
+                    "Updated On3 page parser for their new HTML structure",
+                    "Team rankings now properly parse listitem elements"
+                ]
+            }
+        ]
+    },
     "2.4.0": {
         "date": "2026-01-11",
         "title": "Transfer Portal Command & Fuzzy Search!",
