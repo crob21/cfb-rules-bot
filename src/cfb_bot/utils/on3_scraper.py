@@ -381,7 +381,13 @@ class On3Scraper:
                 'visits': [],           # Official/unofficial visits
                 'image_url': None,      # Player profile photo
                 'profile_url': profile_url,
-                'source': 'On3/Rivals'
+                'source': 'On3/Rivals',
+                # Transfer portal fields
+                'is_transfer': False,
+                'previous_school': None,
+                'college_experience': None,
+                'portal_rating': None,
+                'portal_entry_date': None
             }
 
             # Player name - from h1 or title (get this first for image fallback)
@@ -625,7 +631,33 @@ class On3Scraper:
                         'type': match.group(3)
                     })
 
-            logger.info(f"✅ Scraped profile: {recruit['name']} ({recruit['position']}) - {recruit['stars']}⭐ | {len(recruit['offers'])} offers, {len(recruit['visits'])} visits")
+            # ==================== TRANSFER PORTAL DETECTION ====================
+            # Check for "Transfer Portal" section which indicates a college transfer
+            # On3 shows: "Transfer Portal (SHSU)" with previous school, experience years
+            if 'Transfer Portal' in page_text:
+                recruit['is_transfer'] = True
+                
+                # Try to get previous school from "Transfer Portal(SCHOOL)" pattern
+                prev_school_match = re.search(r'Transfer Portal\s*\(([^)]+)\)', page_text)
+                if prev_school_match:
+                    recruit['previous_school'] = prev_school_match.group(1)
+                
+                # Try to get experience years (e.g., "Experience2023 - 2025")
+                exp_match = re.search(r'Experience\s*(\d{4})\s*[-–]\s*(\d{4})', page_text)
+                if exp_match:
+                    recruit['college_experience'] = f"{exp_match.group(1)}-{exp_match.group(2)}"
+                
+                # Try to get transfer portal rating
+                portal_rating_match = re.search(r'Transfer Portal Rating\s*(\d{2}\.\d{2})', page_text)
+                if portal_rating_match:
+                    recruit['portal_rating'] = float(portal_rating_match.group(1))
+                
+                # Try to get portal entry date
+                entered_match = re.search(r'Entered\s*[-–]\s*(\d{1,2}/\d{1,2}/\d{2,4})', page_text)
+                if entered_match:
+                    recruit['portal_entry_date'] = entered_match.group(1)
+
+            logger.info(f"✅ Scraped profile: {recruit['name']} ({recruit['position']}) - {recruit['stars']}⭐ | {len(recruit['offers'])} offers, {len(recruit['visits'])} visits" + (" | 🌀 PORTAL" if recruit.get('is_transfer') else ""))
             return recruit
 
         except Exception as e:
@@ -1290,6 +1322,19 @@ class On3Scraper:
         if recruit.get('nil_value'):
             lines.append(f"• NIL Value: **{recruit['nil_value']}**")
         lines.append("")
+
+        # Transfer Portal section (if applicable)
+        if recruit.get('is_transfer'):
+            lines.append("**🌀 Transfer Portal**")
+            if recruit.get('previous_school'):
+                lines.append(f"• Previous School: **{recruit['previous_school']}**")
+            if recruit.get('college_experience'):
+                lines.append(f"• College Experience: **{recruit['college_experience']}**")
+            if recruit.get('portal_entry_date'):
+                lines.append(f"• Entered Portal: **{recruit['portal_entry_date']}**")
+            if recruit.get('portal_rating'):
+                lines.append(f"• Portal Rating: **{recruit['portal_rating']}**")
+            lines.append("")
 
         # Commitment status
         if recruit.get('committed_to'):
