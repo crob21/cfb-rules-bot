@@ -6535,6 +6535,43 @@ async def recruiting_source(
     )
 
 
+@admin_group.command(name="sync", description="Force sync slash commands to this server (Admin only)")
+async def admin_sync(interaction: discord.Interaction):
+    """Force sync slash commands to update dropdowns and choices"""
+    # Check admin
+    is_admin = (
+        interaction.user.guild_permissions.administrator or
+        (admin_manager and admin_manager.is_admin(interaction.user, interaction))
+    )
+    if not is_admin:
+        await interaction.response.send_message(
+            "❌ Only server admins can sync commands!",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True)
+
+    try:
+        # Sync to this guild specifically (instant)
+        guild = interaction.guild
+        bot.tree.copy_global_to(guild=guild)
+        synced = await bot.tree.sync(guild=guild)
+
+        await interaction.followup.send(
+            f"✅ Synced **{len(synced)}** commands to this server!\n"
+            f"Slash command dropdowns should now be updated.",
+            ephemeral=True
+        )
+        logger.info(f"🔄 Manual sync by {interaction.user}: {len(synced)} commands synced to {guild.name}")
+    except Exception as e:
+        await interaction.followup.send(
+            f"❌ Failed to sync: {str(e)}",
+            ephemeral=True
+        )
+        logger.error(f"❌ Manual sync failed: {e}")
+
+
 @admin_group.command(name="channels", description="View/manage which channels Harry can respond in (no args = view status)")
 @app_commands.describe(
     action="What to do (leave empty to view current status)",
