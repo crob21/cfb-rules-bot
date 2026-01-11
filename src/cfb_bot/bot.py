@@ -6213,7 +6213,7 @@ async def admin_blocked(interaction: discord.Interaction):
 @admin_group.command(name="config", description="Configure Harry's features for this server")
 @app_commands.describe(
     action="What to do: view, enable, or disable",
-    module="Which module: cfb_data, league, hs_stats, or recruiting"
+    module="Which module to toggle"
 )
 @app_commands.choices(action=[
     app_commands.Choice(name="view", value="view"),
@@ -6221,6 +6221,7 @@ async def admin_blocked(interaction: discord.Interaction):
     app_commands.Choice(name="disable", value="disable"),
 ])
 @app_commands.choices(module=[
+    app_commands.Choice(name="ai_chat - /harry, /ask, @mentions, auto-responses", value="ai_chat"),
     app_commands.Choice(name="cfb_data - Player lookup, rankings, matchups, etc.", value="cfb_data"),
     app_commands.Choice(name="league - Timer, charter, rules, dynasty features", value="league"),
     app_commands.Choice(name="hs_stats - High school stats from MaxPreps (scraping)", value="hs_stats"),
@@ -6235,9 +6236,12 @@ async def config_command(
     Configure which features Harry has enabled on this server.
 
     Modules:
-    - core: Always enabled - Harry's personality, general AI chat
+    - core: Always enabled - /help, /admin, /version (can't disable)
+    - ai_chat: Harry's AI - /harry, /ask, /summarize, @mentions
     - cfb_data: Player lookup, rankings, matchups, schedules, draft, transfers
     - league: Timer, advance, charter, rules, league staff, dynasty features
+    - hs_stats: High school stats from MaxPreps
+    - recruiting: On3/Rivals or 247Sports rankings
     """
     if not interaction.guild:
         await interaction.response.send_message("❌ This command only works in servers, not DMs!", ephemeral=True)
