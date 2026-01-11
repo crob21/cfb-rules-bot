@@ -5,8 +5,8 @@ Tracks versions and changelog
 """
 
 import logging
-from typing import Dict, List, Optional
 from datetime import datetime
+from typing import Dict, List, Optional
 
 logger = logging.getLogger('CFB26Bot.Version')
 

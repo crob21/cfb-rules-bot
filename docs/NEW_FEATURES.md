@@ -2,13 +2,13 @@
 
 This document outlines all features of Harry, the CFB 26 League Bot.
 
-**Current Version:** 2.3.1
+**Current Version:** 2.4.0
 **Last Updated:** January 11, 2026
 **Status:** ✅ Production Ready
 
 ---
 
-## 🚀 Version 2.3 - Channel Whitelist & AI Chat Controls
+## 🚀 Version 2.4 - Transfer Portal & Fuzzy Search
 
 Commands are organized into **6 logical groups** for better discoverability!
 
@@ -50,16 +50,42 @@ Look up recruit profiles with rankings, offers, predictions, visits, and photos!
 | Command | Description |
 |---------|-------------|
 | `/recruiting player <name> [year]` | Look up a recruit |
+| `/recruiting portal <name> [team]` | 🆕 Transfer portal lookup (On3 + CFB stats!) |
 | `/recruiting top [position] [state] [year]` | Top recruits list |
 | `/recruiting class <team> [year]` | Team's recruiting class |
-| `/recruiting commits <team> [year]` | List all committed recruits |
+| `/recruiting commits <team> [year]` | List all committed recruits (shows 🏫/🔄) |
 | `/recruiting rankings [year] [top]` | Top 25 team rankings |
 | `/recruiting source [on3\|247]` | Set data source |
+
+### 🔄 Transfer Portal Lookup (NEW in v2.4.0!)
+
+Combined recruiting data AND college stats for transfer portal players:
+
+```
+/recruiting portal Hollywood Smothers
+/recruiting portal name:Cam Ward team:Miami
+```
+
+**Shows:**
+- 📊 On3 rating, rankings, predictions, offers
+- 🏈 CFB career stats from previous school
+- Cross-references nicknames (Hollywood Smothers ↔ Daylan Smothers)
+
+**Also works with natural language:**
+> `@Harry tell me about portal player Cam Ward`
+
+### 🔍 Fuzzy Name Matching (NEW!)
+
+Harry now handles typos and case variations:
+- ✅ `JOHN SMITH` → `John Smith` (case insensitive)
+- ✅ `Gavinn Day` → `Gavin Day` (first name typos)
+- ✅ Falls back to last-name-only search
 
 ### Example Usage
 
 ```
 /recruiting player Arch Manning
+/recruiting portal Cam Ward
 /recruiting top position:QB state:TX
 /recruiting class Georgia 2026
 /recruiting commits Washington 2026
