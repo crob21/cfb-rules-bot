@@ -6811,12 +6811,19 @@ async def channel_command(
                 inline=False
             )
 
-        # Explain auto-responses
-        embed.add_field(
-            name="💡 What are Auto-Responses?",
-            value="Automatic replies like **'Fuck Oregon! 🦆'** when keywords are mentioned.\nToggle with `/admin channels toggle_rivalry`",
-            inline=False
-        )
+        # Explain auto-responses - only relevant if AI_CHAT is on
+        if "ai_chat" in enabled_modules:
+            embed.add_field(
+                name="💡 Auto-Responses",
+                value="Fun replies like **'Fuck Oregon! 🦆'** when keywords mentioned.\nPer-channel toggle: `/admin channels toggle_rivalry`",
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="💤 Auto-Responses",
+                value="Disabled (requires **AI Chat** module)\nEnable with `/admin config enable ai_chat`",
+                inline=False
+            )
 
         embed.add_field(
             name="💡 Admin Commands",
