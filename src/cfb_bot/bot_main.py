@@ -233,9 +233,9 @@ async def on_message(message):
 async def main():
     """Main entry point"""
     # Get token
-    token = os.getenv('DISCORD_TOKEN')
+    token = os.getenv('DISCORD_BOT_TOKEN')
     if not token:
-        logger.error("❌ DISCORD_TOKEN environment variable not set!")
+        logger.error("❌ DISCORD_BOT_TOKEN environment variable not set!")
         sys.exit(1)
     
     # Load cogs
