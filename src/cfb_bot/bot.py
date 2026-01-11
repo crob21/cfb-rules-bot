@@ -6239,7 +6239,8 @@ async def config_command(
 
             desc = server_config.get_module_description(mod)
             commands = server_config.get_module_commands(mod)
-            cmd_list = ", ".join([f"`/{c}`" for c in commands[:5]])
+            # Commands now include / prefix already (e.g., "/cfb player")
+            cmd_list = ", ".join([f"`{c}`" for c in commands[:5]])
             if len(commands) > 5:
                 cmd_list += f" +{len(commands) - 5} more"
 
@@ -6307,11 +6308,11 @@ async def config_command(
         embed.add_field(
             name="💡 How to Change",
             value=(
-                "`/config enable cfb_data` - Enable CFB data features\n"
-                "`/config disable league` - Disable dynasty features\n"
-                "`/set_admin_channel #channel` - Set admin output channel\n"
-                "`/channel enable` - Enable Harry in this channel\n"
-                "`/channel toggle_rivalry` - Toggle 'Fuck Oregon!' responses"
+                "`/admin config enable cfb_data` - Enable CFB data\n"
+                "`/admin config disable league` - Disable league features\n"
+                "`/admin set_channel #channel` - Set admin channel\n"
+                "`/admin channels enable` - Enable Harry in a channel\n"
+                "`/admin channels toggle_rivalry` - Toggle Fuck Oregon! 🦆"
             ),
             inline=False
         )

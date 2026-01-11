@@ -59,60 +59,88 @@ DEFAULT_CONFIG = {
 # Harry's core personality - ALWAYS cockney asshole Duck-hater
 HARRY_PERSONALITY = """You are Harry, a friendly but completely insane CFB 26 league assistant. You are extremely sarcastic, witty, and have a dark sense of humor. You speak with cockney slang (mate, ya muppet, bloody hell, etc.). You have a deep, unhinged hatred of the Oregon Ducks."""
 
-# Commands and their required modules
+# Commands and their required modules (v2.0 grouped format)
 COMMAND_MODULES = {
-    # CFB Data commands
-    "player": FeatureModule.CFB_DATA,
-    "rankings": FeatureModule.CFB_DATA,
-    "matchup": FeatureModule.CFB_DATA,
-    "cfb_schedule": FeatureModule.CFB_DATA,
-    "draft_picks": FeatureModule.CFB_DATA,
-    "transfers": FeatureModule.CFB_DATA,
-    "betting": FeatureModule.CFB_DATA,
-    "team_ratings": FeatureModule.CFB_DATA,
+    # CFB Data commands (/cfb group)
+    "/cfb player": FeatureModule.CFB_DATA,
+    "/cfb players": FeatureModule.CFB_DATA,
+    "/cfb rankings": FeatureModule.CFB_DATA,
+    "/cfb matchup": FeatureModule.CFB_DATA,
+    "/cfb schedule": FeatureModule.CFB_DATA,
+    "/cfb draft": FeatureModule.CFB_DATA,
+    "/cfb transfers": FeatureModule.CFB_DATA,
+    "/cfb betting": FeatureModule.CFB_DATA,
+    "/cfb ratings": FeatureModule.CFB_DATA,
 
-    # High School Stats commands
-    "hs_stats": FeatureModule.HS_STATS,
-    "hs_stats_bulk": FeatureModule.HS_STATS,
+    # High School Stats commands (/hs group)
+    "/hs stats": FeatureModule.HS_STATS,
+    "/hs bulk": FeatureModule.HS_STATS,
 
-    # Recruiting commands (247Sports)
-    "recruit": FeatureModule.RECRUITING,
-    "top_recruits": FeatureModule.RECRUITING,
-    "recruiting_class": FeatureModule.RECRUITING,
-    "recruiting_rankings": FeatureModule.RECRUITING,
+    # Recruiting commands (/recruiting group)
+    "/recruiting player": FeatureModule.RECRUITING,
+    "/recruiting top": FeatureModule.RECRUITING,
+    "/recruiting class": FeatureModule.RECRUITING,
+    "/recruiting commits": FeatureModule.RECRUITING,
+    "/recruiting rankings": FeatureModule.RECRUITING,
+    "/recruiting source": FeatureModule.RECRUITING,
 
-    # League commands
-    "advance": FeatureModule.LEAGUE,
-    "stop_countdown": FeatureModule.LEAGUE,
-    "time_status": FeatureModule.LEAGUE,
-    "set_timer_channel": FeatureModule.LEAGUE,
-    "set_season_week": FeatureModule.LEAGUE,
-    "schedule": FeatureModule.LEAGUE,
-    "set_league_owner": FeatureModule.LEAGUE,
-    "set_co_commish": FeatureModule.LEAGUE,
-    "league_staff": FeatureModule.LEAGUE,
-    "pick_commish": FeatureModule.LEAGUE,
-    "scan_rules": FeatureModule.LEAGUE,
-    "charter": FeatureModule.LEAGUE,
-    "add_rule": FeatureModule.LEAGUE,
-    "update_rule": FeatureModule.LEAGUE,
-    "view_charter_backups": FeatureModule.LEAGUE,
-    "restore_charter_backup": FeatureModule.LEAGUE,
-    "charter_history": FeatureModule.LEAGUE,
-    "sync_charter": FeatureModule.LEAGUE,
+    # Timer commands (/timer group)
+    "/timer start": FeatureModule.LEAGUE,
+    "/timer stop": FeatureModule.LEAGUE,
+    "/timer status": FeatureModule.LEAGUE,
+    "/timer channel": FeatureModule.LEAGUE,
+    "/timer nag": FeatureModule.LEAGUE,
+    "/timer stop_nag": FeatureModule.LEAGUE,
 
-    # Core commands (always available)
-    "harry": FeatureModule.CORE,
-    "ask": FeatureModule.CORE,
-    "help": FeatureModule.CORE,
-    "whats_new": FeatureModule.CORE,
-    "changelog": FeatureModule.CORE,
-    "config": FeatureModule.CORE,
-    "tokens": FeatureModule.CORE,
-    "add_bot_admin": FeatureModule.CORE,
-    "remove_bot_admin": FeatureModule.CORE,
-    "list_bot_admins": FeatureModule.CORE,
-    "summarize": FeatureModule.CORE,
+    # Season commands (/season group)
+    "/season current": FeatureModule.LEAGUE,
+    "/season schedule": FeatureModule.LEAGUE,
+    "/season games": FeatureModule.LEAGUE,
+    "/season find": FeatureModule.LEAGUE,
+    "/season byes": FeatureModule.LEAGUE,
+    "/season set": FeatureModule.LEAGUE,
+
+    # League commands (/league group)
+    "/league staff": FeatureModule.LEAGUE,
+    "/league rules": FeatureModule.LEAGUE,
+    "/league team": FeatureModule.LEAGUE,
+    "/league dynasty": FeatureModule.LEAGUE,
+    "/league set_owner": FeatureModule.LEAGUE,
+    "/league set_commish": FeatureModule.LEAGUE,
+    "/league pick_commish": FeatureModule.LEAGUE,
+
+    # Charter commands (/charter group)
+    "/charter lookup": FeatureModule.LEAGUE,
+    "/charter search": FeatureModule.LEAGUE,
+    "/charter link": FeatureModule.LEAGUE,
+    "/charter history": FeatureModule.LEAGUE,
+    "/charter scan": FeatureModule.LEAGUE,
+    "/charter add": FeatureModule.LEAGUE,
+    "/charter update": FeatureModule.LEAGUE,
+    "/charter sync": FeatureModule.LEAGUE,
+    "/charter backups": FeatureModule.LEAGUE,
+    "/charter restore": FeatureModule.LEAGUE,
+
+    # Admin commands (/admin group)
+    "/admin config": FeatureModule.CORE,
+    "/admin channels": FeatureModule.CORE,
+    "/admin set_channel": FeatureModule.CORE,
+    "/admin add": FeatureModule.CORE,
+    "/admin remove": FeatureModule.CORE,
+    "/admin list": FeatureModule.CORE,
+    "/admin block": FeatureModule.CORE,
+    "/admin unblock": FeatureModule.CORE,
+    "/admin blocked": FeatureModule.CORE,
+
+    # Core standalone commands
+    "/harry": FeatureModule.CORE,
+    "/ask": FeatureModule.CORE,
+    "/help": FeatureModule.CORE,
+    "/whats_new": FeatureModule.CORE,
+    "/changelog": FeatureModule.CORE,
+    "/version": FeatureModule.CORE,
+    "/tokens": FeatureModule.CORE,
+    "/summarize": FeatureModule.CORE,
 }
 
 
@@ -309,11 +337,11 @@ class ServerConfigManager:
     def get_module_description(self, module: FeatureModule) -> str:
         """Get human-readable description of a module"""
         descriptions = {
-            FeatureModule.CORE: "🤖 **Core** - Harry's personality, general AI chat, bot management",
-            FeatureModule.CFB_DATA: "🏈 **CFB Data** - Player lookup, rankings, matchups, schedules, draft, transfers, betting, ratings",
-            FeatureModule.LEAGUE: "🏆 **League** - Timer, advance, charter, rules, league staff, dynasty features",
-            FeatureModule.HS_STATS: "🏫 **HS Stats** - High school football stats from MaxPreps (web scraping)",
-            FeatureModule.RECRUITING: "⭐ **Recruiting** - On3/Rivals or 247Sports rankings, team classes, top recruits",
+            FeatureModule.CORE: "🤖 **Core** - Harry's personality, AI chat, `/admin` commands",
+            FeatureModule.CFB_DATA: "🏈 **CFB Data** - `/cfb` group: player, rankings, matchups, schedules, transfers",
+            FeatureModule.LEAGUE: "🏆 **League** - `/league`, `/charter`, `/season`, `/timer` groups",
+            FeatureModule.HS_STATS: "🏫 **HS Stats** - `/hs` group: high school stats from MaxPreps",
+            FeatureModule.RECRUITING: "⭐ **Recruiting** - `/recruiting` group: On3/Rivals or 247Sports data",
         }
         return descriptions.get(module, str(module))
 
