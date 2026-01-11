@@ -23,6 +23,13 @@ from urllib.parse import quote_plus
 import httpx
 from bs4 import BeautifulSoup
 
+# Fuzzy matching for player name typos
+try:
+    from rapidfuzz import fuzz
+    FUZZY_AVAILABLE = True
+except ImportError:
+    FUZZY_AVAILABLE = False
+
 logger = logging.getLogger('CFB26Bot.On3Recruiting')
 
 
@@ -223,6 +230,10 @@ class On3Scraper:
                 name_lower = name.lower()
                 name_parts = name_lower.split()
 
+                # Track best fuzzy match
+                best_fuzzy_match = None
+                best_fuzzy_score = 0
+
                 for link in player_links:
                     link_text = link.get_text(strip=True)
                     href = link.get('href', '')
@@ -237,13 +248,13 @@ class On3Scraper:
 
                     link_text_lower = link_text.lower()
 
-                    # Check for match - flexible matching
-                    matches = all(
+                    # Check for exact match - flexible matching (case insensitive)
+                    exact_match = all(
                         any(part in word or word.startswith(part) for word in link_text_lower.split())
                         for part in name_parts
                     )
 
-                    if matches:
+                    if exact_match:
                         profile_url = href
                         player_name = link_text
 
@@ -253,8 +264,36 @@ class On3Scraper:
 
                         # Track if this came from the broader search (likely transfer portal)
                         is_transfer = (search_type == "all players (including transfers)")
-                        logger.info(f"✅ Found profile: {player_name} -> {profile_url} ({search_type})")
+                        logger.info(f"✅ Found profile (exact): {player_name} -> {profile_url} ({search_type})")
                         break
+                    
+                    # Fuzzy matching for typos (e.g., "Daylon" vs "Daylan")
+                    if FUZZY_AVAILABLE and not profile_url:
+                        # Compare full names using token_sort_ratio (handles word order)
+                        fuzzy_score = fuzz.token_sort_ratio(name_lower, link_text_lower)
+                        
+                        # Also try partial ratio for partial matches
+                        partial_score = fuzz.partial_ratio(name_lower, link_text_lower)
+                        
+                        # Use the better score
+                        score = max(fuzzy_score, partial_score)
+                        
+                        if score > best_fuzzy_score and score >= 80:  # 80% threshold
+                            best_fuzzy_score = score
+                            best_fuzzy_match = (href, link_text)
+                            logger.debug(f"🔍 Fuzzy candidate: {link_text} (score: {score}%)")
+
+                # If no exact match but we have a good fuzzy match, use it
+                if not profile_url and best_fuzzy_match:
+                    href, link_text = best_fuzzy_match
+                    profile_url = href
+                    player_name = link_text
+
+                    if not profile_url.startswith('http'):
+                        profile_url = self.BASE_URL + profile_url
+
+                    is_transfer = (search_type == "all players (including transfers)")
+                    logger.info(f"✅ Found profile (fuzzy {best_fuzzy_score}%): {player_name} -> {profile_url} ({search_type})")
 
                 if profile_url:
                     break  # Found a match, stop searching
