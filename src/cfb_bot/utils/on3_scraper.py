@@ -1184,6 +1184,11 @@ class On3Scraper:
                 if not team_name or len(team_name) < 2:
                     continue
 
+                # Skip header/navigation elements
+                skip_names = ['teams', 'team', 'school', 'college', 'rank', 'commits', 'rating', 'points']
+                if team_name.lower() in skip_names:
+                    continue
+
                 row_text = row.get_text()
 
                 team_data = {
