@@ -1613,6 +1613,117 @@ async def on_message(message):
                             )
                             return
 
+                # Check for transfer portal player lookup (RECRUITING module)
+                portal_keywords = ['portal player', 'transfer portal', 'portal recruit', 'transfer player', 'in the portal']
+                if any(kw in message_lower for kw in portal_keywords):
+                    # Check if RECRUITING module is enabled
+                    if server_config.is_module_enabled(message.guild.id, FeatureModule.RECRUITING):
+                        # Extract player name from message
+                        player_name = None
+                        team_hint = None
+                        
+                        # Try patterns like "portal player John Smith" or "John Smith in the portal"
+                        for kw in portal_keywords:
+                            if kw in message_lower:
+                                idx = message_lower.find(kw)
+                                # Look for name after keyword
+                                after_kw = message.content[idx + len(kw):].strip()
+                                # Look for capitalized name pattern
+                                name_match = re.search(r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)', after_kw)
+                                if name_match:
+                                    player_name = name_match.group(1)
+                                    break
+                                # Also try before the keyword for "John Smith in the portal"
+                                before_kw = message.content[:idx].strip()
+                                name_match = re.search(r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)$', before_kw)
+                                if name_match:
+                                    player_name = name_match.group(1)
+                                    break
+                        
+                        # Check for team hint like "from Alabama"
+                        team_match = re.search(r'from\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)', message.content)
+                        if team_match:
+                            team_hint = team_match.group(1)
+                        
+                        if player_name and len(player_name) > 3:
+                            logger.info(f"🔄 Portal lookup request: {player_name}" + (f" ({team_hint})" if team_hint else ""))
+                            thinking_msg = await message.channel.send("🔄 Looking up transfer portal player, hang on...")
+                            
+                            try:
+                                # Get recruiting data from On3
+                                recruit_data = None
+                                try:
+                                    recruit_data = await on3_scraper.search_recruit(player_name)
+                                except Exception as e:
+                                    logger.warning(f"⚠️ On3 lookup failed for {player_name}: {e}")
+                                
+                                # Get college stats
+                                college_stats = None
+                                try:
+                                    college_stats = await cfb_data.get_full_player_info(player_name, team_hint)
+                                except Exception as e:
+                                    logger.warning(f"⚠️ CFB lookup failed for {player_name}: {e}")
+                                
+                                await thinking_msg.delete()
+                                
+                                if recruit_data or college_stats:
+                                    embed = discord.Embed(
+                                        title=f"🔄 Transfer Portal: {player_name}",
+                                        color=Colors.RECRUITING if hasattr(Colors, 'RECRUITING') else 0xffd700
+                                    )
+                                    
+                                    # Add recruiting data
+                                    if recruit_data:
+                                        recruit_lines = []
+                                        stars = recruit_data.get('stars', 0)
+                                        rating = recruit_data.get('rating')
+                                        if rating:
+                                            star_display = '⭐' * stars if stars else ''
+                                            recruit_lines.append(f"**Rating:** {rating} ({star_display})")
+                                        if recruit_data.get('national_rank'):
+                                            recruit_lines.append(f"**National Rank:** #{recruit_data['national_rank']}")
+                                        if recruit_data.get('committed_to'):
+                                            recruit_lines.append(f"**Committed to:** {recruit_data['committed_to']} ✅")
+                                        if recruit_lines:
+                                            embed.add_field(name="📊 Recruiting", value='\n'.join(recruit_lines), inline=False)
+                                    
+                                    # Add college stats
+                                    if college_stats:
+                                        stats_lines = []
+                                        team_name = college_stats.get('team', '')
+                                        if team_name:
+                                            stats_lines.append(f"**Previous:** {team_name}")
+                                        stats = college_stats.get('stats', {})
+                                        if stats:
+                                            years = sorted(stats.keys(), reverse=True)
+                                            if years:
+                                                y = years[0]
+                                                ys = stats[y]
+                                                if ys.get('receiving', {}).get('YDS'):
+                                                    stats_lines.append(f"**{y}:** {ys['receiving'].get('REC', 0)} REC | {ys['receiving']['YDS']} YDS | {ys['receiving'].get('TD', 0)} TD")
+                                                elif ys.get('rushing', {}).get('YDS'):
+                                                    stats_lines.append(f"**{y}:** {ys['rushing'].get('CAR', 0)} CAR | {ys['rushing']['YDS']} YDS | {ys['rushing'].get('TD', 0)} TD")
+                                                elif ys.get('passing', {}).get('YDS'):
+                                                    stats_lines.append(f"**{y}:** {ys['passing']['YDS']} YDS | {ys['passing'].get('TD', 0)} TD | {ys['passing'].get('INT', 0)} INT")
+                                        if stats_lines:
+                                            embed.add_field(name="🏈 College Stats", value='\n'.join(stats_lines), inline=False)
+                                    
+                                    embed.set_footer(text="Harry's Portal Tracker 🔄 | Use /recruiting portal for more details")
+                                    await message.channel.send(embed=embed)
+                                else:
+                                    embed = discord.Embed(
+                                        title=f"❓ Not Found: {player_name}",
+                                        description="Couldn't find this player in transfer portal data.\n\nTry `/recruiting portal` for more options.",
+                                        color=Colors.WARNING
+                                    )
+                                    await message.channel.send(embed=embed)
+                                return
+                            
+                            except Exception as e:
+                                logger.error(f"❌ Error in portal lookup: {e}", exc_info=True)
+                                await thinking_msg.edit(content=f"❌ Error looking up portal player: {str(e)}")
+                                return
+
                 # Fall back to player lookup if no other query type matched
                 player_keywords = ['from', 'player', 'stats', 'what do you know', 'tell me about', 'who is', 'info on', 'lookup']
                 # Check for player-related queries (but not league rule queries)
@@ -4222,7 +4333,187 @@ async def recruiting_rankings(
 
     except Exception as e:
         logger.error(f"❌ Error in /recruiting_rankings: {e}", exc_info=True)
-        await interaction.followup.send(f"❌ Error getting rankings: {str(e)}", ephemeral=True)
+
+
+@recruiting_group.command(name="portal", description="Look up a transfer portal player (recruiting + college stats)")
+@app_commands.describe(
+    name="Player name (e.g., 'John Smith')",
+    team="Previous/current team to help find the right player"
+)
+async def recruiting_portal(
+    interaction: discord.Interaction,
+    name: str,
+    team: Optional[str] = None
+):
+    """
+    Look up a transfer portal player - combines recruiting data with college stats.
+    
+    Shows:
+    - On3/Rivals recruiting rating and rankings
+    - College statistics from their previous school
+    - Transfer predictions (if available)
+    """
+    try:
+        await interaction.response.defer()
+    except discord.errors.NotFound:
+        logger.warning(f"⚠️ /recruiting portal interaction expired for {name}")
+        return
+
+    if not await check_module_enabled_deferred(interaction, FeatureModule.RECRUITING):
+        return
+
+    try:
+        guild_id = interaction.guild.id if interaction.guild else 0
+        logger.info(f"🔄 Portal lookup: {name}" + (f" ({team})" if team else ""))
+
+        # Get recruiting data from On3 (uses broader search for transfers)
+        recruit_data = None
+        try:
+            recruit_data = await on3_scraper.search_recruit(name)
+        except Exception as e:
+            logger.warning(f"⚠️ On3 lookup failed for {name}: {e}")
+
+        # Get college stats from CFB Data
+        college_stats = None
+        try:
+            college_stats = await cfb_data.get_full_player_info(name, team)
+        except Exception as e:
+            logger.warning(f"⚠️ CFB Data lookup failed for {name}: {e}")
+
+        # If neither found, show error
+        if not recruit_data and not college_stats:
+            embed = discord.Embed(
+                title="❓ Portal Player Not Found",
+                description=f"Couldn't find **{name}** in transfer portal data.\n\n"
+                           f"💡 **Tips:**\n"
+                           f"• Check the spelling\n"
+                           f"• Add their previous team: `/recruiting portal name:{name} team:Alabama`\n"
+                           f"• Try just `/cfb player` for college stats only",
+                color=Colors.WARNING
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            return
+
+        # Build combined response
+        embed = discord.Embed(
+            title=f"🔄 Transfer Portal: {name}",
+            color=Colors.RECRUITING if hasattr(Colors, 'RECRUITING') else 0xffd700
+        )
+
+        # Add recruiting data section
+        if recruit_data:
+            recruit_lines = []
+            
+            # Basic info
+            stars = recruit_data.get('stars', 0)
+            star_display = '⭐' * stars if stars else 'Unranked'
+            rating = recruit_data.get('rating')
+            
+            if rating:
+                recruit_lines.append(f"**Rating:** {rating} ({star_display})")
+            
+            # Rankings
+            ranks = []
+            if recruit_data.get('national_rank'):
+                ranks.append(f"#{recruit_data['national_rank']} Nationally")
+            if recruit_data.get('position_rank'):
+                pos = recruit_data.get('position', '')
+                ranks.append(f"#{recruit_data['position_rank']} {pos}")
+            if ranks:
+                recruit_lines.append(f"**Rank:** {' | '.join(ranks)}")
+            
+            # Position/physical
+            pos = recruit_data.get('position', '')
+            height = recruit_data.get('height', '')
+            weight = recruit_data.get('weight', '')
+            if pos:
+                phys = f" | {height} | {weight}lbs" if height and weight else ""
+                recruit_lines.append(f"**Position:** {pos}{phys}")
+            
+            # Commitment status
+            if recruit_data.get('committed_to'):
+                recruit_lines.append(f"**Committed to:** {recruit_data['committed_to']} ✅")
+            
+            # Top predictions
+            predictions = recruit_data.get('top_predictions', [])
+            if predictions:
+                pred_str = ", ".join([f"{p['team']} ({p['pct']}%)" for p in predictions[:3]])
+                recruit_lines.append(f"**Predictions:** {pred_str}")
+            
+            # Offers
+            offers = recruit_data.get('offers', [])
+            if offers:
+                recruit_lines.append(f"**Offers:** {len(offers)} schools")
+            
+            embed.add_field(
+                name="📊 Recruiting Profile",
+                value='\n'.join(recruit_lines) if recruit_lines else "No recruiting data",
+                inline=False
+            )
+
+        # Add college stats section
+        if college_stats:
+            stats_lines = []
+            
+            # Player info
+            team_name = college_stats.get('team', '')
+            position = college_stats.get('position', '')
+            jersey = college_stats.get('jersey', '')
+            
+            if team_name:
+                jersey_str = f" #{jersey}" if jersey else ""
+                stats_lines.append(f"**Previous School:** {team_name}{jersey_str}")
+            
+            # Season stats (most recent)
+            stats = college_stats.get('stats', {})
+            if stats:
+                # Get most recent year
+                years = sorted(stats.keys(), reverse=True)
+                if years:
+                    recent_year = years[0]
+                    year_stats = stats[recent_year]
+                    stats_lines.append(f"**{recent_year} Stats:**")
+                    
+                    # Passing
+                    passing = year_stats.get('passing', {})
+                    if passing.get('YDS'):
+                        stats_lines.append(f"  🎯 {passing.get('YDS', 0)} YDS | {passing.get('TD', 0)} TD | {passing.get('INT', 0)} INT")
+                    
+                    # Rushing
+                    rushing = year_stats.get('rushing', {})
+                    if rushing.get('YDS'):
+                        stats_lines.append(f"  🏃 {rushing.get('CAR', 0)} CAR | {rushing.get('YDS', 0)} YDS | {rushing.get('TD', 0)} TD")
+                    
+                    # Receiving
+                    receiving = year_stats.get('receiving', {})
+                    if receiving.get('YDS'):
+                        stats_lines.append(f"  🎯 {receiving.get('REC', 0)} REC | {receiving.get('YDS', 0)} YDS | {receiving.get('TD', 0)} TD")
+                    
+                    # Defense
+                    defense = year_stats.get('defense', {})
+                    if defense.get('TOT') or defense.get('SOLO'):
+                        stats_lines.append(f"  🛡️ {defense.get('TOT', defense.get('SOLO', 0))} TKL | {defense.get('TFL', 0)} TFL | {defense.get('SACKS', 0)} Sacks")
+            
+            embed.add_field(
+                name="🏈 College Stats",
+                value='\n'.join(stats_lines) if stats_lines else "No college stats found",
+                inline=False
+            )
+        
+        # Add profile link if available
+        if recruit_data and recruit_data.get('profile_url'):
+            embed.add_field(
+                name="🔗 Links",
+                value=f"[On3/Rivals Profile]({recruit_data['profile_url']})",
+                inline=False
+            )
+
+        embed.set_footer(text="Harry's Portal Tracker 🔄 | Recruiting + CFB Data combined")
+        await interaction.followup.send(embed=embed)
+
+    except Exception as e:
+        logger.error(f"❌ Error in /recruiting portal: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error looking up portal player: {str(e)}", ephemeral=True)
 
 
 @bot.tree.command(name="harry", description="Ask Harry about college football")

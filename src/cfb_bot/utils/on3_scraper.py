@@ -1343,12 +1343,12 @@ class On3Scraper:
             pos = c.get('position', '?')
             rating = c.get('rating')
             stars = c.get('stars', 0)
-            
+
             # Location info
             loc = c.get('location', '')
             loc_short = loc.split(',')[0].strip() if loc else ''  # Just city
             high_school = c.get('high_school', '')
-            
+
             # HS vs Transfer indicator
             # If they have a high school, they're HS recruit; otherwise likely transfer
             player_type = "🏫" if high_school else "🔄"
