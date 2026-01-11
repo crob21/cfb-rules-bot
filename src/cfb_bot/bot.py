@@ -6752,39 +6752,71 @@ async def channel_command(
         # Show available commands based on enabled modules
         enabled_modules = server_config.get_enabled_modules(guild_id)
 
-        # Build command list by module
-        available_commands = []
+        # Build command list by module - show enabled and disabled
+        enabled_list = []
+        disabled_list = []
 
+        # AI Chat
         if "ai_chat" in enabled_modules:
-            available_commands.append("💬 **AI Chat:** `/harry`, `/ask`, `/summarize`")
+            enabled_list.append("💬 **AI Chat:** `/harry`, `/ask`, `/summarize`, @mentions")
+        else:
+            disabled_list.append("💬 AI Chat")
 
+        # Recruiting
         if "recruiting" in enabled_modules:
-            available_commands.append("⭐ **Recruiting:** `/recruiting player`, `top`, `class`, `commits`, `rankings`")
+            enabled_list.append("⭐ **Recruiting:** `/recruiting player`, `top`, `class`, `commits`")
+        else:
+            disabled_list.append("⭐ Recruiting")
 
+        # CFB Data
         if "cfb_data" in enabled_modules:
-            available_commands.append("🏈 **CFB Data:** `/cfb player`, `rankings`, `schedule`, `matchup`, `transfers`")
+            enabled_list.append("🏈 **CFB Data:** `/cfb player`, `rankings`, `schedule`, `matchup`")
+        else:
+            disabled_list.append("🏈 CFB Data")
 
+        # HS Stats
         if "hs_stats" in enabled_modules:
-            available_commands.append("🏫 **HS Stats:** `/hs stats`, `/hs bulk`")
+            enabled_list.append("🏫 **HS Stats:** `/hs stats`, `/hs bulk`")
+        else:
+            disabled_list.append("🏫 HS Stats")
 
+        # League
         if "league" in enabled_modules:
-            available_commands.append("🏆 **League:** `/league week`, `timer`, `staff` + `/charter`")
+            enabled_list.append("🏆 **League:** `/league week`, `timer`, `staff` + `/charter`")
+        else:
+            disabled_list.append("🏆 League")
 
         # Always available
-        available_commands.append("🤖 **Always On:** `/help`, `/admin`, `/version`")
+        enabled_list.append("🤖 **Always On:** `/help`, `/admin`, `/version`")
 
+        # Show enabled commands
         if channel_enabled:
             embed.add_field(
-                name="⚡ Available Commands",
-                value="\n".join(available_commands),
+                name="✅ Available Commands",
+                value="\n".join(enabled_list) if enabled_list else "None",
                 inline=False
             )
         else:
             embed.add_field(
-                name="⚡ Commands (if enabled)",
-                value="\n".join(available_commands) + "\n\n*Enable this channel first!*",
+                name="⚡ Commands (if channel enabled)",
+                value="\n".join(enabled_list) + "\n\n*Enable this channel first!*",
                 inline=False
             )
+
+        # Show disabled modules
+        if disabled_list:
+            embed.add_field(
+                name="❌ Disabled Modules",
+                value=", ".join(disabled_list) + "\n`/admin config enable <module>`",
+                inline=False
+            )
+
+        # Explain auto-responses
+        embed.add_field(
+            name="💡 What are Auto-Responses?",
+            value="Automatic replies like **'Fuck Oregon! 🦆'** when keywords are mentioned.\nToggle with `/admin channels toggle_rivalry`",
+            inline=False
+        )
 
         embed.add_field(
             name="💡 Admin Commands",
