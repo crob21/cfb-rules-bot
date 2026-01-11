@@ -11,4 +11,3 @@ Test files:
 - test_cfb_data_cog.py: /cfb commands
 - test_hs_stats_cog.py: /hs commands
 """
-

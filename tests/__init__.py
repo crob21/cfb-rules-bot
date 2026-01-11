@@ -21,4 +21,3 @@ Run with coverage:
 Skip slow integration tests:
     pytest tests/ -v -m "not integration"
 """
-

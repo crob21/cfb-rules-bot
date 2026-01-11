@@ -110,7 +110,7 @@ def mock_bot():
 def mock_server_config():
     """Create a mock server config manager"""
     config = MagicMock()
-    
+
     # Default: all modules enabled
     config.is_module_enabled = MagicMock(return_value=True)
     config.is_channel_enabled = MagicMock(return_value=True)
@@ -123,7 +123,7 @@ def mock_server_config():
     config.get_recruiting_source = MagicMock(return_value="on3")
     config.auto_responses_enabled = MagicMock(return_value=True)
     config.save_to_discord = AsyncMock()
-    
+
     return config
 
 
@@ -150,7 +150,7 @@ TEST_RECRUITS = {
     },
     "kai_mcclendon": {
         "name": "Kai McClendon",
-        "search_term": "Kai McClendon", 
+        "search_term": "Kai McClendon",
         "expected_position": "CB",
         "is_transfer": True,
         "committed_to": "Washington",
@@ -164,7 +164,7 @@ TEST_RECRUITS = {
         "committed_to": "Washington",
         "notes": "Transfer portal player with TR indicator"
     },
-    
+
     # High school recruits
     "gavin_day": {
         "name": "Gavin Day",
@@ -182,7 +182,7 @@ TEST_RECRUITS = {
         "year": 2026,
         "notes": "2026 OT recruit"
     },
-    
+
     # Nickname test case
     "hollywood_smothers": {
         "name": "Hollywood Smothers",
@@ -288,7 +288,7 @@ def mock_on3_scraper():
     return scraper
 
 
-@pytest.fixture  
+@pytest.fixture
 def mock_cfb_data():
     """Create a mock CFB data client"""
     client = MagicMock()
@@ -398,4 +398,3 @@ def create_mock_hs_player(
             "rushing": {"yards": 1200, "touchdowns": 20}
         }
     }
-
