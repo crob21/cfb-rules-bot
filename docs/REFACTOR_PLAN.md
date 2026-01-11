@@ -691,20 +691,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
-      
+
       - name: Run tests
         run: pytest tests/ -v --cov=src/cfb_bot
-      
+
       - name: Check coverage
         run: coverage report --fail-under=70
 ```

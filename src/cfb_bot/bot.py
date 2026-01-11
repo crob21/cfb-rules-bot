@@ -3164,7 +3164,7 @@ async def cfb_player(
                 inline=False
             )
             embed.set_footer(text=Footers.PLAYER_LOOKUP)
-            await interaction.followup.send(embed=embed)
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
     except Exception as e:
         logger.error(f"❌ Error in /player command: {e}", exc_info=True)
@@ -3706,21 +3706,21 @@ async def hs_stats(
         player_data = await hs_stats_scraper.lookup_player(name, state, school)
 
         if not player_data:
-            # No results found
+            # No results found - ephemeral so only user sees it
             embed = discord.Embed(
                 title=f"🔍 No Results for '{name}'",
                 description=(
                     f"Couldn't find a player matching **{name}**.\n\n"
                     "**Tips:**\n"
                     "• Check the spelling of the name\n"
-                    "• Add a state filter: `/hs_stats name:Arch Manning state:LA` or `state:Louisiana`\n"
+                    "• Add a state filter: `/hs stats name:Arch Manning state:LA`\n"
                     "• Add a school filter for common names\n"
                     "• MaxPreps data may be limited for some players"
                 ),
                 color=Colors.WARNING
             )
             embed.set_footer(text=Footers.HS_STATS)
-            await interaction.followup.send(embed=embed)
+            await interaction.followup.send(embed=embed, ephemeral=True)
             return
 
         # Format and send stats
@@ -3962,7 +3962,7 @@ async def recruiting_player(
                 color=Colors.WARNING
             )
             embed.set_footer(text=f"Harry's Recruiting 🏈 | Data from {source_name}")
-            await interaction.followup.send(embed=embed)
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
     except Exception as e:
         logger.error(f"❌ Error in /recruit: {e}", exc_info=True)
