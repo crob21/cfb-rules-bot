@@ -3942,6 +3942,66 @@ async def get_recruiting_class(
         await interaction.followup.send(f"❌ Error getting class: {str(e)}", ephemeral=True)
 
 
+@bot.tree.command(name="team_commits", description="List all committed recruits for a team")
+@app_commands.describe(
+    team="Team name (e.g., 'Washington', 'Ohio State')",
+    year="Recruiting class year (default: current)",
+    show="Number of commits to show (default: 15)"
+)
+async def get_team_commits(
+    interaction: discord.Interaction,
+    team: str,
+    year: Optional[int] = None,
+    show: Optional[int] = 15
+):
+    """Get list of committed recruits for a team"""
+    try:
+        await interaction.response.defer()
+    except discord.errors.NotFound:
+        logger.warning(f"⚠️ /team_commits interaction expired for {team}")
+        return
+
+    if not await check_module_enabled_deferred(interaction, FeatureModule.RECRUITING):
+        return
+
+    try:
+        guild_id = interaction.guild.id if interaction.guild else 0
+        scraper, source_name = get_recruiting_scraper(guild_id)
+
+        # Only On3 scraper has team commits
+        if source_name != "On3/Rivals":
+            await interaction.followup.send(
+                f"❌ Team commits list is only available with **On3/Rivals** data source.\n"
+                f"💡 Switch with `/recruit_source on3`",
+                ephemeral=True
+            )
+            return
+
+        actual_year = year or scraper._get_current_recruiting_year()
+        logger.info(f"🔍 /team_commits: {team} ({actual_year})")
+
+        commits_data = await scraper.get_team_commits(team, actual_year)
+
+        if commits_data and commits_data.get('commits'):
+            embed = discord.Embed(
+                title=f"🏈 {commits_data.get('team', team)} Commits ({actual_year})",
+                description=scraper.format_team_commits(commits_data, limit=show),
+                color=Colors.RECRUITING if hasattr(Colors, 'RECRUITING') else 0xffd700
+            )
+            embed.set_footer(text=f"Harry's Recruiting 🏈 | Data from {source_name}")
+            await interaction.followup.send(embed=embed)
+        else:
+            await interaction.followup.send(
+                f"❌ Couldn't find commits for **{team}** ({actual_year}).\n"
+                f"💡 Try the full school name (e.g., 'Ohio State' not 'OSU')",
+                ephemeral=True
+            )
+
+    except Exception as e:
+        logger.error(f"❌ Error in /team_commits: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error getting commits: {str(e)}", ephemeral=True)
+
+
 @bot.tree.command(name="recruiting_rankings", description="Get top team recruiting class rankings")
 @app_commands.describe(
     year="Recruiting class year (default: current)",

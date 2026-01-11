@@ -2,8 +2,8 @@
 
 This document outlines all features of Harry, the CFB 26 League Bot.
 
-**Current Version:** 1.17.5
-**Last Updated:** January 10, 2026
+**Current Version:** 1.18.0
+**Last Updated:** January 11, 2026
 **Status:** ✅ Production Ready
 
 ---
@@ -49,6 +49,28 @@ Look up recruit profiles with rankings, offers, predictions, visits, and photos!
 - Total commits
 - Average rating
 - Star breakdown
+- Average NIL value
+
+### Team Commits List ⭐ NEW!
+
+**Command:** `/team_commits <team> [year] [show]`
+
+**Examples:**
+- `/team_commits Washington` - All Washington commits (current year)
+- `/team_commits "Ohio State" 2026` - Ohio State's 2026 class
+- `/team_commits Georgia 2026 show:25` - Show 25 Georgia commits
+
+**Shows:**
+- Each committed recruit with:
+  - ⭐ Star rating (calculated from industry rating)
+  - 📍 Position (QB, RB, WR, etc.)
+  - 📊 Industry composite rating
+  - ✅ Status (Signed/Committed)
+  - 🏫 High school and location (for top 5)
+- Sorted by rating (highest first)
+- Link to full class on On3/Rivals
+
+> **Note:** Currently only available with On3/Rivals data source
 
 ### Team Rankings
 
@@ -522,5 +544,5 @@ src/cfb_bot/
 ---
 
 **Author:** Harry (with assistance from Craig's AI assistant, innit!)
-**Version:** 1.17.4
-**Last Updated:** January 10, 2026
+**Version:** 1.18.0
+**Last Updated:** January 11, 2026

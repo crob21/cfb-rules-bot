@@ -11,10 +11,40 @@ from datetime import datetime
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "1.17.7"
+CURRENT_VERSION = "1.18.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "1.18.0": {
+        "date": "2026-01-11",
+        "title": "Team Commits List - See Who's Committed!",
+        "emoji": "📋",
+        "features": [
+            {
+                "category": "New Command",
+                "emoji": "✨",
+                "changes": [
+                    "NEW: `/team_commits <team> [year]` - List all committed recruits for a team!",
+                    "Shows each commit with: name, position, rating, stars, status (Signed/Committed)",
+                    "High school and location for top recruits",
+                    "Sorted by rating (highest first)",
+                    "Link to full class on On3/Rivals",
+                    "Example: `/team_commits Washington 2026` shows all 25 commits"
+                ]
+            },
+            {
+                "category": "Technical",
+                "emoji": "⚙️",
+                "changes": [
+                    "New `get_team_commits()` method in On3Scraper",
+                    "Dynamically finds team slug from rankings page",
+                    "Parses position, height, weight, high school, location",
+                    "Extracts industry rating and calculates star count",
+                    "Currently On3/Rivals only (247Sports doesn't have commits list page)"
+                ]
+            }
+        ]
+    },
     "1.17.7": {
         "date": "2026-01-10",
         "title": "Fixed Recruiting Class Command for On3",

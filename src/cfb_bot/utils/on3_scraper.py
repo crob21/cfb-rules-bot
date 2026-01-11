@@ -792,7 +792,7 @@ class On3Scraper:
                     first_heading_text = headings[0].get_text(strip=True)
                     if first_heading_text.isdigit():
                         team_data['rank'] = int(first_heading_text)
-                    
+
                     # Average rating - usually a heading with format XX.XX
                     for h in headings:
                         h_text = h.get_text(strip=True)
@@ -842,6 +842,238 @@ class On3Scraper:
 
         except Exception as e:
             logger.error(f"❌ Error parsing team class: {e}", exc_info=True)
+            return None
+
+    async def get_team_commits(
+        self,
+        team: str,
+        year: Optional[int] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get a team's committed recruits list
+
+        Args:
+            team: Team name (e.g., 'Washington', 'Ohio State')
+            year: Recruiting class year
+
+        Returns:
+            Dict with team info and list of commits
+        """
+        if not year:
+            year = self._get_current_recruiting_year()
+
+        cache_key = f"on3:team_commits:{team.lower()}:{year}"
+        cached = self._get_cached(cache_key)
+        if cached:
+            return cached
+
+        # First, find the team's slug from the rankings page
+        rankings_url = self.TEAM_RANKINGS_URL.format(year=year)
+        html = await self._fetch_page(rankings_url)
+
+        if not html:
+            return None
+
+        try:
+            soup = BeautifulSoup(html, 'html.parser')
+            team_lower = team.lower()
+
+            # Find the link to the team's commits page
+            commits_url = None
+            team_name_found = None
+
+            # Look for all links that contain the commits URL pattern
+            all_links = soup.select('a[href*="/industry-comparison-commits/"]')
+
+            for link in all_links:
+                link_text = link.get_text(strip=True)
+                href = link.get('href', '')
+
+                if team_lower in link_text.lower():
+                    commits_url = href
+                    team_name_found = link_text
+                    if not commits_url.startswith('http'):
+                        commits_url = self.BASE_URL + commits_url
+                    logger.info(f"✅ Found commits URL for {team_name_found}: {commits_url}")
+                    break
+
+            if not commits_url:
+                logger.info(f"❌ No commits page found for: {team}")
+                return None
+
+            # Fetch the commits page
+            commits_html = await self._fetch_page(commits_url)
+            if not commits_html:
+                return None
+
+            commits_soup = BeautifulSoup(commits_html, 'html.parser')
+
+            # Parse team summary info
+            result = {
+                'team': team_name_found or team,
+                'year': year,
+                'commits_url': commits_url,
+                'commits': [],
+                'total_commits': 0,
+                'avg_rating': None,
+                'rank': None,
+                'source': 'On3/Rivals'
+            }
+
+            # Get team rank from page
+            rank_elem = commits_soup.select_one('definition:contains("th"), [class*="Rank"]')
+            rank_text = commits_soup.get_text()
+            rank_match = re.search(r'Current Rank\s*(\d+)', rank_text)
+            if rank_match:
+                result['rank'] = int(rank_match.group(1))
+
+            # Get average rating
+            rating_match = re.search(r'Current Rating\s*([\d.]+)', rank_text)
+            if rating_match:
+                result['avg_rating'] = float(rating_match.group(1))
+
+            # Get total commits count
+            commits_match = re.search(r'Commits:\s*"?(\d+)"?', rank_text)
+            if commits_match:
+                result['total_commits'] = int(commits_match.group(1))
+
+            # Parse individual commits from table rows
+            rows = commits_soup.select('row, tr, [role="row"]')
+            logger.debug(f"Found {len(rows)} potential commit rows")
+
+            for row in rows:
+                row_text = row.get_text()
+
+                # Skip header rows
+                if 'Player' in row_text and 'Status' in row_text and 'Industry Rating' in row_text:
+                    continue
+
+                # Look for player link
+                player_link = row.select_one('a[href*="/rivals/"][href$="/"]')
+                if not player_link:
+                    continue
+
+                # Skip non-player links
+                href = player_link.get('href', '')
+                if '/rankings/' in href or '/search/' in href or '/join/' in href:
+                    continue
+
+                player_name = player_link.get_text(strip=True)
+                if not player_name or player_name in ['Player', 'Status', 'Industry Rating']:
+                    continue
+
+                commit = {
+                    'name': player_name,
+                    'profile_url': self.BASE_URL + href if not href.startswith('http') else href,
+                    'position': None,
+                    'height': None,
+                    'weight': None,
+                    'high_school': None,
+                    'location': None,
+                    'rating': None,
+                    'stars': 0,
+                    'national_rank': None,
+                    'position_rank': None,
+                    'state_rank': None,
+                    'status': None,
+                    'status_date': None
+                }
+
+                # Position - look for common position abbreviations
+                # Pattern: "Position AbbreviationOTHeight" (no spaces)
+                pos_match = re.search(r'Position Abbreviation([A-Z]{1,4})(?:Height|Weight|/)', row_text)
+                if pos_match:
+                    commit['position'] = pos_match.group(1)
+                else:
+                    # Fallback: look for position in specific context (H.S. YYYY/POS/)
+                    # Avoid matching "S" from "Status" by excluding single S
+                    pos_fallback = re.search(r'H\.S\.\s*\d{4}[\s/]*([A-Z]{2,4})[\s/]*Height', row_text)
+                    if pos_fallback:
+                        commit['position'] = pos_fallback.group(1)
+                    else:
+                        # Last resort: look for multi-char positions only
+                        pos_last = re.search(r'\b(QB|RB|WR|TE|OT|OG|IOL|EDGE|DL|DT|DE|LB|CB|ATH)\b', row_text)
+                        if pos_last:
+                            commit['position'] = pos_last.group(1)
+
+                # Height and weight
+                hw_match = re.search(r'Height\s*([\d]+-[\d]+)/\s*Weight\s*"?(\d+)"?', row_text)
+                if hw_match:
+                    commit['height'] = hw_match.group(1)
+                    commit['weight'] = hw_match.group(2)
+
+                # High school and location
+                hs_link = row.select_one('a[href*="/high-school/"]')
+                if hs_link:
+                    commit['high_school'] = hs_link.get_text(strip=True)
+                    # Location is usually right after in parentheses
+                    hs_parent = hs_link.parent
+                    if hs_parent:
+                        loc_match = re.search(r'\(([^)]+)\)', hs_parent.get_text())
+                        if loc_match:
+                            commit['location'] = loc_match.group(1)
+
+                # Industry rating - look for pattern like "96.58"
+                rating_pattern = re.search(r'Industry Rating.*?(\d{2}\.\d{2})', row_text)
+                if not rating_pattern:
+                    # Try just the number pattern after ratings context
+                    ratings_cell = row.select_one('[class*="Rating"], [class*="rating"]')
+                    if ratings_cell:
+                        r_match = re.search(r'(\d{2}\.\d{2})', ratings_cell.get_text())
+                        if r_match:
+                            commit['rating'] = float(r_match.group(1))
+                else:
+                    commit['rating'] = float(rating_pattern.group(1))
+
+                # If no rating found, try to find any XX.XX pattern
+                if not commit['rating']:
+                    any_rating = re.findall(r'\b(\d{2}\.\d{2})\b', row_text)
+                    if any_rating:
+                        # First one is usually industry rating
+                        commit['rating'] = float(any_rating[0])
+
+                # Calculate stars from rating
+                if commit['rating']:
+                    commit['stars'] = self._rating_to_stars(commit['rating'])
+
+                # Rankings - Natl., Pos., St.
+                natl_match = re.search(r'Natl\.\s*(\d+)', row_text)
+                if natl_match:
+                    commit['national_rank'] = int(natl_match.group(1))
+
+                pos_rank_match = re.search(r'Pos\.\s*(\d+)', row_text)
+                if pos_rank_match:
+                    commit['position_rank'] = int(pos_rank_match.group(1))
+
+                state_rank_match = re.search(r'St\.\s*(\d+)', row_text)
+                if state_rank_match:
+                    commit['state_rank'] = int(state_rank_match.group(1))
+
+                # Status (Signed/Committed) and date
+                if 'Signed' in row_text:
+                    commit['status'] = 'Signed'
+                elif 'Committed' in row_text:
+                    commit['status'] = 'Committed'
+
+                date_match = re.search(r'Status Date\s*([\d/]+)', row_text)
+                if date_match:
+                    commit['status_date'] = date_match.group(1)
+
+                result['commits'].append(commit)
+
+            # Update total if we didn't get it from page text
+            if not result['total_commits']:
+                result['total_commits'] = len(result['commits'])
+
+            # Sort commits by rating (highest first)
+            result['commits'].sort(key=lambda x: x.get('rating') or 0, reverse=True)
+
+            self._set_cached(cache_key, result)
+            logger.info(f"✅ Found {len(result['commits'])} commits for {result['team']}")
+            return result
+
+        except Exception as e:
+            logger.error(f"❌ Error getting team commits: {e}", exc_info=True)
             return None
 
     async def get_team_rankings(self, year: Optional[int] = None, limit: int = 25) -> List[Dict[str, Any]]:
@@ -1074,6 +1306,78 @@ class On3Scraper:
             lines.append("")
             lines.append("**Star Breakdown:**")
             lines.extend(stars)
+
+        return '\n'.join(lines)
+
+    def format_team_commits(self, data: Dict[str, Any], limit: int = 25) -> str:
+        """Format team commits list for display"""
+        if not data:
+            return "❌ Team not found"
+
+        lines = []
+
+        team = data.get('team', 'Unknown')
+        year = data.get('year', '')
+        rank = data.get('rank', '?')
+        total = data.get('total_commits', 0)
+        avg_rating = data.get('avg_rating')
+
+        # Header
+        lines.append(f"**{team}** - #{rank} Nationally ({year})")
+        lines.append(f"👥 **{total}** Commits")
+        if avg_rating:
+            lines.append(f"📊 Avg Rating: **{avg_rating:.2f}**")
+        lines.append("")
+
+        commits = data.get('commits', [])
+
+        if not commits:
+            lines.append("_No commits found_")
+            return '\n'.join(lines)
+
+        # Show commits (limited)
+        lines.append("**Committed Players:**")
+
+        for i, c in enumerate(commits[:limit], 1):
+            name = c.get('name', 'Unknown')
+            pos = c.get('position', '?')
+            rating = c.get('rating')
+            stars = c.get('stars', 0)
+
+            # Star emoji
+            if stars >= 5:
+                star_emoji = '⭐⭐⭐⭐⭐'
+            elif stars >= 4:
+                star_emoji = '⭐⭐⭐⭐'
+            elif stars >= 3:
+                star_emoji = '⭐⭐⭐'
+            else:
+                star_emoji = '⭐' * stars if stars else ''
+
+            # Build line with rating
+            rating_str = f" ({rating:.2f})" if rating else ""
+            status = c.get('status', '')
+            status_emoji = "✅" if status == 'Signed' else "📝" if status == 'Committed' else ""
+
+            # Format: 1. ⭐⭐⭐⭐⭐ Kodi Greene (OT) - 96.58 ✅
+            lines.append(f"`{i:2d}.` {star_emoji} **{name}** ({pos}){rating_str} {status_emoji}")
+
+            # Add location if available (on a second line for top recruits)
+            if i <= 5 and c.get('high_school'):
+                hs = c.get('high_school', '')
+                loc = c.get('location', '')
+                if loc:
+                    lines.append(f"     📍 {hs} ({loc})")
+
+        # Show truncation message if needed
+        if len(commits) > limit:
+            lines.append(f"")
+            lines.append(f"_...and {len(commits) - limit} more commits_")
+
+        # Link to full page
+        if data.get('commits_url'):
+            lines.append("")
+            lines.append(f"[View Full Class on On3/Rivals]({data['commits_url']})")
 
         return '\n'.join(lines)
 
