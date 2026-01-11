@@ -229,6 +229,59 @@ class EmbedBuilder:
 
 ---
 
+## Git Branching Strategy
+
+**Do the refactor on a feature branch, NOT main!**
+
+### Setup
+```bash
+# Start fresh from main
+git checkout main
+git pull origin main
+
+# Create refactor branch
+git checkout -b refactor/cogs-architecture
+
+# Push branch to GitHub (backup + enables CI)
+git push -u origin refactor/cogs-architecture
+```
+
+### During Refactor
+```bash
+# Commit frequently with clear messages
+git add -A
+git commit -m "Extract recruiting cog"
+
+# Push to branch regularly (triggers CI tests)
+git push
+```
+
+### When Complete
+```bash
+# Ensure all tests pass locally
+pytest tests/ -v
+
+# Push final changes
+git push
+
+# Create Pull Request on GitHub:
+#   refactor/cogs-architecture → main
+
+# Review the PR, check CI status
+# Merge when green ✅
+```
+
+### If Something Breaks in Prod
+```bash
+# Revert is easy - just go back to main
+git checkout main
+git push origin main --force  # Only if needed
+
+# Fix on branch, re-test, try again
+```
+
+---
+
 ## Migration Steps
 
 ### Phase 1: Setup (15 min)
@@ -475,9 +528,9 @@ async def test_player_command_success(mock_bot, mock_interaction):
         'stars': 5,
         'rating': 99.5
     })
-    
+
     await cog.player(mock_interaction, name="Arch Manning")
-    
+
     mock_interaction.followup.send.assert_called_once()
     call_args = mock_interaction.followup.send.call_args
     assert 'Arch Manning' in str(call_args)
@@ -487,9 +540,9 @@ async def test_player_command_not_found(mock_bot, mock_interaction):
     """Should handle recruit not found gracefully"""
     cog = RecruitingCog(mock_bot)
     cog.scraper.search_recruit = AsyncMock(return_value=None)
-    
+
     await cog.player(mock_interaction, name="Nonexistent Player")
-    
+
     mock_interaction.followup.send.assert_called_once()
     call_args = mock_interaction.followup.send.call_args
     assert 'not found' in str(call_args).lower()
@@ -499,9 +552,9 @@ async def test_player_module_disabled(mock_bot, mock_interaction, mock_server_co
     """Should reject when recruiting module disabled"""
     mock_server_config.is_module_enabled.return_value = False
     cog = RecruitingCog(mock_bot)
-    
+
     await cog.player(mock_interaction, name="Arch Manning")
-    
+
     # Should NOT call scraper
     cog.scraper.search_recruit.assert_not_called()
 ```
@@ -516,7 +569,7 @@ def test_default_modules_enabled():
     """New servers should have default modules enabled"""
     config = ServerConfig()
     guild_id = 123456789
-    
+
     assert config.is_module_enabled(guild_id, FeatureModule.RECRUITING) is True
     assert config.is_module_enabled(guild_id, FeatureModule.CFB_DATA) is True
     assert config.is_module_enabled(guild_id, FeatureModule.CORE) is True
@@ -525,9 +578,9 @@ def test_disable_module():
     """Should be able to disable a module"""
     config = ServerConfig()
     guild_id = 123456789
-    
+
     config.disable_module(guild_id, FeatureModule.LEAGUE)
-    
+
     assert config.is_module_enabled(guild_id, FeatureModule.LEAGUE) is False
 
 def test_enable_channel():
@@ -535,9 +588,9 @@ def test_enable_channel():
     config = ServerConfig()
     guild_id = 123456789
     channel_id = 111222333
-    
+
     config.enable_channel(guild_id, channel_id)
-    
+
     assert config.is_channel_enabled(guild_id, channel_id) is True
 ```
 
@@ -552,34 +605,34 @@ async def test_recruit_search_end_to_end(mock_bot, mock_interaction):
     # 1. Load cog
     from src.cfb_bot.cogs.recruiting import RecruitingCog
     cog = RecruitingCog(mock_bot)
-    
+
     # 2. Simulate command (with real scraper, mocked network)
     with aioresponses() as mocked:
         mocked.get(
             'https://www.on3.com/db/search/player/',
             payload={'results': [{'name': 'Test Player'}]}
         )
-        
+
         await cog.player(mock_interaction, name="Test Player")
-    
+
     # 3. Verify response sent
     assert mock_interaction.followup.send.called
 
-@pytest.mark.asyncio  
+@pytest.mark.asyncio
 async def test_module_toggle_affects_commands(mock_bot, mock_interaction):
     """Disabling module should block all its commands"""
     from src.cfb_bot.cogs.admin import AdminCog
     from src.cfb_bot.cogs.recruiting import RecruitingCog
-    
+
     admin_cog = AdminCog(mock_bot)
     recruiting_cog = RecruitingCog(mock_bot)
-    
+
     # Disable recruiting
     await admin_cog.config(mock_interaction, action="disable", module="recruiting")
-    
+
     # Try recruiting command - should fail
     await recruiting_cog.player(mock_interaction, name="Test")
-    
+
     # Should have sent "module disabled" message
     assert 'disabled' in str(mock_interaction.response.send_message.call_args).lower()
 ```
@@ -602,14 +655,34 @@ pytest tests/ -k "recruiting" -v
 pytest tests/ -m "not integration" -v
 ```
 
-### CI/CD Pipeline (GitHub Actions)
+### Where Tests Run
+
+**Two places - Local AND GitHub:**
+
+#### 1. Local (Your Machine)
+Run manually before committing:
+```bash
+# Quick test
+pytest tests/ -v
+
+# With coverage
+pytest tests/ --cov=src/cfb_bot --cov-report=html
+open htmlcov/index.html  # View coverage report in browser
+```
+
+#### 2. GitHub Actions (Automatic CI/CD)
+Runs automatically on every push/PR - **FREE for GitHub repos!**
+
+**Setup (one-time):**
+Create `.github/workflows/test.yml`:
+
 ```yaml
 # .github/workflows/test.yml
 name: Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, refactor/*]  # Run on main AND refactor branches
   pull_request:
     branches: [main]
 
@@ -633,8 +706,33 @@ jobs:
         run: pytest tests/ -v --cov=src/cfb_bot
       
       - name: Check coverage
-        run: |
-          coverage report --fail-under=70
+        run: coverage report --fail-under=70
+```
+
+**How it works:**
+1. You push code to GitHub
+2. GitHub spins up a fresh Ubuntu server
+3. Installs Python + your dependencies
+4. Runs `pytest`
+5. Shows ✅ or ❌ on your commit/PR
+
+**View results:**
+- Go to your repo on GitHub
+- Click "Actions" tab
+- See all test runs with logs
+
+#### Workflow Summary
+```
+You write code
+    ↓
+Run tests locally (quick check)
+    ↓
+git push
+    ↓
+GitHub Actions runs tests automatically
+    ↓
+✅ Green? Safe to merge!
+❌ Red? Fix before merging!
 ```
 
 ### Test Coverage Goals
@@ -682,6 +780,6 @@ echo "✅ All checks passed! Safe to push."
 
 ---
 
-*Plan created: January 11, 2026*  
-*Updated: Added comprehensive testing strategy*  
+*Plan created: January 11, 2026*
+*Updated: Added comprehensive testing strategy*
 *Ready to execute when you are! 🚀*
