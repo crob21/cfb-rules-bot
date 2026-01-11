@@ -206,12 +206,12 @@ class On3Scraper:
         # 4. Last name only without year (transfers with first name typos)
         name_parts = name.strip().split()
         last_name = name_parts[-1] if name_parts else name
-        
+
         search_urls = [
             (self.SEARCH_URL.format(name=quote_plus(name), year=year), f"class {year}", name),
             (self.SEARCH_URL_ALL.format(name=quote_plus(name)), "all players (including transfers)", name),
         ]
-        
+
         # Add last-name-only searches if name has multiple parts
         if len(name_parts) >= 2:
             search_urls.extend([
@@ -284,20 +284,20 @@ class On3Scraper:
                         # Split into parts to check first AND last name
                         search_parts = name_lower.split()
                         result_parts = link_text_lower.split()
-                        
+
                         # Only consider if both have at least 2 parts (first + last)
                         if len(search_parts) >= 2 and len(result_parts) >= 2:
                             # Check first name similarity
                             first_score = fuzz.ratio(search_parts[0], result_parts[0])
-                            # Check last name similarity  
+                            # Check last name similarity
                             last_score = fuzz.ratio(search_parts[-1], result_parts[-1])
-                            
+
                             # BOTH first AND last name must be reasonably similar (>= 70%)
                             # This prevents "Emmanuel Karnley" matching "Emmanuel Poag"
                             if first_score >= 70 and last_score >= 70:
                                 # Overall score is average of both
                                 score = (first_score + last_score) // 2
-                                
+
                                 if score > best_fuzzy_score and score >= 75:  # 75% overall threshold
                                     best_fuzzy_score = score
                                     best_fuzzy_match = (href, link_text)

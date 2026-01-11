@@ -4437,17 +4437,39 @@ async def recruiting_portal(
 
         # Get recruiting data from On3 (uses broader search for transfers)
         recruit_data = None
+        on3_name = None
         try:
             recruit_data = await on3_scraper.search_recruit(name)
+            if recruit_data:
+                on3_name = recruit_data.get('name')  # May differ (nickname vs legal)
         except Exception as e:
             logger.warning(f"⚠️ On3 lookup failed for {name}: {e}")
 
         # Get college stats from CFB Data
         college_stats = None
+        cfb_name = None
         try:
             college_stats = await cfb_data.get_full_player_info(name, team)
+            if college_stats:
+                cfb_name = college_stats.get('name')
         except Exception as e:
             logger.warning(f"⚠️ CFB Data lookup failed for {name}: {e}")
+
+        # Cross-reference: If On3 has a different name, try CFB with that name
+        if recruit_data and not college_stats and on3_name and on3_name.lower() != name.lower():
+            logger.info(f"🔄 Cross-reference: trying CFB lookup with On3 name '{on3_name}'")
+            try:
+                college_stats = await cfb_data.get_full_player_info(on3_name, team)
+            except Exception as e:
+                logger.debug(f"Cross-reference CFB lookup failed: {e}")
+
+        # Cross-reference: If CFB has a different name, try On3 with that name
+        if college_stats and not recruit_data and cfb_name and cfb_name.lower() != name.lower():
+            logger.info(f"🔄 Cross-reference: trying On3 lookup with CFB name '{cfb_name}'")
+            try:
+                recruit_data = await on3_scraper.search_recruit(cfb_name)
+            except Exception as e:
+                logger.debug(f"Cross-reference On3 lookup failed: {e}")
 
         # If neither found, show error
         if not recruit_data and not college_stats:
@@ -4456,6 +4478,7 @@ async def recruiting_portal(
                 description=f"Couldn't find **{name}** in transfer portal data.\n\n"
                            f"💡 **Tips:**\n"
                            f"• Check the spelling\n"
+                           f"• Try their nickname (e.g., 'Hollywood Smothers' not 'Daylan Smothers')\n"
                            f"• Add their previous team: `/recruiting portal name:{name} team:Alabama`\n"
                            f"• Try just `/cfb player` for college stats only",
                 color=Colors.WARNING
