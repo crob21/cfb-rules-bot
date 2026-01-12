@@ -250,7 +250,7 @@ async def send_startup_notification():
                     # Check if the timer channel belongs to this guild
                     timer_channel_id = timer_info.get('channel_id')
                     timer_channel = bot.get_channel(timer_channel_id) if timer_channel_id else None
-                    
+
                     # Only show timer info if it's in THIS guild
                     if timer_channel and timer_channel.guild.id == guild.id:
                         description += f"**⏰ Timer Restored**\n"

@@ -513,20 +513,28 @@ class On3Scraper:
                 href = link.get('href', '')
                 # Skip generic college links, look for specific team pages
                 if '/football/' in href or href.endswith('/'):
-                    # Get school name from link text or image alt
-                    school_name = link.get_text(strip=True)
+                    # Get school name from image alt text first (more reliable)
+                    school_name = None
                     img = link.select_one('img')
                     if img and img.get('alt'):
                         alt_text = img.get('alt', '')
                         # Clean up alt text - remove "Avatar", "logo", etc.
                         school_name = alt_text.replace(' Avatar', '').replace(' logo', '').replace('Visit ', '').strip()
+                    
+                    # Fallback to link text only if it's short (school names, not headlines)
+                    if not school_name:
+                        link_text = link.get_text(strip=True)
+                        # Only use if it looks like a school name (short, no "commits to", etc.)
+                        if link_text and len(link_text) < 30 and 'commit' not in link_text.lower() and 'star' not in link_text.lower():
+                            school_name = link_text
 
-                    # Filter out generic names
-                    if school_name and len(school_name) > 2 and school_name not in ['College', 'NCAA', 'Avatar', 'Teams', 'All Teams']:
-                        recruit['committed_to'] = school_name
-                        if recruit['status'] == 'Uncommitted':
-                            recruit['status'] = 'Committed'
-                        break
+                    # Filter out generic names and headlines
+                    if school_name and len(school_name) > 2 and len(school_name) < 50:
+                        if school_name not in ['College', 'NCAA', 'Avatar', 'Teams', 'All Teams']:
+                            recruit['committed_to'] = school_name
+                            if recruit['status'] == 'Uncommitted':
+                                recruit['status'] = 'Committed'
+                            break
 
             # Parse commitment date
             commit_date_match = re.search(r'Commitment Date\s*(\d{1,2}/\d{1,2}/\d{2,4})', page_text)
@@ -637,10 +645,32 @@ class On3Scraper:
             if 'Transfer Portal' in page_text:
                 recruit['is_transfer'] = True
                 
-                # Try to get previous school from "Transfer Portal(SCHOOL)" pattern
+                # Try to get previous school - multiple patterns
+                # Pattern 1: "Transfer Portal(SCHOOL)" or "Transfer Portal (SCHOOL)"
                 prev_school_match = re.search(r'Transfer Portal\s*\(([^)]+)\)', page_text)
                 if prev_school_match:
                     recruit['previous_school'] = prev_school_match.group(1)
+                
+                # Pattern 2: "Previous School: SCHOOL" or "Prev School: SCHOOL"
+                if not recruit['previous_school']:
+                    prev_match2 = re.search(r'(?:Previous|Prev\.?)\s*School[:\s]+([A-Za-z\s&]+?)(?:\s*\||\s*$|\s*\d)', page_text)
+                    if prev_match2:
+                        recruit['previous_school'] = prev_match2.group(1).strip()
+                
+                # Pattern 3: Look for college links near "Transfer Portal" text
+                if not recruit['previous_school']:
+                    # Find college mentioned near transfer portal section
+                    portal_section = soup.find(string=re.compile(r'Transfer Portal', re.I))
+                    if portal_section:
+                        parent = portal_section.find_parent(['div', 'section', 'article'])
+                        if parent:
+                            college_link = parent.select_one('a[href*="/college/"]')
+                            if college_link:
+                                img = college_link.select_one('img')
+                                if img and img.get('alt'):
+                                    school = img.get('alt', '').replace(' Avatar', '').replace(' logo', '').strip()
+                                    if school and len(school) > 2 and school != recruit.get('committed_to'):
+                                        recruit['previous_school'] = school
                 
                 # Try to get experience years (e.g., "Experience2023 - 2025")
                 exp_match = re.search(r'Experience\s*(\d{4})\s*[-–]\s*(\d{4})', page_text)
