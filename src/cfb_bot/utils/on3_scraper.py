@@ -228,7 +228,10 @@ class On3Scraper:
         cache_key = f"on3:recruit:{name.lower()}:{year}"
         cached = self._get_cached(cache_key)
         if cached:
+            logger.info(f"📦 Cache hit for '{name}' (year {year})")
             return cached
+
+        logger.info(f"🔍 Searching On3 for: '{name}' (default year: {year})")
 
         # Build search strategies:
         # 1. Full name with class year (high school recruits)
@@ -255,9 +258,11 @@ class On3Scraper:
         is_transfer = False
 
         for search_url, search_type, search_name in search_urls:
+            logger.info(f"🔍 Trying search: {search_type}")
             html = await self._fetch_page(search_url)
 
             if not html:
+                logger.warning(f"⚠️ No HTML returned for {search_type} search")
                 continue
 
             try:
@@ -272,6 +277,8 @@ class On3Scraper:
 
                 name_lower = name.lower()
                 name_parts = name_lower.split()
+                
+                logger.info(f"📋 Found {len(player_links)} player links to check for '{name}'")
 
                 # Track best fuzzy match
                 best_fuzzy_match = None
@@ -288,6 +295,9 @@ class On3Scraper:
                     # Match if the link contains a player-like slug pattern
                     if not re.search(r'/rivals/[\w-]+-\d+/', href):
                         continue
+                    
+                    # Log each candidate link for debugging
+                    logger.debug(f"  📎 Candidate: '{link_text}' -> {href}")
 
                     link_text_lower = link_text.lower()
 
