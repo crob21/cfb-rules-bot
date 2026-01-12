@@ -24,6 +24,14 @@ from urllib.parse import quote_plus
 import httpx
 from bs4 import BeautifulSoup
 
+# Cloudflare bypass
+try:
+    import cloudscraper
+    CLOUDSCRAPER_AVAILABLE = True
+except ImportError:
+    CLOUDSCRAPER_AVAILABLE = False
+    logger.warning("⚠️ cloudscraper not available - Cloudflare blocks may occur")
+
 # Fuzzy matching for player name typos
 try:
     from rapidfuzz import fuzz
@@ -87,8 +95,21 @@ class On3Scraper:
         self._rate_limit_delay_max = 2.5  # Maximum 2.5 seconds (randomized)
         self._is_blocked = False  # Track if we're currently blocked
 
-        # HTTP client with browser-like headers
-        # Note: Simpler headers work better with On3 - complex headers can cause issues
+        # Use cloudscraper to bypass Cloudflare if available
+        if CLOUDSCRAPER_AVAILABLE:
+            self._scraper = cloudscraper.create_scraper(
+                browser={
+                    'browser': 'chrome',
+                    'platform': 'darwin',
+                    'desktop': True
+                }
+            )
+            logger.info("✅ Using cloudscraper for Cloudflare bypass")
+        else:
+            self._scraper = None
+            logger.warning("⚠️ cloudscraper not available - using httpx (may encounter blocks)")
+
+        # HTTP headers for fallback httpx client
         self._headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -162,39 +183,65 @@ class On3Scraper:
             logger.debug(f"🧹 Cleaned up {len(expired_keys)} expired cache entries")
 
     async def _fetch_page(self, url: str) -> Optional[str]:
-        """Fetch a page with rate limiting and error handling"""
+        """Fetch a page with rate limiting and Cloudflare bypass"""
         await self._rate_limit()
 
         try:
             logger.info(f"🔍 Fetching: {url}")
-            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-                response = await client.get(url, headers=self._headers)
-
+            
+            # Use cloudscraper if available (bypasses Cloudflare)
+            if self._scraper and CLOUDSCRAPER_AVAILABLE:
+                # Run sync cloudscraper in thread pool to keep async
+                response = await asyncio.to_thread(self._scraper.get, url, timeout=15)
+                
                 if response.status_code == 200:
                     html = response.text
-                    # Check for blocking indicators in the response
+                    # Check for blocking indicators
                     if self._check_if_blocked(html):
-                        logger.error(f"🚫 BLOCKED by On3! May need to wait or rotate IP")
+                        logger.error(f"🚫 BLOCKED by On3 even with cloudscraper!")
                         return None
                     return html
                 elif response.status_code == 403:
-                    logger.error(f"🚫 BLOCKED (403 Forbidden) - On3 has blocked access!")
+                    logger.error(f"🚫 BLOCKED (403 Forbidden)")
                     self._is_blocked = True
                     return None
                 elif response.status_code == 429:
-                    logger.error(f"🚫 RATE LIMITED (429) - Too many requests to On3!")
+                    logger.error(f"🚫 RATE LIMITED (429)")
                     self._is_blocked = True
                     return None
                 elif response.status_code == 404:
                     logger.warning(f"⚠️ Page not found: {url}")
                     return None
                 else:
-                    logger.error(f"❌ HTTP {response.status_code} for {url}")
+                    logger.error(f"❌ HTTP {response.status_code}")
                     return None
+                    
+            # Fallback to httpx if cloudscraper not available
+            else:
+                async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+                    response = await client.get(url, headers=self._headers)
 
-        except httpx.TimeoutException:
-            logger.error(f"❌ Timeout fetching {url}")
-            return None
+                    if response.status_code == 200:
+                        html = response.text
+                        if self._check_if_blocked(html):
+                            logger.error(f"🚫 BLOCKED by On3! Install cloudscraper: pip install cloudscraper")
+                            return None
+                        return html
+                    elif response.status_code == 403:
+                        logger.error(f"🚫 BLOCKED (403 Forbidden)")
+                        self._is_blocked = True
+                        return None
+                    elif response.status_code == 429:
+                        logger.error(f"🚫 RATE LIMITED (429)")
+                        self._is_blocked = True
+                        return None
+                    elif response.status_code == 404:
+                        logger.warning(f"⚠️ Page not found: {url}")
+                        return None
+                    else:
+                        logger.error(f"❌ HTTP {response.status_code}")
+                        return None
+
         except Exception as e:
             logger.error(f"❌ Error fetching {url}: {e}")
             return None
