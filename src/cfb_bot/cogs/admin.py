@@ -580,7 +580,7 @@ class AdminCog(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         
         # Get On3 scraper usage
-        from ..utils.recruiting_scraper import get_recruiting_scraper
+        from .recruiting import get_recruiting_scraper
         guild_id = interaction.guild.id
         scraper, source_name = get_recruiting_scraper(guild_id)
         
