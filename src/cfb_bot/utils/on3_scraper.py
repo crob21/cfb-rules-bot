@@ -159,7 +159,18 @@ class On3Scraper:
                 response = await client.get(url, headers=self._headers)
 
                 if response.status_code == 200:
-                    return response.text
+                    html = response.text
+                    # Check for blocking indicators in the response
+                    if self._check_if_blocked(html):
+                        logger.error(f"🚫 BLOCKED by On3! May need to wait or rotate IP")
+                        return None
+                    return html
+                elif response.status_code == 403:
+                    logger.error(f"🚫 BLOCKED (403 Forbidden) - On3 has blocked access!")
+                    return None
+                elif response.status_code == 429:
+                    logger.error(f"🚫 RATE LIMITED (429) - Too many requests to On3!")
+                    return None
                 elif response.status_code == 404:
                     logger.warning(f"⚠️ Page not found: {url}")
                     return None
@@ -173,6 +184,26 @@ class On3Scraper:
         except Exception as e:
             logger.error(f"❌ Error fetching {url}: {e}")
             return None
+
+    def _check_if_blocked(self, html: str) -> bool:
+        """Check if the response indicates we've been blocked"""
+        block_indicators = [
+            'captcha',
+            'blocked',
+            'access denied',
+            'please verify you are human',
+            'too many requests',
+            'rate limit',
+            'cloudflare',
+            'challenge-platform',
+            'just a moment',  # Cloudflare waiting page
+        ]
+        html_lower = html.lower()
+        for indicator in block_indicators:
+            if indicator in html_lower:
+                logger.warning(f"⚠️ Block indicator found: '{indicator}'")
+                return True
+        return False
 
     async def search_recruit(
         self,
@@ -655,25 +686,25 @@ class On3Scraper:
             # On3 shows: "Transfer Portal (SHSU)" with previous school, experience years
             # IMPORTANT: Must find "Transfer Portal" in player's context, not sidebars
             # AND must have actual portal-specific data (not just enrollment dates)
-            
+
             is_portal_player = False
             prev_school = None
             college_exp = None
             portal_rating = None
             portal_entry = None
-            
+
             # PRIMARY CHECK: "Transfer Portal (SCHOOL)" pattern - DEFINITIVE
             prev_school_match = re.search(r'Transfer Portal\s*\(([^)]+)\)', page_text)
             if prev_school_match:
                 is_portal_player = True
                 prev_school = prev_school_match.group(1)
-            
+
             # SECONDARY CHECK: "Transfer Portal Rating" - DEFINITIVE
             portal_rating_match = re.search(r'Transfer Portal Rating\s*(\d{2}\.\d{2})', page_text)
             if portal_rating_match:
                 is_portal_player = True
                 portal_rating = float(portal_rating_match.group(1))
-            
+
             # TERTIARY CHECK: "Entered" date ONLY if near "Transfer Portal" text
             # (Not just any "Entered" date - that could be enrollment date)
             if 'Transfer Portal' in page_text:
@@ -682,19 +713,19 @@ class On3Scraper:
                 if portal_section_match:
                     is_portal_player = True
                     portal_entry = portal_section_match.group(1)
-            
+
             # Only process additional fields if confirmed as portal player
             if is_portal_player:
                 recruit['is_transfer'] = True
                 recruit['previous_school'] = prev_school
                 recruit['portal_rating'] = portal_rating
                 recruit['portal_entry_date'] = portal_entry
-                
+
                 # Get college experience years
                 exp_match = re.search(r'Experience\s*(\d{4})\s*[-–]\s*(\d{4})', page_text)
                 if exp_match:
                     recruit['college_experience'] = f"{exp_match.group(1)}-{exp_match.group(2)}"
-                
+
                 # Try additional patterns for previous school if not found
                 if not recruit['previous_school']:
                     prev_match2 = re.search(r'(?:Previous|Prev\.?)\s*School[:\s]+([A-Za-z\s&]+?)(?:\s*\||\s*$|\s*\d)', page_text)
