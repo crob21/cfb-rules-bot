@@ -404,12 +404,20 @@ class RecruitingScraper:
                 'state': None,
                 'high_school': None,
                 'committed_to': None,
+                'commitment_date': None,  # Add commitment date (like On3)
                 'status': 'Uncommitted',
                 'enrollment_date': None,
-                'offers': [],
+                'offers': [],  # List of schools that offered
+                'top_predictions': [],  # Crystal Ball predictions with percentages
+                'visits': [],  # Official/unofficial visits
+                'image_url': None,  # Player profile photo
                 'stats': [],
                 'profile_url': profile_url,
-                'scouting_report': None
+                'scouting_report': None,
+                'source': '247Sports Composite',
+                # Transfer portal fields (like On3)
+                'is_transfer': False,
+                'previous_school': None,
             }
 
             # Player name - from h1 tag
@@ -625,12 +633,77 @@ class RecruitingScraper:
             if scout_elem:
                 recruit['scouting_report'] = scout_elem.get_text(strip=True)[:500]  # Truncate
 
-            # Offers count
-            offers_match = re.search(r'(\d+)\s+Offers?', page_text)
-            if offers_match:
-                recruit['offers_count'] = int(offers_match.group(1))
+            # ===== NEW: Parse Offers, Predictions, Visits, Image (match On3) =====
+            
+            # Player image/photo
+            img_elem = soup.select_one('img.player-image, img.prospect-avatar, img[alt*="' + (recruit['name'] or '') + '"]')
+            if img_elem and img_elem.get('src'):
+                recruit['image_url'] = img_elem.get('src')
+                if recruit['image_url'] and not recruit['image_url'].startswith('http'):
+                    recruit['image_url'] = 'https:' + recruit['image_url'] if recruit['image_url'].startswith('//') else self.BASE_URL + recruit['image_url']
+            
+            # Offers - Look for offer list/table
+            offers_section = soup.select('.offer-list li, .offers-list li, table.offer-table tr')
+            for offer_elem in offers_section:
+                school_name = offer_elem.get_text(strip=True)
+                # Filter out headers and empty entries
+                if school_name and len(school_name) > 2 and school_name not in ['School', 'Date', 'Offer', 'Status']:
+                    # Clean up - remove date suffixes like "(12/15/2025)"
+                    school_name = re.sub(r'\s*\(\d{1,2}/\d{1,2}/\d{4}\)', '', school_name).strip()
+                    if school_name and len(school_name) < 50:  # Sanity check
+                        recruit['offers'].append(school_name)
+            
+            # If no structured offers found, try counting from text
+            if not recruit['offers']:
+                offers_match = re.search(r'(\d+)\s+Offers?', page_text)
+                if offers_match:
+                    recruit['offers_count'] = int(offers_match.group(1))
+            
+            # Crystal Ball Predictions
+            cb_section = soup.select('.crystal-ball-prediction, .predictions-list li, .prediction-item')
+            for pred_elem in cb_section[:5]:  # Top 5
+                pred_text = pred_elem.get_text(strip=True)
+                # Pattern: "Alabama 75%" or "Alabama Crimson Tide - 75%"
+                pred_match = re.search(r'([A-Za-z\s&]+?)[\s-]+(\d+)%', pred_text)
+                if pred_match:
+                    team = pred_match.group(1).strip()
+                    pct = pred_match.group(2).strip()
+                    if len(team) > 2 and len(team) < 50:
+                        recruit['top_predictions'].append({
+                            'team': team,
+                            'pct': pct
+                        })
+            
+            # Visits - Look for official/unofficial visit lists
+            visits_section = soup.select('.visit-list li, .visits-list li, tr:has(td:contains("Official")), tr:has(td:contains("Unofficial"))')
+            for visit_elem in visits_section:
+                visit_text = visit_elem.get_text(strip=True)
+                # Pattern: "Alabama - Official - 6/15/2025" or "Alabama (Official)"
+                visit_match = re.search(r'([A-Za-z\s&]+?)[\s-]+(Official|Unofficial)', visit_text, re.IGNORECASE)
+                if visit_match:
+                    school = visit_match.group(1).strip()
+                    visit_type = visit_match.group(2).strip()
+                    # Try to get date
+                    date_match = re.search(r'(\d{1,2}/\d{1,2}/\d{2,4})', visit_text)
+                    date_str = date_match.group(1) if date_match else None
+                    
+                    if len(school) > 2 and len(school) < 50:
+                        recruit['visits'].append({
+                            'school': school,
+                            'type': visit_type,
+                            'date': date_str,
+                            'status': 'Completed' if date_str else 'Scheduled'
+                        })
+            
+            # Commitment date
+            commit_date_match = re.search(r'Committed\s*[-–]\s*(\d{1,2}/\d{1,2}/\d{2,4})', page_text)
+            if commit_date_match:
+                recruit['commitment_date'] = commit_date_match.group(1)
+            
+            # Normalize rating field to match On3 (use composite if available, else 247)
+            recruit['rating'] = recruit['rating_composite'] or recruit['rating_247']
 
-            logger.info(f"✅ Scraped profile: {recruit['name']} ({recruit['position']}) - {recruit['stars']}⭐")
+            logger.info(f"✅ Scraped profile: {recruit['name']} ({recruit['position']}) - {recruit['stars']}⭐ | {len(recruit['offers'])} offers, {len(recruit['top_predictions'])} predictions, {len(recruit['visits'])} visits")
             return recruit
 
         except Exception as e:
@@ -678,22 +751,28 @@ class RecruitingScraper:
     def _parse_recruit_row(self, row, player_name: str) -> Optional[Dict[str, Any]]:
         """Parse a recruit row from the rankings table"""
         try:
-            recruit = {
-                'name': player_name,
-                'stars': None,
-                'rating': None,
-                'national_rank': None,
-                'position_rank': None,
-                'state_rank': None,
-                'position': None,
-                'height': None,
-                'weight': None,
-                'city': None,
-                'state': None,
-                'high_school': None,
-                'committed_to': None,
-                'status': 'Uncommitted'
-            }
+                recruit = {
+                    'name': player_name,
+                    'stars': None,
+                    'rating': None,
+                    'national_rank': None,
+                    'position_rank': None,
+                    'state_rank': None,
+                    'position': None,
+                    'height': None,
+                    'weight': None,
+                    'city': None,
+                    'state': None,
+                    'high_school': None,
+                    'committed_to': None,
+                    'status': 'Uncommitted',
+                    'offers': [],
+                    'top_predictions': [],
+                    'visits': [],
+                    'image_url': None,
+                    'source': '247Sports Composite',
+                    'is_transfer': False
+                }
 
             # Try different selectors for the composite rating
             rating_elem = row.select_one('.score, .rating, .composite')
