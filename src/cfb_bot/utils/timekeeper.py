@@ -986,16 +986,22 @@ class TimekeeperManager:
             time_remaining = end_time - datetime.now()
             hours_remaining = time_remaining.total_seconds() / 3600
 
-            logger.info(f"✅ Restored timer for #{channel.name}")
+            logger.info(f"✅ Restored timer for {channel.guild.name} (ID: {channel.guild.id}) - #{channel.name}")
+            logger.info(f"⏰ Season {self.season}, Week {self.week}")
             logger.info(f"⏰ Time remaining: {hours_remaining:.1f} hours")
             logger.info(f"⏰ End time: {end_time}")
 
             # Store restore info for combined startup notification
             self._restored_timer_info = {
+                'channel_id': channel.id,
                 'channel_name': channel.name,
+                'guild_id': channel.guild.id,
+                'guild_name': channel.guild.name,
                 'hours_remaining': hours_remaining,
                 'minutes_remaining': int((time_remaining.total_seconds() % 3600) / 60),
-                'end_time': end_time.strftime('%I:%M %p')
+                'end_time': end_time.strftime('%I:%M %p'),
+                'season': self.season,
+                'week': self.week
             }
 
         except Exception as e:

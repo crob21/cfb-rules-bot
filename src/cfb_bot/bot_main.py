@@ -308,27 +308,25 @@ async def send_startup_notification():
             timer_info = timekeeper_manager.get_restored_timer_info()
             if timer_info:
                 timer_channel_id = timer_info.get('channel_id')
-                timer_channel = bot.get_channel(timer_channel_id) if timer_channel_id else None
+                guild_name = timer_info.get('guild_name', 'Unknown')
+                guild_id = timer_info.get('guild_id', 'Unknown')
+                season = timer_info.get('season', '?')
+                week = timer_info.get('week', '?')
                 
-                if timer_channel:
-                    timer_text = (
-                        f"**Active Timer Detected:**\n"
-                        f"• Server: **{timer_channel.guild.name}**\n"
-                        f"• Channel: #{timer_info['channel_name']}\n"
-                        f"• Time Remaining: {int(timer_info['hours_remaining'])}h {timer_info['minutes_remaining']}m\n"
-                        f"• Ends At: {timer_info['end_time']}"
-                    )
-                    embed.add_field(
-                        name="⏰ League Timer",
-                        value=timer_text,
-                        inline=False
-                    )
-                else:
-                    embed.add_field(
-                        name="⏰ League Timer",
-                        value="No active timer",
-                        inline=False
-                    )
+                timer_text = (
+                    f"**✅ Timer Restored Successfully**\n"
+                    f"• Server: **{guild_name}** (ID: {guild_id})\n"
+                    f"• Channel: #{timer_info['channel_name']} (ID: {timer_channel_id})\n"
+                    f"• Season/Week: **Season {season}, Week {week}**\n"
+                    f"• Time Remaining: {int(timer_info['hours_remaining'])}h {timer_info['minutes_remaining']}m\n"
+                    f"• Ends At: {timer_info['end_time']}"
+                )
+                embed.add_field(
+                    name="⏰ League Timer",
+                    value=timer_text,
+                    inline=False
+                )
+                logger.info(f"📊 Timer restored: {guild_name} (ID: {guild_id}) - S{season}W{week}")
             else:
                 embed.add_field(
                     name="⏰ League Timer",
