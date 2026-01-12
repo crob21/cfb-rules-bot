@@ -218,78 +218,133 @@ async def on_ready():
 
 
 async def send_startup_notification():
-    """Send a rich startup notification with version, timer status, and what's new"""
+    """Send detailed startup status to development channel only"""
     from .utils.server_config import FeatureModule
-
-    # Get version info - hardcode for v3.0 since version_manager may have old data
+    from datetime import datetime
+    
+    # ONLY send to dev channel
+    DEV_SERVER_ID = 780882032867803168
+    DEV_CHANNEL_ID = 1417732043936108564
+    
+    dev_channel = bot.get_channel(DEV_CHANNEL_ID)
+    if not dev_channel:
+        logger.warning(f"⚠️ Could not find dev channel {DEV_CHANNEL_ID}")
+        return
+    
+    # Get version info
     current_version = "3.0.0"
     version_title = "Cog Architecture"
     version_emoji = "🏗️"
-
-    # Send per-server notification (timer info only for LEAGUE-enabled servers)
-    sent_count = 0
-    for guild in bot.guilds:
-        admin_channel_id = server_config.get_admin_channel(guild.id)
-        if not admin_channel_id:
-            continue
-
-        channel = guild.get_channel(admin_channel_id)
-        if not channel:
-            continue
-
-        # Build description - customized per server
-        description = f"**Version {current_version}** - {version_title} {version_emoji}\n\n"
-        description += f"**Guilds:** {len(bot.guilds)} | **Status:** Online ✅\n\n"
-
-        # Only show timer info if LEAGUE is enabled AND timer is in THIS server
-        league_enabled = server_config.is_module_enabled(guild.id, FeatureModule.LEAGUE)
-        if league_enabled and timekeeper_manager:
-            try:
-                timer_info = timekeeper_manager.get_restored_timer_info()
-                if timer_info:
-                    # Check if the timer channel belongs to this guild
-                    timer_channel_id = timer_info.get('channel_id')
-                    timer_channel = bot.get_channel(timer_channel_id) if timer_channel_id else None
-
-                    # Only show timer info if it's in THIS guild
-                    if timer_channel and timer_channel.guild.id == guild.id:
-                        description += f"**⏰ Timer Restored**\n"
-                        description += f"Channel: #{timer_info['channel_name']}\n"
-                        description += f"Time Remaining: {int(timer_info['hours_remaining'])}h {timer_info['minutes_remaining']}m\n"
-                        description += f"Ends At: {timer_info['end_time']}\n\n"
-            except Exception as e:
-                logger.warning(f"⚠️ Could not get timer info: {e}")
-
-        # Create embed
-        embed = discord.Embed(
-            title="🏈 Harry is Online!",
-            description=description,
-            color=0x00ff00
-        )
-
-        # What's new for v3.0
-        changes_preview = [
-            "• 🏗️ New cog-based modular architecture",
-            "• ⚡ Better performance and maintainability",
-            "• 🔧 All commands organized by module"
-        ]
-
-        embed.add_field(
-            name=f"{version_emoji} What's New",
-            value="\n".join(changes_preview),
-            inline=False
-        )
-
-        embed.set_footer(text="Harry Admin Notification 🔧 | Use /whats_new for full details")
-
+    
+    if version_manager:
         try:
-            await channel.send(embed=embed)
-            sent_count += 1
+            current_version = version_manager.get_current_version()
+            version_info = version_manager.get_latest_version_info()
+            version_title = version_info.get('title', 'Update')
+            version_emoji = version_info.get('emoji', '📌')
+        except Exception:
+            pass
+    
+    # Build detailed status
+    embed = discord.Embed(
+        title="🏈 Harry is Online!",
+        description=f"**Version {current_version}** - {version_title} {version_emoji}\n"
+                   f"**Status:** Deployed ✅ | **Time:** {datetime.now().strftime('%I:%M:%S %p')}\n",
+        color=0x00ff00,
+        timestamp=datetime.now()
+    )
+    
+    # 📊 Connected Servers
+    server_list = []
+    for guild in bot.guilds:
+        server_list.append(f"• **{guild.name}** (ID: {guild.id}) - {guild.member_count} members")
+    
+    embed.add_field(
+        name=f"📊 Connected Servers ({len(bot.guilds)})",
+        value="\n".join(server_list) if server_list else "None",
+        inline=False
+    )
+    
+    # ⚙️ Command Sync Status
+    sync_status = []
+    for guild in bot.guilds:
+        sync_status.append(f"• **{guild.name}**: Synced ✅")
+    
+    embed.add_field(
+        name="⚙️ Command Sync Status",
+        value="\n".join(sync_status) if sync_status else "None",
+        inline=False
+    )
+    
+    # 📦 Loaded Cogs
+    cog_list = []
+    for cog_name in bot.cogs.keys():
+        cog_list.append(f"• {cog_name}")
+    
+    embed.add_field(
+        name=f"📦 Loaded Cogs ({len(bot.cogs)})",
+        value="\n".join(cog_list) if cog_list else "None",
+        inline=False
+    )
+    
+    # 🔧 Module Status per Server
+    module_status = []
+    for guild in bot.guilds:
+        modules = []
+        for module in FeatureModule:
+            if server_config.is_module_enabled(guild.id, module):
+                modules.append(module.value)
+        module_status.append(f"**{guild.name}**: {', '.join(modules) if modules else 'None'}")
+    
+    embed.add_field(
+        name="🔧 Enabled Modules per Server",
+        value="\n".join(module_status) if module_status else "None",
+        inline=False
+    )
+    
+    # ⏰ Timer Status
+    if timekeeper_manager:
+        try:
+            timer_info = timekeeper_manager.get_restored_timer_info()
+            if timer_info:
+                timer_channel_id = timer_info.get('channel_id')
+                timer_channel = bot.get_channel(timer_channel_id) if timer_channel_id else None
+                
+                if timer_channel:
+                    timer_text = (
+                        f"**Active Timer Detected:**\n"
+                        f"• Server: **{timer_channel.guild.name}**\n"
+                        f"• Channel: #{timer_info['channel_name']}\n"
+                        f"• Time Remaining: {int(timer_info['hours_remaining'])}h {timer_info['minutes_remaining']}m\n"
+                        f"• Ends At: {timer_info['end_time']}"
+                    )
+                    embed.add_field(
+                        name="⏰ League Timer",
+                        value=timer_text,
+                        inline=False
+                    )
+                else:
+                    embed.add_field(
+                        name="⏰ League Timer",
+                        value="No active timer",
+                        inline=False
+                    )
+            else:
+                embed.add_field(
+                    name="⏰ League Timer",
+                    value="No active timer",
+                    inline=False
+                )
         except Exception as e:
-            logger.warning(f"⚠️ Could not send startup to {guild.name}: {e}")
-
-    if sent_count > 0:
-        logger.info(f"📢 Sent startup notification to {sent_count} admin channel(s)")
+            logger.warning(f"⚠️ Could not get timer info: {e}")
+    
+    embed.set_footer(text="Harry Development Status 🛠️ | This message only appears in dev channel")
+    
+    try:
+        await dev_channel.send(embed=embed)
+        logger.info(f"📢 Sent detailed startup status to dev channel")
+    except Exception as e:
+        logger.warning(f"⚠️ Could not send startup to dev channel: {e}")
 
 
 @bot.event

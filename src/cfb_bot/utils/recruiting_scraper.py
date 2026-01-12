@@ -634,14 +634,14 @@ class RecruitingScraper:
                 recruit['scouting_report'] = scout_elem.get_text(strip=True)[:500]  # Truncate
 
             # ===== NEW: Parse Offers, Predictions, Visits, Image (match On3) =====
-            
+
             # Player image/photo
             img_elem = soup.select_one('img.player-image, img.prospect-avatar, img[alt*="' + (recruit['name'] or '') + '"]')
             if img_elem and img_elem.get('src'):
                 recruit['image_url'] = img_elem.get('src')
                 if recruit['image_url'] and not recruit['image_url'].startswith('http'):
                     recruit['image_url'] = 'https:' + recruit['image_url'] if recruit['image_url'].startswith('//') else self.BASE_URL + recruit['image_url']
-            
+
             # Offers - Look for offer list/table
             offers_section = soup.select('.offer-list li, .offers-list li, table.offer-table tr')
             for offer_elem in offers_section:
@@ -652,13 +652,13 @@ class RecruitingScraper:
                     school_name = re.sub(r'\s*\(\d{1,2}/\d{1,2}/\d{4}\)', '', school_name).strip()
                     if school_name and len(school_name) < 50:  # Sanity check
                         recruit['offers'].append(school_name)
-            
+
             # If no structured offers found, try counting from text
             if not recruit['offers']:
                 offers_match = re.search(r'(\d+)\s+Offers?', page_text)
                 if offers_match:
                     recruit['offers_count'] = int(offers_match.group(1))
-            
+
             # Crystal Ball Predictions
             cb_section = soup.select('.crystal-ball-prediction, .predictions-list li, .prediction-item')
             for pred_elem in cb_section[:5]:  # Top 5
@@ -673,7 +673,7 @@ class RecruitingScraper:
                             'team': team,
                             'pct': pct
                         })
-            
+
             # Visits - Look for official/unofficial visit lists
             visits_section = soup.select('.visit-list li, .visits-list li, tr:has(td:contains("Official")), tr:has(td:contains("Unofficial"))')
             for visit_elem in visits_section:
@@ -686,7 +686,7 @@ class RecruitingScraper:
                     # Try to get date
                     date_match = re.search(r'(\d{1,2}/\d{1,2}/\d{2,4})', visit_text)
                     date_str = date_match.group(1) if date_match else None
-                    
+
                     if len(school) > 2 and len(school) < 50:
                         recruit['visits'].append({
                             'school': school,
@@ -694,12 +694,12 @@ class RecruitingScraper:
                             'date': date_str,
                             'status': 'Completed' if date_str else 'Scheduled'
                         })
-            
+
             # Commitment date
             commit_date_match = re.search(r'Committed\s*[-–]\s*(\d{1,2}/\d{1,2}/\d{2,4})', page_text)
             if commit_date_match:
                 recruit['commitment_date'] = commit_date_match.group(1)
-            
+
             # Normalize rating field to match On3 (use composite if available, else 247)
             recruit['rating'] = recruit['rating_composite'] or recruit['rating_247']
 
