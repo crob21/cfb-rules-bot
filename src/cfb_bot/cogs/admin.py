@@ -277,13 +277,15 @@ class AdminCog(commands.Cog):
 
     @admin_group.command(name="config", description="Configure Harry's features for this server")
     @app_commands.describe(
-        action="What to do: view, enable, or disable",
-        module="Which module to toggle"
+        action="What to do: view, enable, disable, or bulk actions",
+        module="Which module to toggle (not needed for enable_all/disable_all)"
     )
     @app_commands.choices(action=[
         app_commands.Choice(name="view", value="view"),
         app_commands.Choice(name="enable", value="enable"),
         app_commands.Choice(name="disable", value="disable"),
+        app_commands.Choice(name="enable_all - Turn on all modules", value="enable_all"),
+        app_commands.Choice(name="disable_all - Turn off all modules", value="disable_all"),
     ])
     @app_commands.choices(module=[
         app_commands.Choice(name="ai_chat - /harry, /ask, @mentions", value="ai_chat"),
@@ -305,7 +307,7 @@ class AdminCog(commands.Cog):
 
         guild_id = interaction.guild.id
 
-        if action in ["enable", "disable"]:
+        if action in ["enable", "disable", "enable_all", "disable_all"]:
             is_admin = (
                 interaction.user.guild_permissions.administrator or
                 (self.admin_manager and self.admin_manager.is_admin(interaction.user, interaction))
@@ -384,6 +386,49 @@ class AdminCog(commands.Cog):
                 description=f"**{mod.value.upper()}** is now disabled.",
                 color=Colors.WARNING
             )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        
+        elif action == "enable_all":
+            # Enable all modules except CORE (which is always on)
+            enabled_count = 0
+            for mod in FeatureModule:
+                if mod != FeatureModule.CORE:
+                    server_config.enable_module(guild_id, mod)
+                    enabled_count += 1
+            
+            await server_config.save_to_discord()
+            
+            embed = discord.Embed(
+                title="✅ All Modules Enabled!",
+                description=f"Enabled **{enabled_count}** modules:\n"
+                           f"• AI Chat\n"
+                           f"• CFB Data\n"
+                           f"• League\n"
+                           f"• HS Stats\n"
+                           f"• Recruiting",
+                color=Colors.SUCCESS
+            )
+            embed.set_footer(text="Use /admin config view to see full status")
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        
+        elif action == "disable_all":
+            # Disable all modules except CORE (which can't be disabled)
+            disabled_count = 0
+            for mod in FeatureModule:
+                if mod != FeatureModule.CORE:
+                    server_config.disable_module(guild_id, mod)
+                    disabled_count += 1
+            
+            await server_config.save_to_discord()
+            
+            embed = discord.Embed(
+                title="❌ All Modules Disabled",
+                description=f"Disabled **{disabled_count}** modules.\n\n"
+                           f"✅ **CORE** remains active (/help, /whats_new, etc.)\n\n"
+                           f"Use `/admin config enable_all` to restore.",
+                color=Colors.WARNING
+            )
+            embed.set_footer(text="Use /admin config view to see full status")
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @admin_group.command(name="sync", description="Force sync slash commands")
