@@ -163,6 +163,11 @@ async def on_ready():
     logger.info(f"🏈 {bot.user} is online!")
     logger.info(f"📊 Connected to {len(bot.guilds)} server(s)")
 
+    # Initialize server config with bot (needed for Discord storage)
+    server_config.set_bot(bot)
+    await server_config.load_from_discord()
+    logger.info(f"⚙️ Server config loaded ({len(server_config._configs)} servers)")
+
     # Setup dependencies
     await setup_dependencies()
 
