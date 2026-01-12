@@ -124,6 +124,11 @@ class CFBDataLookup:
         self._betting_api = None
         self._ratings_api = None
         self._draft_api = None
+        
+        # Simple cache to avoid repeated API calls (reduces rate limiting)
+        self._search_cache: Dict[str, List[Dict[str, Any]]] = {}
+        self._cache_expiry: Dict[str, float] = {}
+        self._cache_ttl = 300  # 5 minutes cache
 
         if not CFBD_AVAILABLE:
             logger.warning("⚠️ cfbd library not available - CFB data disabled")
@@ -254,8 +259,22 @@ class CFBDataLookup:
             logger.warning("Player lookup not available")
             return []
 
+        # Check cache first
+        import time
+        cache_key = f"search:{name.lower()}:{team or ''}:{year or ''}"
+        if cache_key in self._search_cache:
+            if time.time() < self._cache_expiry.get(cache_key, 0):
+                logger.info(f"📦 Cache hit for '{name}'")
+                return self._search_cache[cache_key]
+            else:
+                # Expired, remove from cache
+                del self._search_cache[cache_key]
+                del self._cache_expiry[cache_key]
+
         # Try current and recent years - 2025 data may not be available yet
         years_to_try = [year] if year else [2024, 2023, 2025, 2022]
+        retry_delay = 2  # Start with 2 second delay, increase on consecutive 429s
+        consecutive_429s = 0
 
         for try_year in years_to_try:
             try:
@@ -275,9 +294,13 @@ class CFBDataLookup:
                     # Convert to dicts
                     players = [self._player_to_dict(p) for p in results]
                     logger.info(f"✅ Found {len(players)} players for year {try_year}")
+                    # Cache the result
+                    self._search_cache[cache_key] = players
+                    self._cache_expiry[cache_key] = time.time() + self._cache_ttl
                     return players
                 else:
                     logger.info(f"No results for year {try_year}, trying next...")
+                    consecutive_429s = 0  # Reset on successful call
 
             except ApiException as e:
                 logger.error(f"❌ CFBD API error: {e.status} - {e.reason}")
@@ -285,13 +308,26 @@ class CFBDataLookup:
                     logger.error("Authentication failed - check your API key")
                     return []
                 elif e.status == 429:
-                    # Rate limited - wait and try again
-                    logger.warning("⏳ Rate limited, waiting 2 seconds...")
-                    await asyncio.sleep(2)
+                    consecutive_429s += 1
+                    # Exponential backoff: 2s, 4s, 8s, max 30s
+                    wait_time = min(retry_delay * (2 ** (consecutive_429s - 1)), 30)
+                    logger.warning(f"⏳ Rate limited ({consecutive_429s}x), waiting {wait_time} seconds...")
+                    await asyncio.sleep(wait_time)
+                    
+                    # After 3 consecutive 429s, give up (API quota likely exhausted)
+                    if consecutive_429s >= 3:
+                        logger.error("❌ Too many rate limits - API quota may be exhausted")
+                        # Cache empty result to avoid hammering API
+                        self._search_cache[cache_key] = []
+                        self._cache_expiry[cache_key] = time.time() + 60  # Cache for 1 min
+                        return []
                     continue  # Try same year again
             except Exception as e:
                 logger.error(f"❌ Error searching for player: {e}", exc_info=True)
 
+        # Cache empty result
+        self._search_cache[cache_key] = []
+        self._cache_expiry[cache_key] = time.time() + self._cache_ttl
         return []
 
     def _player_to_dict(self, player) -> Dict[str, Any]:
