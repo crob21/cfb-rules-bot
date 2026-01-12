@@ -70,6 +70,14 @@ class RecruitingCog(commands.Cog):
         if not await check_module_enabled(interaction, FeatureModule.RECRUITING, server_config):
             return
 
+        # Defer immediately as PUBLIC - On3 searches can take 5-10+ seconds with retries/blocks
+        # This means "not found" errors will also be public, but that's better than interaction timeout
+        try:
+            await interaction.response.defer()
+        except discord.errors.NotFound:
+            logger.warning(f"⚠️ /recruiting player interaction expired for {name}")
+            return
+
         try:
             guild_id = interaction.guild.id if interaction.guild else 0
             scraper, source_name = get_recruiting_scraper(guild_id)
@@ -77,17 +85,11 @@ class RecruitingCog(commands.Cog):
             search_depth = "deep (all ~3000)" if deep_search else "standard"
             logger.info(f"🔍 /recruiting player: {name} ({year or 'current'}) via {source_name} - {search_depth}")
 
-            # Search first (fast enough to not need defer initially)
+            # Search 
             max_pages = 65 if deep_search else 20
             recruit = await scraper.search_recruit(name, year, max_pages=max_pages)
 
             if recruit:
-                # Found! Defer now for building the response
-                try:
-                    await interaction.response.defer()
-                except discord.errors.NotFound:
-                    logger.warning(f"⚠️ /recruiting player interaction expired for {name}")
-                    return
                 embed = discord.Embed(
                     title=f"⭐ Recruit: {recruit.get('name', name)}",
                     description=scraper.format_recruit(recruit),
@@ -207,16 +209,12 @@ class RecruitingCog(commands.Cog):
                     color=Colors.WARNING
                 )
                 embed.set_footer(text=f"Harry's Recruiting 🏈 | Data from {source_name}")
-                # Not found - send ephemeral (we never deferred)
-                await interaction.response.send_message(embed=embed, ephemeral=True)
+                # Send as followup (we deferred at start, so this will be public)
+                await interaction.followup.send(embed=embed)
 
         except Exception as e:
             logger.error(f"❌ Error in /recruiting player: {e}", exc_info=True)
-            # Try to respond ephemerally (interaction might not be deferred)
-            if not interaction.response.is_done():
-                await interaction.response.send_message(f"❌ Error looking up recruit: {str(e)}", ephemeral=True)
-            else:
-                await interaction.followup.send(f"❌ Error looking up recruit: {str(e)}", ephemeral=True)
+            await interaction.followup.send(f"❌ Error looking up recruit: {str(e)}")
 
     @recruiting_group.command(name="top", description="Get top recruits by position or state")
     @app_commands.describe(
