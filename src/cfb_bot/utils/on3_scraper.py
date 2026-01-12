@@ -520,7 +520,7 @@ class On3Scraper:
                         alt_text = img.get('alt', '')
                         # Clean up alt text - remove "Avatar", "logo", etc.
                         school_name = alt_text.replace(' Avatar', '').replace(' logo', '').replace('Visit ', '').strip()
-                    
+
                     # Fallback to link text only if it's short (school names, not headlines)
                     if not school_name:
                         link_text = link.get_text(strip=True)
@@ -644,19 +644,19 @@ class On3Scraper:
             # On3 shows: "Transfer Portal (SHSU)" with previous school, experience years
             if 'Transfer Portal' in page_text:
                 recruit['is_transfer'] = True
-                
+
                 # Try to get previous school - multiple patterns
                 # Pattern 1: "Transfer Portal(SCHOOL)" or "Transfer Portal (SCHOOL)"
                 prev_school_match = re.search(r'Transfer Portal\s*\(([^)]+)\)', page_text)
                 if prev_school_match:
                     recruit['previous_school'] = prev_school_match.group(1)
-                
+
                 # Pattern 2: "Previous School: SCHOOL" or "Prev School: SCHOOL"
                 if not recruit['previous_school']:
                     prev_match2 = re.search(r'(?:Previous|Prev\.?)\s*School[:\s]+([A-Za-z\s&]+?)(?:\s*\||\s*$|\s*\d)', page_text)
                     if prev_match2:
                         recruit['previous_school'] = prev_match2.group(1).strip()
-                
+
                 # Pattern 3: Look for college links near "Transfer Portal" text
                 if not recruit['previous_school']:
                     # Find college mentioned near transfer portal section
@@ -671,17 +671,17 @@ class On3Scraper:
                                     school = img.get('alt', '').replace(' Avatar', '').replace(' logo', '').strip()
                                     if school and len(school) > 2 and school != recruit.get('committed_to'):
                                         recruit['previous_school'] = school
-                
+
                 # Try to get experience years (e.g., "Experience2023 - 2025")
                 exp_match = re.search(r'Experience\s*(\d{4})\s*[-–]\s*(\d{4})', page_text)
                 if exp_match:
                     recruit['college_experience'] = f"{exp_match.group(1)}-{exp_match.group(2)}"
-                
+
                 # Try to get transfer portal rating
                 portal_rating_match = re.search(r'Transfer Portal Rating\s*(\d{2}\.\d{2})', page_text)
                 if portal_rating_match:
                     recruit['portal_rating'] = float(portal_rating_match.group(1))
-                
+
                 # Try to get portal entry date
                 entered_match = re.search(r'Entered\s*[-–]\s*(\d{1,2}/\d{1,2}/\d{2,4})', page_text)
                 if entered_match:
@@ -1187,7 +1187,7 @@ class On3Scraper:
                 # 2. Check if H.S. year is earlier than recruiting class year
                 if re.search(r'\d{2}\.\d{2}\s*TR\b', row_text) or re.search(r'\bTR\b', row_text):
                     commit['is_transfer'] = True
-                
+
                 # Also check H.S. year - if it's earlier than the recruiting class, it's a transfer
                 hs_year_match = re.search(r'H\.S\.\s*(\d{4})', row_text)
                 if hs_year_match:

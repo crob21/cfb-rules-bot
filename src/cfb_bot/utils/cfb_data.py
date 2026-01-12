@@ -254,7 +254,8 @@ class CFBDataLookup:
             logger.warning("Player lookup not available")
             return []
 
-        years_to_try = [year] if year else [2025, 2024, 2023]
+        # Try current and recent years - 2025 data may not be available yet
+        years_to_try = [year] if year else [2024, 2023, 2025, 2022]
 
         for try_year in years_to_try:
             try:
@@ -283,6 +284,11 @@ class CFBDataLookup:
                 if e.status == 401:
                     logger.error("Authentication failed - check your API key")
                     return []
+                elif e.status == 429:
+                    # Rate limited - wait and try again
+                    logger.warning("⏳ Rate limited, waiting 2 seconds...")
+                    await asyncio.sleep(2)
+                    continue  # Try same year again
             except Exception as e:
                 logger.error(f"❌ Error searching for player: {e}", exc_info=True)
 
