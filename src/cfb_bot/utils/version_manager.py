@@ -11,10 +11,61 @@ from typing import Dict, List, Optional
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "2.5.1"
+CURRENT_VERSION = "3.0.1"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "3.0.1": {
+        "date": "2026-01-12",
+        "title": "Cloudflare Bypass & Admin Enhancements 🎭",
+        "emoji": "🎭",
+        "features": [
+            {
+                "category": "Cloudflare Bypass",
+                "emoji": "🌐",
+                "changes": [
+                    "Added Playwright headless browser for bulletproof scraping",
+                    "Fallback chain: Playwright → Cloudscraper → httpx",
+                    "No more On3 blocks!"
+                ]
+            },
+            {
+                "category": "247Sports Enhancements",
+                "emoji": "📊",
+                "changes": [
+                    "Added offers, predictions, visits to 247Sports scraper",
+                    "Added player images from 247Sports",
+                    "Now matches On3 output format exactly"
+                ]
+            },
+            {
+                "category": "Admin Commands",
+                "emoji": "⚙️",
+                "changes": [
+                    "/admin config enable_all - Enable all modules at once",
+                    "/admin config disable_all - Disable all modules at once",
+                    "Startup notification now only in dev channel with full status"
+                ]
+            }
+        ]
+    },
+    "3.0.0": {
+        "date": "2026-01-12",
+        "title": "Cog Architecture 🏗️",
+        "emoji": "🏗️",
+        "features": [
+            {
+                "category": "Complete Refactor",
+                "emoji": "🏗️",
+                "changes": [
+                    "Migrated from monolithic bot.py to cog-based architecture",
+                    "8 modular cogs: Core, AI Chat, Recruiting, CFB Data, HS Stats, League, Charter, Admin",
+                    "Better performance and maintainability",
+                    "Comprehensive test suite with 59 passing tests"
+                ]
+            }
+        ]
+    },
     "2.5.1": {
         "date": "2026-01-11",
         "title": "UI Polish 💅",

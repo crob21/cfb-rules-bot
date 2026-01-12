@@ -387,7 +387,7 @@ class AdminCog(commands.Cog):
                 color=Colors.WARNING
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
-        
+
         elif action == "enable_all":
             # Enable all modules except CORE (which is always on)
             enabled_count = 0
@@ -395,9 +395,9 @@ class AdminCog(commands.Cog):
                 if mod != FeatureModule.CORE:
                     server_config.enable_module(guild_id, mod)
                     enabled_count += 1
-            
+
             await server_config.save_to_discord()
-            
+
             embed = discord.Embed(
                 title="✅ All Modules Enabled!",
                 description=f"Enabled **{enabled_count}** modules:\n"
@@ -410,7 +410,7 @@ class AdminCog(commands.Cog):
             )
             embed.set_footer(text="Use /admin config view to see full status")
             await interaction.response.send_message(embed=embed, ephemeral=True)
-        
+
         elif action == "disable_all":
             # Disable all modules except CORE (which can't be disabled)
             disabled_count = 0
@@ -418,9 +418,9 @@ class AdminCog(commands.Cog):
                 if mod != FeatureModule.CORE:
                     server_config.disable_module(guild_id, mod)
                     disabled_count += 1
-            
+
             await server_config.save_to_discord()
-            
+
             embed = discord.Embed(
                 title="❌ All Modules Disabled",
                 description=f"Disabled **{disabled_count}** modules.\n\n"
@@ -567,4 +567,3 @@ async def setup(bot: commands.Bot):
     cog = AdminCog(bot)
     await bot.add_cog(cog)
     logger.info("✅ AdminCog loaded")
-
