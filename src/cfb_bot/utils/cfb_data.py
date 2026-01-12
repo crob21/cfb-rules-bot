@@ -783,8 +783,19 @@ class CFBDataLookup:
         # Hometown
         hometown = player.get('homeCity', '')
         home_state = player.get('homeState', '')
-        if hometown or home_state:
-            location = ', '.join(filter(None, [hometown, home_state]))
+        home_country = player.get('homeCountry', '')
+        
+        location_parts = []
+        if hometown:
+            location_parts.append(hometown)
+        if home_state:
+            location_parts.append(home_state)
+        # Only show country if it's not USA (or empty/null)
+        if home_country and home_country.upper() not in ['USA', 'US', 'UNITED STATES']:
+            location_parts.append(home_country)
+        
+        if location_parts:
+            location = ', '.join(location_parts)
             response_parts.append(f"📍 {location}")
 
         response_parts.append("")
@@ -816,8 +827,17 @@ class CFBDataLookup:
                     yards = passing.get('YDS', passing.get('yards', 0))
                     tds = passing.get('TD', passing.get('touchdowns', 0))
                     ints = passing.get('INT', passing.get('interceptions', 0))
+                    long = passing.get('LONG', passing.get('LNG', 0))
+                    
                     if any([comp, yards, tds]):
-                        year_parts.append(f"🏈 {comp}/{att} | {yards} YDS | {tds} TD | {ints} INT")
+                        # Calculate completion % and YPA
+                        comp_pct = f"{(comp/att*100):.1f}%" if att > 0 else "0.0%"
+                        ypa = f"{yards/att:.1f}" if att > 0 else "0.0"
+                        
+                        pass_parts = [f"{comp}/{att} ({comp_pct})", f"{yards} YDS ({ypa} YPA)", f"{tds} TD", f"{ints} INT"]
+                        if long:
+                            pass_parts.append(f"{long} Long")
+                        year_parts.append(f"🏈 {' | '.join(pass_parts)}")
                         year_has_stats = True
 
                 # Rushing
@@ -826,8 +846,14 @@ class CFBDataLookup:
                     carries = rushing.get('CAR', rushing.get('carries', 0))
                     yards = rushing.get('YDS', rushing.get('yards', 0))
                     tds = rushing.get('TD', rushing.get('touchdowns', 0))
+                    long = rushing.get('LONG', rushing.get('LNG', 0))
+                    
                     if any([carries, yards, tds]):
-                        year_parts.append(f"🏃 {carries} CAR | {yards} YDS | {tds} TD")
+                        ypc = f"{yards/carries:.1f}" if carries > 0 else "0.0"
+                        rush_parts = [f"{carries} CAR", f"{yards} YDS ({ypc} YPC)", f"{tds} TD"]
+                        if long:
+                            rush_parts.append(f"{long} Long")
+                        year_parts.append(f"🏃 {' | '.join(rush_parts)}")
                         year_has_stats = True
 
                 # Receiving
@@ -836,8 +862,14 @@ class CFBDataLookup:
                     rec = receiving.get('REC', receiving.get('receptions', 0))
                     yards = receiving.get('YDS', receiving.get('yards', 0))
                     tds = receiving.get('TD', receiving.get('touchdowns', 0))
+                    long = receiving.get('LONG', receiving.get('LNG', 0))
+                    
                     if any([rec, yards, tds]):
-                        year_parts.append(f"🎯 {rec} REC | {yards} YDS | {tds} TD")
+                        ypr = f"{yards/rec:.1f}" if rec > 0 else "0.0"
+                        rec_parts = [f"{rec} REC", f"{yards} YDS ({ypr} YPR)", f"{tds} TD"]
+                        if long:
+                            rec_parts.append(f"{long} Long")
+                        year_parts.append(f"🎯 {' | '.join(rec_parts)}")
                         year_has_stats = True
 
                 # Defense
@@ -848,16 +880,31 @@ class CFBDataLookup:
                     tfl = defense.get('TFL', 0)
                     sacks = defense.get('SACKS', defense.get('SK', 0))
                     ints = defense.get('INT', 0)
-                    if any([tackles, solo, tfl, sacks, ints]):
+                    pd = defense.get('PD', 0)  # Pass Deflections
+                    qb_hur = defense.get('QBH', defense.get('QB HUR', 0))  # QB Hurries
+                    ff = defense.get('FF', 0)  # Forced Fumbles
+                    fr = defense.get('FR', 0)  # Fumble Recoveries
+                    
+                    if any([tackles, solo, tfl, sacks, ints, pd, qb_hur, ff, fr]):
                         stat_parts = []
+                        if tackles:
+                            stat_parts.append(f"{tackles} TKL")
                         if solo:
                             stat_parts.append(f"{solo} Solo")
                         if tfl:
                             stat_parts.append(f"{tfl} TFL")
                         if sacks:
                             stat_parts.append(f"{sacks} Sacks")
+                        if qb_hur:
+                            stat_parts.append(f"{qb_hur} QBH")
                         if ints:
                             stat_parts.append(f"{ints} INT")
+                        if pd:
+                            stat_parts.append(f"{pd} PD")
+                        if ff:
+                            stat_parts.append(f"{ff} FF")
+                        if fr:
+                            stat_parts.append(f"{fr} FR")
                         year_parts.append(f"🛡️ {' | '.join(stat_parts)}")
                         year_has_stats = True
 
@@ -867,9 +914,68 @@ class CFBDataLookup:
                     fgm = kicking.get('FGM', 0)
                     fga = kicking.get('FGA', 0)
                     xpm = kicking.get('XPM', 0)
+                    long_fg = kicking.get('LONG', kicking.get('LNG', 0))
                     if any([fgm, fga, xpm]):
-                        year_parts.append(f"🦵 {fgm}/{fga} FG | {xpm} XP")
+                        kick_parts = [f"{fgm}/{fga} FG"]
+                        if xpm:
+                            kick_parts.append(f"{xpm} XP")
+                        if long_fg:
+                            kick_parts.append(f"{long_fg} Long")
+                        year_parts.append(f"🦵 {' | '.join(kick_parts)}")
                         year_has_stats = True
+
+                # Punting
+                punting = year_stats.get('punting', {})
+                if punting:
+                    punts = punting.get('NO', punting.get('PUNTS', 0))
+                    punt_yds = punting.get('YDS', punting.get('YARDS', 0))
+                    avg = punting.get('AVG', 0)
+                    tb = punting.get('TB', 0)  # Touchbacks
+                    in20 = punting.get('IN 20', punting.get('IN20', 0))
+                    long_punt = punting.get('LONG', punting.get('LNG', 0))
+                    
+                    if any([punts, punt_yds, avg]):
+                        punt_parts = []
+                        if punts:
+                            punt_parts.append(f"{punts} Punts")
+                        if punt_yds:
+                            punt_parts.append(f"{punt_yds} YDS")
+                        if avg:
+                            punt_parts.append(f"{avg:.1f} AVG")
+                        if in20:
+                            punt_parts.append(f"{in20} In20")
+                        if long_punt:
+                            punt_parts.append(f"{long_punt} Long")
+                        year_parts.append(f"🥾 {' | '.join(punt_parts)}")
+                        year_has_stats = True
+
+                # Returns
+                returns = year_stats.get('returns', {})
+                if returns:
+                    kr = returns.get('KR', 0)  # Kick Returns
+                    kr_yds = returns.get('KR YDS', returns.get('KRYDS', 0))
+                    kr_td = returns.get('KR TD', returns.get('KRTD', 0))
+                    pr = returns.get('PR', 0)  # Punt Returns
+                    pr_yds = returns.get('PR YDS', returns.get('PRYDS', 0))
+                    pr_td = returns.get('PR TD', returns.get('PRTD', 0))
+                    
+                    if any([kr, kr_yds, kr_td, pr, pr_yds, pr_td]):
+                        return_parts = []
+                        if kr or kr_yds:
+                            kr_avg = f"{kr_yds/kr:.1f}" if kr and kr > 0 else "0.0"
+                            kr_part = f"KR: {kr} RET | {kr_yds} YDS ({kr_avg} AVG)"
+                            if kr_td:
+                                kr_part += f" | {kr_td} TD"
+                            return_parts.append(kr_part)
+                        if pr or pr_yds:
+                            pr_avg = f"{pr_yds/pr:.1f}" if pr and pr > 0 else "0.0"
+                            pr_part = f"PR: {pr} RET | {pr_yds} YDS ({pr_avg} AVG)"
+                            if pr_td:
+                                pr_part += f" | {pr_td} TD"
+                            return_parts.append(pr_part)
+                        if return_parts:
+                            year_parts.append(f"⚡ {' | '.join(return_parts)}")
+                            year_has_stats = True
 
                 if year_has_stats:
                     response_parts.append(f"📊 **{year} Season:**")
