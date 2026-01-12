@@ -751,28 +751,28 @@ class RecruitingScraper:
     def _parse_recruit_row(self, row, player_name: str) -> Optional[Dict[str, Any]]:
         """Parse a recruit row from the rankings table"""
         try:
-                recruit = {
-                    'name': player_name,
-                    'stars': None,
-                    'rating': None,
-                    'national_rank': None,
-                    'position_rank': None,
-                    'state_rank': None,
-                    'position': None,
-                    'height': None,
-                    'weight': None,
-                    'city': None,
-                    'state': None,
-                    'high_school': None,
-                    'committed_to': None,
-                    'status': 'Uncommitted',
-                    'offers': [],
-                    'top_predictions': [],
-                    'visits': [],
-                    'image_url': None,
-                    'source': '247Sports Composite',
-                    'is_transfer': False
-                }
+            recruit = {
+                'name': player_name,
+                'stars': None,
+                'rating': None,
+                'national_rank': None,
+                'position_rank': None,
+                'state_rank': None,
+                'position': None,
+                'height': None,
+                'weight': None,
+                'city': None,
+                'state': None,
+                'high_school': None,
+                'committed_to': None,
+                'status': 'Uncommitted',
+                'offers': [],
+                'top_predictions': [],
+                'visits': [],
+                'image_url': None,
+                'source': '247Sports Composite',
+                'is_transfer': False
+            }
 
             # Try different selectors for the composite rating
             rating_elem = row.select_one('.score, .rating, .composite')
