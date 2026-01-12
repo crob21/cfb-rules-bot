@@ -15,6 +15,7 @@ On3 data is server-side rendered, making it reliable to scrape.
 
 import asyncio
 import logging
+import random
 import re
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
@@ -82,7 +83,9 @@ class On3Scraper:
         self._cache_ttl = timedelta(hours=1)  # Cache for 1 hour
         self._cache_max_size = 500  # Max cache entries before cleanup
         self._last_request = datetime.min
-        self._rate_limit_delay = 0.5  # 0.5 seconds between requests
+        self._rate_limit_delay_min = 1.0  # Minimum 1 second between requests
+        self._rate_limit_delay_max = 2.5  # Maximum 2.5 seconds (randomized)
+        self._is_blocked = False  # Track if we're currently blocked
 
         # HTTP client with browser-like headers
         # Note: Simpler headers work better with On3 - complex headers can cause issues
@@ -114,11 +117,20 @@ class On3Scraper:
             return 1
 
     async def _rate_limit(self):
-        """Enforce rate limiting between requests"""
+        """Enforce rate limiting between requests with randomized delays"""
         now = datetime.now()
         elapsed = (now - self._last_request).total_seconds()
-        if elapsed < self._rate_limit_delay:
-            await asyncio.sleep(self._rate_limit_delay - elapsed)
+        
+        # Use randomized delay to appear more human-like
+        delay = random.uniform(self._rate_limit_delay_min, self._rate_limit_delay_max)
+        
+        # If we were recently blocked, add extra delay
+        if self._is_blocked:
+            delay += random.uniform(2.0, 5.0)
+            logger.info(f"⏳ Adding extra delay due to previous block ({delay:.1f}s)")
+        
+        if elapsed < delay:
+            await asyncio.sleep(delay - elapsed)
         self._last_request = datetime.now()
 
     def _get_cached(self, key: str) -> Optional[Any]:
@@ -167,9 +179,11 @@ class On3Scraper:
                     return html
                 elif response.status_code == 403:
                     logger.error(f"🚫 BLOCKED (403 Forbidden) - On3 has blocked access!")
+                    self._is_blocked = True
                     return None
                 elif response.status_code == 429:
                     logger.error(f"🚫 RATE LIMITED (429) - Too many requests to On3!")
+                    self._is_blocked = True
                     return None
                 elif response.status_code == 404:
                     logger.warning(f"⚠️ Page not found: {url}")
@@ -202,8 +216,22 @@ class On3Scraper:
         for indicator in block_indicators:
             if indicator in html_lower:
                 logger.warning(f"⚠️ Block indicator found: '{indicator}'")
+                self._is_blocked = True  # Set flag for increased delays
                 return True
+        
+        # If we got valid content, clear the blocked flag
+        if '<html' in html_lower and 'on3' in html_lower:
+            self._is_blocked = False
         return False
+    
+    def is_blocked(self) -> bool:
+        """Check if On3 is currently blocking requests"""
+        return self._is_blocked
+    
+    def clear_block_status(self):
+        """Manually clear the blocked status (e.g., after waiting)"""
+        self._is_blocked = False
+        logger.info("✅ Block status cleared - will try normal request timing")
 
     async def search_recruit(
         self,
@@ -277,7 +305,7 @@ class On3Scraper:
 
                 name_lower = name.lower()
                 name_parts = name_lower.split()
-                
+
                 logger.info(f"📋 Found {len(player_links)} player links to check for '{name}'")
 
                 # Track best fuzzy match
@@ -295,7 +323,7 @@ class On3Scraper:
                     # Match if the link contains a player-like slug pattern
                     if not re.search(r'/rivals/[\w-]+-\d+/', href):
                         continue
-                    
+
                     # Log each candidate link for debugging
                     logger.debug(f"  📎 Candidate: '{link_text}' -> {href}")
 

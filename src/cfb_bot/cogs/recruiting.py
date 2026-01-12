@@ -195,6 +195,12 @@ class RecruitingCog(commands.Cog):
                 ]
                 if not deep_search and source_name == "247Sports Composite":
                     tips.append("• Try `deep_search:True` to search all ~3000 ranked recruits")
+                
+                # Suggest alternative source
+                if source_name == "On3/Rivals":
+                    tips.append("• Try `/recruiting source 247sports` if On3 is blocked")
+                else:
+                    tips.append("• Try `/recruiting source on3` for transfer portal data")
 
                 embed = discord.Embed(
                     title="❓ Recruit Not Found",
