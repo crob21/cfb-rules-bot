@@ -74,65 +74,94 @@ async def load_cogs():
             logger.error(f"❌ Failed to load cog {extension}: {e}", exc_info=True)
 
 
+# Global references for dependencies (set in on_ready)
+timekeeper_manager = None
+charter_editor = None
+version_manager = None
+
+
 async def setup_dependencies():
     """
     Set up dependencies for cogs that need them.
     This is called after bot is ready so we can access Discord objects.
     """
+    global timekeeper_manager, charter_editor, version_manager
+    
     logger.info("⚙️ Setting up cog dependencies...")
 
     # Import optional dependencies
     ai_assistant = None
     AI_AVAILABLE = False
-    charter_editor = None
     channel_summarizer = None
     admin_manager = None
     channel_manager = None
-    timekeeper_manager = None
     schedule_manager = None
 
     try:
         from .utils.ai_assistant import ai_assistant as _ai, AI_AVAILABLE as _ai_avail
         ai_assistant = _ai
         AI_AVAILABLE = _ai_avail
+        logger.info("✅ AI assistant available")
     except ImportError:
         logger.warning("⚠️ AI assistant not available")
 
     try:
         from .utils.charter_editor import CharterEditor
-        charter_editor = CharterEditor()
+        charter_editor = CharterEditor(ai_assistant if AI_AVAILABLE else None, bot=bot)
+        # Load charter from Discord
+        await charter_editor.load_from_discord()
+        logger.info("✅ Charter editor initialized and loaded from Discord")
     except ImportError:
         logger.warning("⚠️ Charter editor not available")
 
     try:
         from .utils.channel_summarizer import ChannelSummarizer
-        channel_summarizer = ChannelSummarizer()
+        channel_summarizer = ChannelSummarizer(ai_assistant if AI_AVAILABLE else None)
+        logger.info("✅ Channel summarizer initialized")
     except ImportError:
         logger.warning("⚠️ Channel summarizer not available")
 
     try:
         from .utils.admin_manager import AdminManager
         admin_manager = AdminManager()
+        await admin_manager.load_admins(bot)
+        logger.info(f"✅ Admin manager initialized ({admin_manager.get_admin_count()} admins)")
     except ImportError:
         logger.warning("⚠️ Admin manager not available")
 
     try:
         from .utils.channel_manager import ChannelManager
         channel_manager = ChannelManager()
+        logger.info("✅ Channel manager initialized")
     except ImportError:
         logger.warning("⚠️ Channel manager not available")
 
     try:
         from .utils.timekeeper import TimekeeperManager
         timekeeper_manager = TimekeeperManager(bot)
+        logger.info("⏰ Timekeeper manager initialized")
+        # IMPORTANT: Load saved timer state from Discord
+        try:
+            await timekeeper_manager.load_saved_state()
+            logger.info("✅ Timer state loaded from Discord")
+        except Exception as e:
+            logger.error(f"❌ Failed to load timer state: {e}")
     except ImportError:
         logger.warning("⚠️ Timekeeper not available")
 
     try:
         from .utils.schedule_manager import ScheduleManager
         schedule_manager = ScheduleManager()
+        logger.info(f"✅ Schedule manager initialized ({len(schedule_manager.teams)} teams)")
     except ImportError:
         logger.warning("⚠️ Schedule manager not available")
+
+    try:
+        from .utils.version_manager import VersionManager
+        version_manager = VersionManager()
+        logger.info("✅ Version manager initialized")
+    except ImportError:
+        logger.warning("⚠️ Version manager not available")
 
     # Set dependencies on cogs
     for cog_name, cog in bot.cogs.items():
@@ -168,42 +197,102 @@ async def on_ready():
     await server_config.load_from_discord()
     logger.info(f"⚙️ Server config loaded ({len(server_config._configs)} servers)")
 
-    # Setup dependencies
+    # Setup dependencies (includes loading timer state, charter, etc.)
     await setup_dependencies()
 
-    # Sync commands
+    # Sync commands to guilds (instant) and globally
     try:
         for guild in bot.guilds:
+            bot.tree.copy_global_to(guild=guild)
             synced = await bot.tree.sync(guild=guild)
             logger.info(f"✅ Synced {len(synced)} command(s) to {guild.name}")
 
-        # Global sync
+        # Global sync (takes up to 1 hour for other servers)
         global_synced = await bot.tree.sync()
         logger.info(f"✅ Synced {len(global_synced)} command(s) globally")
     except Exception as e:
         logger.error(f"❌ Failed to sync commands: {e}")
 
     # Send startup notification to admin channels
+    await send_startup_notification()
+
+
+async def send_startup_notification():
+    """Send a rich startup notification with version, timer status, and what's new"""
+    # Get version info
+    current_version = "3.0.0"
+    version_title = "Cog Architecture"
+    version_emoji = "🏗️"
+    
+    if version_manager:
+        try:
+            current_version = version_manager.get_current_version()
+            version_info = version_manager.get_latest_version_info()
+            version_title = version_info.get('title', 'Update')
+            version_emoji = version_info.get('emoji', '📌')
+        except Exception:
+            pass
+
+    # Build description
+    description = f"**Version {current_version}** - {version_title} {version_emoji}\n\n"
+    description += f"**Guilds:** {len(bot.guilds)} | **Status:** Online ✅\n\n"
+
+    # Check for restored timer
+    if timekeeper_manager:
+        try:
+            timer_info = timekeeper_manager.get_restored_timer_info()
+            if timer_info:
+                description += f"**⏰ Timer Restored**\n"
+                description += f"Channel: #{timer_info['channel_name']}\n"
+                description += f"Time Remaining: {int(timer_info['hours_remaining'])}h {timer_info['minutes_remaining']}m\n"
+                description += f"Ends At: {timer_info['end_time']}\n\n"
+        except Exception as e:
+            logger.warning(f"⚠️ Could not get timer info: {e}")
+
+    # Create embed
+    embed = discord.Embed(
+        title="🏈 Harry is Online!",
+        description=description,
+        color=0x00ff00
+    )
+
+    # Get what's new
+    changes_preview = ["• Cog-based modular architecture", "• Better performance and maintainability"]
+    if version_manager:
+        try:
+            version_info = version_manager.get_latest_version_info()
+            changes = []
+            for feature_group in version_info.get('features', [])[:2]:
+                for change in feature_group.get('changes', [])[:3]:
+                    changes.append(f"• {change}")
+            if changes:
+                changes_preview = changes[:5]
+        except Exception:
+            pass
+
+    embed.add_field(
+        name=f"{version_emoji} What's New",
+        value="\n".join(changes_preview),
+        inline=False
+    )
+
+    embed.set_footer(text="Harry Admin Notification 🔧 | Use /whats_new for full details")
+
+    # Send to all admin channels
+    sent_count = 0
     for guild in bot.guilds:
         admin_channel_id = server_config.get_admin_channel(guild.id)
         if admin_channel_id:
             channel = guild.get_channel(admin_channel_id)
             if channel:
                 try:
-                    embed = discord.Embed(
-                        title="🏈 Harry is Online!",
-                        description="Right then, I'm up and running with the new cog architecture!",
-                        color=0x00ff00
-                    )
-                    embed.add_field(
-                        name="📦 Loaded Cogs",
-                        value=", ".join(bot.cogs.keys()),
-                        inline=False
-                    )
-                    embed.set_footer(text="Harry's CFB Bot 🏈 | Refactored!")
                     await channel.send(embed=embed)
+                    sent_count += 1
                 except Exception as e:
-                    logger.warning(f"⚠️ Could not send startup notification: {e}")
+                    logger.warning(f"⚠️ Could not send startup to {guild.name}: {e}")
+
+    if sent_count > 0:
+        logger.info(f"📢 Sent startup notification to {sent_count} admin channel(s)")
 
 
 @bot.event
