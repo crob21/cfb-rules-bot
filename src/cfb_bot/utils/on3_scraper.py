@@ -15,6 +15,7 @@ On3 data is server-side rendered, making it reliable to scrape.
 
 import asyncio
 import logging
+import os
 import random
 import re
 from datetime import datetime, timedelta
@@ -37,6 +38,13 @@ try:
     CLOUDSCRAPER_AVAILABLE = True
 except ImportError:
     CLOUDSCRAPER_AVAILABLE = False
+
+# Zyte API for premium scraping (guaranteed bypass)
+try:
+    from zyte_api import ZyteAPIClient
+    ZYTE_AVAILABLE = True
+except ImportError:
+    ZYTE_AVAILABLE = False
 
 # Fuzzy matching for player name typos
 try:
@@ -117,6 +125,21 @@ class On3Scraper:
             )
         else:
             self._scraper = None
+        
+        # Zyte API (premium fallback - guaranteed to work)
+        self._zyte_client = None
+        if ZYTE_AVAILABLE:
+            zyte_api_key = os.getenv('ZYTE_API_KEY')
+            if zyte_api_key:
+                try:
+                    self._zyte_client = ZyteAPIClient(api_key=zyte_api_key)
+                    logger.info("✅ Zyte API initialized (premium Cloudflare bypass available)")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to initialize Zyte API: {e}")
+            else:
+                logger.debug("ℹ️ ZYTE_API_KEY not set - premium bypass unavailable")
+        else:
+            logger.debug("ℹ️ zyte-api not installed - premium bypass unavailable")
 
         # HTTP headers for fallback httpx client
         self._headers = {
@@ -300,26 +323,55 @@ class On3Scraper:
                     html = response.text
                     # Check for blocking indicators
                     if self._check_if_blocked(html):
-                        logger.error(f"🚫 BLOCKED by On3 with cloudscraper")
-                        return None
-                    logger.debug(f"✅ Cloudscraper fetch successful")
-                    return html
+                        logger.warning(f"⚠️ BLOCKED by On3 with cloudscraper, trying Zyte...")
+                        # Don't return None yet - fall through to Zyte
+                    else:
+                        logger.debug(f"✅ Cloudscraper fetch successful")
+                        return html
                 elif response.status_code == 403:
-                    logger.error(f"🚫 BLOCKED (403 Forbidden)")
+                    logger.warning(f"⚠️ BLOCKED (403 Forbidden) with cloudscraper, trying Zyte...")
                     self._is_blocked = True
-                    return None
+                    # Fall through to Zyte
                 elif response.status_code == 429:
-                    logger.error(f"🚫 RATE LIMITED (429)")
+                    logger.warning(f"⚠️ RATE LIMITED (429) with cloudscraper, trying Zyte...")
                     self._is_blocked = True
-                    return None
+                    # Fall through to Zyte
                 elif response.status_code == 404:
                     logger.warning(f"⚠️ Page not found: {url}")
                     return None
                 else:
-                    logger.error(f"❌ HTTP {response.status_code}")
-                    return None
+                    logger.warning(f"⚠️ HTTP {response.status_code} with cloudscraper, trying Zyte...")
+                    # Fall through to Zyte
+            
+            # PRIORITY 3: Use Zyte API (premium, guaranteed bypass)
+            if self._zyte_client:
+                try:
+                    logger.info(f"💰 Using Zyte API for: {url}")
                     
-            # PRIORITY 3: Fallback to httpx (will likely be blocked)
+                    # Make async request to Zyte
+                    response = await self._zyte_client.get({
+                        "url": url,
+                        "httpResponseBody": True,
+                        "httpResponseHeaders": True
+                    })
+                    
+                    # Decode the response
+                    import base64
+                    html = base64.b64decode(response["httpResponseBody"]).decode('utf-8')
+                    
+                    if html and '<html' in html.lower():
+                        logger.info(f"✅ Zyte API fetch successful (bypassed Cloudflare)")
+                        self._is_blocked = False  # Clear blocked status
+                        return html
+                    else:
+                        logger.error(f"❌ Zyte returned invalid HTML")
+                        # Fall through to httpx as last resort
+                        
+                except Exception as e:
+                    logger.error(f"❌ Zyte API error: {e}")
+                    # Fall through to httpx as last resort
+            
+            # PRIORITY 4: Fallback to httpx (will likely be blocked)
             else:
                 async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
                     response = await client.get(url, headers=self._headers)
