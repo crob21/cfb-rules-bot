@@ -128,6 +128,9 @@ class On3Scraper:
         
         # Zyte API (premium fallback - guaranteed to work)
         self._zyte_client = None
+        self._zyte_request_count = 0  # Track Zyte API usage
+        self._zyte_cost_per_1k = 0.233  # Cost per 1,000 requests
+        
         if ZYTE_AVAILABLE:
             zyte_api_key = os.getenv('ZYTE_API_KEY')
             if zyte_api_key:
@@ -346,7 +349,12 @@ class On3Scraper:
             # PRIORITY 3: Use Zyte API (premium, guaranteed bypass)
             if self._zyte_client:
                 try:
+                    # Increment usage counter
+                    self._zyte_request_count += 1
+                    estimated_cost = (self._zyte_request_count * self._zyte_cost_per_1k) / 1000
+                    
                     logger.info(f"💰 Using Zyte API for: {url}")
+                    logger.info(f"💳 Zyte usage: {self._zyte_request_count} requests | Est. cost: ${estimated_cost:.4f}")
                     
                     # Make async request to Zyte
                     response = await self._zyte_client.get({
@@ -435,6 +443,24 @@ class On3Scraper:
         """Manually clear the blocked status (e.g., after waiting)"""
         self._is_blocked = False
         logger.info("✅ Block status cleared - will try normal request timing")
+    
+    def get_zyte_usage(self) -> Dict[str, Any]:
+        """Get Zyte API usage statistics"""
+        estimated_cost = (self._zyte_request_count * self._zyte_cost_per_1k) / 1000
+        return {
+            'request_count': self._zyte_request_count,
+            'estimated_cost': estimated_cost,
+            'cost_per_1k': self._zyte_cost_per_1k,
+            'is_available': self._zyte_client is not None
+        }
+    
+    def reset_zyte_usage(self):
+        """Reset Zyte usage counter (for tracking periods)"""
+        old_count = self._zyte_request_count
+        old_cost = (old_count * self._zyte_cost_per_1k) / 1000
+        self._zyte_request_count = 0
+        logger.info(f"🔄 Zyte usage reset: {old_count} requests (${old_cost:.4f}) → 0 requests ($0.00)")
+        return old_count, old_cost
 
     async def search_recruit(
         self,

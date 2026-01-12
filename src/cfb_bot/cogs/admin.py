@@ -561,6 +561,108 @@ class AdminCog(commands.Cog):
 
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
+    @admin_group.command(name="zyte", description="Check Zyte API usage and estimated costs")
+    async def zyte_usage(self, interaction: discord.Interaction):
+        """Check Zyte API usage statistics"""
+        if not interaction.guild:
+            await interaction.response.send_message("❌ This only works in servers!", ephemeral=True)
+            return
+        
+        # Check if user is admin
+        is_admin = (
+            interaction.user.guild_permissions.administrator or
+            (self.admin_manager and self.admin_manager.is_admin(interaction.user, interaction))
+        )
+        if not is_admin:
+            await interaction.response.send_message("❌ Only admins can view Zyte usage!", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=True)
+        
+        # Get On3 scraper usage
+        from ..utils.recruiting_scraper import get_recruiting_scraper
+        guild_id = interaction.guild.id
+        scraper, source_name = get_recruiting_scraper(guild_id)
+        
+        # Check if it's On3 scraper (has Zyte)
+        if source_name == "On3/Rivals" and hasattr(scraper, 'get_zyte_usage'):
+            usage = scraper.get_zyte_usage()
+            
+            embed = discord.Embed(
+                title="💰 Zyte API Usage Report",
+                description=f"Premium Cloudflare bypass statistics for **{interaction.guild.name}**",
+                color=Colors.PRIMARY
+            )
+            
+            # Availability
+            status = "✅ Available" if usage['is_available'] else "❌ Not configured"
+            embed.add_field(
+                name="📡 Status",
+                value=status,
+                inline=False
+            )
+            
+            if usage['is_available']:
+                # Usage stats
+                embed.add_field(
+                    name="📊 Requests This Session",
+                    value=f"**{usage['request_count']}** requests",
+                    inline=True
+                )
+                
+                # Cost
+                embed.add_field(
+                    name="💵 Estimated Cost",
+                    value=f"**${usage['estimated_cost']:.4f}**",
+                    inline=True
+                )
+                
+                # Rate
+                embed.add_field(
+                    name="💳 Rate",
+                    value=f"${usage['cost_per_1k']:.3f} per 1K requests",
+                    inline=True
+                )
+                
+                # Projections
+                monthly_projection = usage['request_count'] * 30  # rough estimate
+                monthly_cost = (monthly_projection * usage['cost_per_1k']) / 1000
+                
+                embed.add_field(
+                    name="📈 Monthly Projection",
+                    value=f"~{monthly_projection:,} requests\n~${monthly_cost:.2f}/month",
+                    inline=False
+                )
+                
+                # Info
+                embed.add_field(
+                    name="ℹ️ How It Works",
+                    value="Zyte only triggers when free methods (Playwright, Cloudscraper) are blocked by Cloudflare. "
+                          "This keeps costs minimal while ensuring reliability.",
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="⚠️ Setup Required",
+                    value="Add `ZYTE_API_KEY` to environment variables to enable premium bypass.",
+                    inline=False
+                )
+            
+            embed.set_footer(text="💡 Session resets on bot restart")
+            await interaction.followup.send(embed=embed, ephemeral=True)
+        else:
+            embed = discord.Embed(
+                title="ℹ️ Zyte Not Used",
+                description=f"Currently using **{source_name}** which doesn't require Zyte API.",
+                color=Colors.WARNING
+            )
+            embed.add_field(
+                name="💡 Tip",
+                value="Switch to On3/Rivals with `/recruiting source on3` to enable Zyte bypass.",
+                inline=False
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
 
 async def setup(bot: commands.Bot):
     """Required setup function for loading cog"""
