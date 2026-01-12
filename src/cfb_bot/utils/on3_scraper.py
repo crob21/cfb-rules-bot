@@ -508,6 +508,7 @@ class On3Scraper:
 
             # Try to find committed school from college links
             # Look for the first college link that's part of status/commitment info
+            player_name_lower = recruit.get('name', '').lower()
             college_links = soup.select('a[href*="/college/"]')
             for link in college_links:
                 href = link.get('href', '')
@@ -528,8 +529,18 @@ class On3Scraper:
                         if link_text and len(link_text) < 30 and 'commit' not in link_text.lower() and 'star' not in link_text.lower():
                             school_name = link_text
 
-                    # Filter out generic names and headlines
+                    # Filter out generic names, headlines, and THE PLAYER'S OWN NAME
                     if school_name and len(school_name) > 2 and len(school_name) < 50:
+                        school_name_lower = school_name.lower()
+                        # Skip if it's the player's name or contains their name
+                        if player_name_lower and (player_name_lower in school_name_lower or school_name_lower in player_name_lower):
+                            continue
+                        # Skip common player name patterns (first last format)
+                        if len(school_name.split()) == 2 and school_name.split()[0][0].isupper() and school_name.split()[1][0].isupper():
+                            # Could be a person's name - check if it looks like a school
+                            known_school_words = ['state', 'university', 'college', 'tech', 'a&m', 'ole miss', 'notre dame', 'usc', 'ucla', 'ohio', 'michigan', 'alabama', 'georgia', 'texas', 'florida', 'oregon', 'washington', 'clemson', 'oklahoma', 'lsu', 'auburn', 'tennessee', 'penn', 'iowa', 'wisconsin', 'minnesota', 'indiana', 'purdue', 'illinois', 'nebraska', 'colorado', 'arizona', 'utah', 'stanford', 'cal', 'berkeley', 'baylor', 'tcu', 'kansas', 'missouri', 'arkansas', 'kentucky', 'vanderbilt', 'south carolina', 'mississippi', 'carolina']
+                            if not any(word in school_name_lower for word in known_school_words):
+                                continue
                         if school_name not in ['College', 'NCAA', 'Avatar', 'Teams', 'All Teams']:
                             recruit['committed_to'] = school_name
                             if recruit['status'] == 'Uncommitted':
