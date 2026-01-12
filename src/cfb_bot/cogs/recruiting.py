@@ -101,39 +101,76 @@ class RecruitingCog(commands.Cog):
 
                 # Auto-fetch college stats for transfer portal players
                 if recruit.get('is_transfer'):
+                    college_stats = None
+                    recruit_name = recruit.get('name', name)
+                    previous_school = recruit.get('previous_school')
+                    
+                    # Try 1: Full name lookup
                     try:
-                        college_stats = await cfb_data.get_full_player_info(recruit.get('name', name))
-                        if college_stats and college_stats.get('stats'):
-                            stats_lines = []
-                            team_name = college_stats.get('team', '')
-                            if team_name:
-                                stats_lines.append(f"**Previous School:** {team_name}")
-
-                            stats = college_stats.get('stats', {})
-                            years = sorted(stats.keys(), reverse=True)
-                            for yr in years[:2]:
-                                ys = stats[yr]
-                                stat_str = None
-                                if ys.get('receiving', {}).get('YDS'):
-                                    stat_str = f"🎯 {ys['receiving'].get('REC', 0)} REC | {ys['receiving']['YDS']} YDS | {ys['receiving'].get('TD', 0)} TD"
-                                elif ys.get('rushing', {}).get('YDS'):
-                                    stat_str = f"🏃 {ys['rushing'].get('CAR', 0)} CAR | {ys['rushing']['YDS']} YDS | {ys['rushing'].get('TD', 0)} TD"
-                                elif ys.get('passing', {}).get('YDS'):
-                                    stat_str = f"🎯 {ys['passing']['YDS']} YDS | {ys['passing'].get('TD', 0)} TD | {ys['passing'].get('INT', 0)} INT"
-                                elif ys.get('defense', {}).get('TOT') or ys.get('defense', {}).get('SOLO'):
-                                    d = ys['defense']
-                                    stat_str = f"🛡️ {d.get('TOT', d.get('SOLO', 0))} TKL | {d.get('TFL', 0)} TFL | {d.get('SACKS', 0)} Sacks"
-                                if stat_str:
-                                    stats_lines.append(f"**{yr}:** {stat_str}")
-
-                            if stats_lines:
-                                embed.add_field(
-                                    name="🏈 College Stats (Transfer)",
-                                    value='\n'.join(stats_lines),
-                                    inline=False
-                                )
+                        college_stats = await cfb_data.get_full_player_info(recruit_name, previous_school)
                     except Exception as e:
-                        logger.warning(f"⚠️ Failed to fetch college stats for transfer {name}: {e}")
+                        logger.debug(f"Full name CFB lookup failed for {recruit_name}: {e}")
+                    
+                    # Try 2: Last name only with position matching (handles nicknames like "Hollywood Smothers" -> "Daylan Smothers")
+                    if not college_stats:
+                        name_parts = recruit_name.split()
+                        if len(name_parts) >= 2:
+                            last_name = name_parts[-1]
+                            on3_pos = recruit.get('position', '').upper()
+                            try:
+                                players = await cfb_data.search_player(last_name, previous_school)
+                                if players and on3_pos:
+                                    # Position group mapping
+                                    pos_groups = {
+                                        'RB': ['RB', 'HB', 'FB'], 'WR': ['WR'], 'QB': ['QB'], 'TE': ['TE'],
+                                        'OT': ['OT', 'OL', 'T'], 'OG': ['OG', 'OL', 'G'], 'C': ['C', 'OL'],
+                                        'DL': ['DL', 'DE', 'DT', 'NT'], 'DE': ['DE', 'DL', 'EDGE'],
+                                        'LB': ['LB', 'ILB', 'OLB'], 'CB': ['CB', 'DB'], 'S': ['S', 'SS', 'FS', 'DB'],
+                                    }
+                                    valid_pos = pos_groups.get(on3_pos, [on3_pos])
+                                    for p in players:
+                                        cfb_pos = (p.get('position') or '').upper()
+                                        if cfb_pos in valid_pos or on3_pos in cfb_pos:
+                                            college_stats = await cfb_data.get_full_player_info(p.get('name'), p.get('team'))
+                                            if college_stats:
+                                                logger.info(f"✅ Found college stats via last name match: {p.get('name')}")
+                                                break
+                                elif players:
+                                    # No position to match, take first result
+                                    college_stats = await cfb_data.get_full_player_info(players[0].get('name'), players[0].get('team'))
+                            except Exception as e:
+                                logger.debug(f"Last name CFB lookup failed: {e}")
+                    
+                    # Display college stats if found
+                    if college_stats and college_stats.get('stats'):
+                        stats_lines = []
+                        team_name = college_stats.get('team', '')
+                        if team_name:
+                            stats_lines.append(f"**School:** {team_name}")
+
+                        stats = college_stats.get('stats', {})
+                        years = sorted(stats.keys(), reverse=True)
+                        for yr in years[:2]:
+                            ys = stats[yr]
+                            stat_str = None
+                            if ys.get('receiving', {}).get('YDS'):
+                                stat_str = f"🎯 {ys['receiving'].get('REC', 0)} REC | {ys['receiving']['YDS']} YDS | {ys['receiving'].get('TD', 0)} TD"
+                            elif ys.get('rushing', {}).get('YDS'):
+                                stat_str = f"🏃 {ys['rushing'].get('CAR', 0)} CAR | {ys['rushing']['YDS']} YDS | {ys['rushing'].get('TD', 0)} TD"
+                            elif ys.get('passing', {}).get('YDS'):
+                                stat_str = f"🎯 {ys['passing']['YDS']} YDS | {ys['passing'].get('TD', 0)} TD | {ys['passing'].get('INT', 0)} INT"
+                            elif ys.get('defense', {}).get('TOT') or ys.get('defense', {}).get('SOLO'):
+                                d = ys['defense']
+                                stat_str = f"🛡️ {d.get('TOT', d.get('SOLO', 0))} TKL | {d.get('TFL', 0)} TFL | {d.get('SACKS', 0)} Sacks"
+                            if stat_str:
+                                stats_lines.append(f"**{yr}:** {stat_str}")
+
+                        if stats_lines:
+                            embed.add_field(
+                                name="🏈 College Stats (Transfer)",
+                                value='\n'.join(stats_lines),
+                                inline=False
+                            )
 
                 # Profile link at bottom
                 if recruit.get('profile_url'):
