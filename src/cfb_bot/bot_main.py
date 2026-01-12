@@ -219,77 +219,68 @@ async def on_ready():
 
 async def send_startup_notification():
     """Send a rich startup notification with version, timer status, and what's new"""
-    # Get version info
+    from .utils.server_config import FeatureModule
+    
+    # Get version info - hardcode for v3.0 since version_manager may have old data
     current_version = "3.0.0"
     version_title = "Cog Architecture"
     version_emoji = "🏗️"
 
-    if version_manager:
-        try:
-            current_version = version_manager.get_current_version()
-            version_info = version_manager.get_latest_version_info()
-            version_title = version_info.get('title', 'Update')
-            version_emoji = version_info.get('emoji', '📌')
-        except Exception:
-            pass
-
-    # Build description
-    description = f"**Version {current_version}** - {version_title} {version_emoji}\n\n"
-    description += f"**Guilds:** {len(bot.guilds)} | **Status:** Online ✅\n\n"
-
-    # Check for restored timer
-    if timekeeper_manager:
-        try:
-            timer_info = timekeeper_manager.get_restored_timer_info()
-            if timer_info:
-                description += f"**⏰ Timer Restored**\n"
-                description += f"Channel: #{timer_info['channel_name']}\n"
-                description += f"Time Remaining: {int(timer_info['hours_remaining'])}h {timer_info['minutes_remaining']}m\n"
-                description += f"Ends At: {timer_info['end_time']}\n\n"
-        except Exception as e:
-            logger.warning(f"⚠️ Could not get timer info: {e}")
-
-    # Create embed
-    embed = discord.Embed(
-        title="🏈 Harry is Online!",
-        description=description,
-        color=0x00ff00
-    )
-
-    # Get what's new
-    changes_preview = ["• Cog-based modular architecture", "• Better performance and maintainability"]
-    if version_manager:
-        try:
-            version_info = version_manager.get_latest_version_info()
-            changes = []
-            for feature_group in version_info.get('features', [])[:2]:
-                for change in feature_group.get('changes', [])[:3]:
-                    changes.append(f"• {change}")
-            if changes:
-                changes_preview = changes[:5]
-        except Exception:
-            pass
-
-    embed.add_field(
-        name=f"{version_emoji} What's New",
-        value="\n".join(changes_preview),
-        inline=False
-    )
-
-    embed.set_footer(text="Harry Admin Notification 🔧 | Use /whats_new for full details")
-
-    # Send to all admin channels
+    # Send per-server notification (timer info only for LEAGUE-enabled servers)
     sent_count = 0
     for guild in bot.guilds:
         admin_channel_id = server_config.get_admin_channel(guild.id)
-        if admin_channel_id:
-            channel = guild.get_channel(admin_channel_id)
-            if channel:
-                try:
-                    await channel.send(embed=embed)
-                    sent_count += 1
-                except Exception as e:
-                    logger.warning(f"⚠️ Could not send startup to {guild.name}: {e}")
+        if not admin_channel_id:
+            continue
+            
+        channel = guild.get_channel(admin_channel_id)
+        if not channel:
+            continue
+
+        # Build description - customized per server
+        description = f"**Version {current_version}** - {version_title} {version_emoji}\n\n"
+        description += f"**Guilds:** {len(bot.guilds)} | **Status:** Online ✅\n\n"
+
+        # Only show timer info if LEAGUE is enabled for this server
+        league_enabled = server_config.is_module_enabled(guild.id, FeatureModule.LEAGUE)
+        if league_enabled and timekeeper_manager:
+            try:
+                timer_info = timekeeper_manager.get_restored_timer_info()
+                if timer_info:
+                    description += f"**⏰ Timer Restored**\n"
+                    description += f"Channel: #{timer_info['channel_name']}\n"
+                    description += f"Time Remaining: {int(timer_info['hours_remaining'])}h {timer_info['minutes_remaining']}m\n"
+                    description += f"Ends At: {timer_info['end_time']}\n\n"
+            except Exception as e:
+                logger.warning(f"⚠️ Could not get timer info: {e}")
+
+        # Create embed
+        embed = discord.Embed(
+            title="🏈 Harry is Online!",
+            description=description,
+            color=0x00ff00
+        )
+
+        # What's new for v3.0
+        changes_preview = [
+            "• 🏗️ New cog-based modular architecture",
+            "• ⚡ Better performance and maintainability",
+            "• 🔧 All commands organized by module"
+        ]
+
+        embed.add_field(
+            name=f"{version_emoji} What's New",
+            value="\n".join(changes_preview),
+            inline=False
+        )
+
+        embed.set_footer(text="Harry Admin Notification 🔧 | Use /whats_new for full details")
+
+        try:
+            await channel.send(embed=embed)
+            sent_count += 1
+        except Exception as e:
+            logger.warning(f"⚠️ Could not send startup to {guild.name}: {e}")
 
     if sent_count > 0:
         logger.info(f"📢 Sent startup notification to {sent_count} admin channel(s)")
