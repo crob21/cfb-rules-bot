@@ -220,7 +220,7 @@ async def on_ready():
 async def send_startup_notification():
     """Send a rich startup notification with version, timer status, and what's new"""
     from .utils.server_config import FeatureModule
-    
+
     # Get version info - hardcode for v3.0 since version_manager may have old data
     current_version = "3.0.0"
     version_title = "Cog Architecture"
@@ -232,7 +232,7 @@ async def send_startup_notification():
         admin_channel_id = server_config.get_admin_channel(guild.id)
         if not admin_channel_id:
             continue
-            
+
         channel = guild.get_channel(admin_channel_id)
         if not channel:
             continue
@@ -241,16 +241,22 @@ async def send_startup_notification():
         description = f"**Version {current_version}** - {version_title} {version_emoji}\n\n"
         description += f"**Guilds:** {len(bot.guilds)} | **Status:** Online ✅\n\n"
 
-        # Only show timer info if LEAGUE is enabled for this server
+        # Only show timer info if LEAGUE is enabled AND timer is in THIS server
         league_enabled = server_config.is_module_enabled(guild.id, FeatureModule.LEAGUE)
         if league_enabled and timekeeper_manager:
             try:
                 timer_info = timekeeper_manager.get_restored_timer_info()
                 if timer_info:
-                    description += f"**⏰ Timer Restored**\n"
-                    description += f"Channel: #{timer_info['channel_name']}\n"
-                    description += f"Time Remaining: {int(timer_info['hours_remaining'])}h {timer_info['minutes_remaining']}m\n"
-                    description += f"Ends At: {timer_info['end_time']}\n\n"
+                    # Check if the timer channel belongs to this guild
+                    timer_channel_id = timer_info.get('channel_id')
+                    timer_channel = bot.get_channel(timer_channel_id) if timer_channel_id else None
+                    
+                    # Only show timer info if it's in THIS guild
+                    if timer_channel and timer_channel.guild.id == guild.id:
+                        description += f"**⏰ Timer Restored**\n"
+                        description += f"Channel: #{timer_info['channel_name']}\n"
+                        description += f"Time Remaining: {int(timer_info['hours_remaining'])}h {timer_info['minutes_remaining']}m\n"
+                        description += f"Ends At: {timer_info['end_time']}\n\n"
             except Exception as e:
                 logger.warning(f"⚠️ Could not get timer info: {e}")
 
