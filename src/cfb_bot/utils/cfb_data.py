@@ -496,9 +496,13 @@ class CFBDataLookup:
                                 'positionRank': getattr(recruit, 'position_rank', None),
                                 'city': getattr(recruit, 'city', None),
                                 'state': getattr(recruit, 'state_province', None),
+                                'country': getattr(recruit, 'country', None),
                                 'height': getattr(recruit, 'height', None),
                                 'weight': getattr(recruit, 'weight', None),
                                 'year': try_year,
+                                'high_school': getattr(recruit, 'high_school', None),
+                                'early_signing': getattr(recruit, 'early_signing', None),
+                                'early_enroll': getattr(recruit, 'early_enroll', None),
                             }
 
             except ApiException as e:
@@ -997,24 +1001,84 @@ class CFBDataLookup:
             ranking = recruiting.get('ranking')
             pos_rank = recruiting.get('positionRank')
             state_rank = recruiting.get('stateRank')
+            recruit_year = recruiting.get('year')
+            committed_school = recruiting.get('school')
+            recruit_city = recruiting.get('city')
+            recruit_state = recruiting.get('state')
+            recruit_height = recruiting.get('height')
+            recruit_weight = recruiting.get('weight')
+            recruit_position = recruiting.get('position')
 
             star_display = "⭐" * stars if stars else "N/R"
 
+            # Header with stars and rating
             if rating:
-                response_parts.append(f"🎯 **Recruiting:** {star_display} ({rating:.4f})")
+                response_parts.append(f"🎯 **Recruiting ({recruit_year or 'N/A'} Class):** {star_display} ({rating:.4f})")
             else:
-                response_parts.append(f"🎯 **Recruiting:** {star_display}")
+                response_parts.append(f"🎯 **Recruiting ({recruit_year or 'N/A'} Class):** {star_display}")
 
+            # Rankings
             ranks = []
             if ranking:
                 ranks.append(f"#{ranking} National")
             if pos_rank:
-                ranks.append(f"#{pos_rank} {recruiting.get('position', 'Pos')}")
+                ranks.append(f"#{pos_rank} {recruit_position or 'Pos'}")
             if state_rank:
-                ranks.append(f"#{state_rank} {recruiting.get('state', 'State')}")
+                ranks.append(f"#{state_rank} {recruit_state or 'State'}")
 
             if ranks:
-                response_parts.append(f"   {' | '.join(ranks)}")
+                response_parts.append(f"   **Rankings:** {' | '.join(ranks)}")
+
+            # Committed School
+            if committed_school:
+                response_parts.append(f"   **Signed With:** {committed_school}")
+
+            # Hometown (from recruiting profile)
+            recruit_location = []
+            if recruit_city:
+                recruit_location.append(recruit_city)
+            if recruit_state:
+                recruit_location.append(recruit_state)
+            
+            # Add country if international (non-USA)
+            recruit_country = recruiting.get('country', '')
+            if recruit_country and recruit_country.upper() not in ['USA', 'US', 'UNITED STATES', '']:
+                recruit_location.append(recruit_country)
+            
+            if recruit_location:
+                response_parts.append(f"   **Hometown:** {', '.join(recruit_location)}")
+
+            # High School
+            high_school = recruiting.get('high_school')
+            if high_school:
+                response_parts.append(f"   **High School:** {high_school}")
+
+            # Physical measurements (from recruiting profile)
+            recruit_vitals = []
+            if recruit_height:
+                # Format height if it's in inches
+                if isinstance(recruit_height, (int, float)) and recruit_height > 12:
+                    feet = int(recruit_height) // 12
+                    inches = int(recruit_height) % 12
+                    recruit_vitals.append(f"{feet}'{inches}\"")
+                else:
+                    recruit_vitals.append(str(recruit_height))
+            
+            if recruit_weight:
+                recruit_vitals.append(f"{recruit_weight}lbs")
+
+            if recruit_vitals:
+                response_parts.append(f"   **Recruiting Vitals:** {' | '.join(recruit_vitals)}")
+
+            # Early Signing/Enrollment status
+            early_info = []
+            if recruiting.get('early_signing'):
+                early_info.append("Early Signing Period")
+            if recruiting.get('early_enroll'):
+                early_info.append("Early Enrollee")
+            
+            if early_info:
+                response_parts.append(f"   **Status:** {' | '.join(early_info)}")
 
         return "\n".join(response_parts)
 
