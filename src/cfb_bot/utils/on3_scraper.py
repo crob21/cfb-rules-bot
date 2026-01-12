@@ -653,47 +653,47 @@ class On3Scraper:
             # ==================== TRANSFER PORTAL DETECTION ====================
             # Check for "Transfer Portal" section which indicates a college transfer
             # On3 shows: "Transfer Portal (SHSU)" with previous school, experience years
-            # IMPORTANT: Must be specific - "Transfer Portal" can appear in sidebars/ads
+            # IMPORTANT: Must find "Transfer Portal" in player's context, not sidebars
+            # AND must have actual portal-specific data (not just enrollment dates)
             
-            # First, look for specific transfer portal indicators (not just any mention)
-            portal_indicators = 0
+            is_portal_player = False
             prev_school = None
             college_exp = None
             portal_rating = None
             portal_entry = None
             
-            # Check for "Transfer Portal (SCHOOL)" pattern - strong indicator
+            # PRIMARY CHECK: "Transfer Portal (SCHOOL)" pattern - DEFINITIVE
             prev_school_match = re.search(r'Transfer Portal\s*\(([^)]+)\)', page_text)
             if prev_school_match:
+                is_portal_player = True
                 prev_school = prev_school_match.group(1)
-                portal_indicators += 2  # Strong indicator
             
-            # Check for portal entry date - strong indicator
-            entered_match = re.search(r'Entered\s*[-–]\s*(\d{1,2}/\d{1,2}/\d{2,4})', page_text)
-            if entered_match:
-                portal_entry = entered_match.group(1)
-                portal_indicators += 2  # Strong indicator
-            
-            # Check for Transfer Portal Rating - strong indicator
+            # SECONDARY CHECK: "Transfer Portal Rating" - DEFINITIVE
             portal_rating_match = re.search(r'Transfer Portal Rating\s*(\d{2}\.\d{2})', page_text)
             if portal_rating_match:
+                is_portal_player = True
                 portal_rating = float(portal_rating_match.group(1))
-                portal_indicators += 2  # Strong indicator
             
-            # Check for college experience years (e.g., "Experience2023 - 2025")
-            exp_match = re.search(r'Experience\s*(\d{4})\s*[-–]\s*(\d{4})', page_text)
-            if exp_match:
-                college_exp = f"{exp_match.group(1)}-{exp_match.group(2)}"
-                portal_indicators += 1  # Weak indicator (could just be enrolled player)
+            # TERTIARY CHECK: "Entered" date ONLY if near "Transfer Portal" text
+            # (Not just any "Entered" date - that could be enrollment date)
+            if 'Transfer Portal' in page_text:
+                # Look for "Transfer Portal...Entered" within ~200 chars
+                portal_section_match = re.search(r'Transfer Portal.{0,200}?Entered\s*[-–]\s*(\d{1,2}/\d{1,2}/\d{2,4})', page_text, re.DOTALL)
+                if portal_section_match:
+                    is_portal_player = True
+                    portal_entry = portal_section_match.group(1)
             
-            # Only mark as transfer if we have STRONG evidence (not just "Transfer Portal" text)
-            # Require at least 2 points (one strong indicator or multiple weak ones)
-            if portal_indicators >= 2:
+            # Only process additional fields if confirmed as portal player
+            if is_portal_player:
                 recruit['is_transfer'] = True
                 recruit['previous_school'] = prev_school
-                recruit['college_experience'] = college_exp
                 recruit['portal_rating'] = portal_rating
                 recruit['portal_entry_date'] = portal_entry
+                
+                # Get college experience years
+                exp_match = re.search(r'Experience\s*(\d{4})\s*[-–]\s*(\d{4})', page_text)
+                if exp_match:
+                    recruit['college_experience'] = f"{exp_match.group(1)}-{exp_match.group(2)}"
                 
                 # Try additional patterns for previous school if not found
                 if not recruit['previous_school']:
