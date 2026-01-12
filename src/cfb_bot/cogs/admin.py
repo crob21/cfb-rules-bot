@@ -567,7 +567,7 @@ class AdminCog(commands.Cog):
         if not interaction.guild:
             await interaction.response.send_message("❌ This only works in servers!", ephemeral=True)
             return
-        
+
         # Check if user is admin
         is_admin = (
             interaction.user.guild_permissions.administrator or
@@ -576,24 +576,24 @@ class AdminCog(commands.Cog):
         if not is_admin:
             await interaction.response.send_message("❌ Only admins can view Zyte usage!", ephemeral=True)
             return
-        
+
         await interaction.response.defer(ephemeral=True)
-        
+
         # Get On3 scraper usage
         from .recruiting import get_recruiting_scraper
         guild_id = interaction.guild.id
         scraper, source_name = get_recruiting_scraper(guild_id)
-        
+
         # Check if it's On3 scraper (has Zyte)
         if source_name == "On3/Rivals" and hasattr(scraper, 'get_zyte_usage'):
             usage = scraper.get_zyte_usage()
-            
+
             embed = discord.Embed(
                 title="💰 Zyte API Usage Report",
                 description=f"Premium Cloudflare bypass statistics for **{interaction.guild.name}**",
                 color=Colors.PRIMARY
             )
-            
+
             # Availability
             status = "✅ Available" if usage['is_available'] else "❌ Not configured"
             embed.add_field(
@@ -601,7 +601,7 @@ class AdminCog(commands.Cog):
                 value=status,
                 inline=False
             )
-            
+
             if usage['is_available']:
                 # Usage stats
                 embed.add_field(
@@ -609,31 +609,31 @@ class AdminCog(commands.Cog):
                     value=f"**{usage['request_count']}** requests",
                     inline=True
                 )
-                
+
                 # Cost
                 embed.add_field(
                     name="💵 Estimated Cost",
                     value=f"**${usage['estimated_cost']:.4f}**",
                     inline=True
                 )
-                
+
                 # Rate
                 embed.add_field(
                     name="💳 Rate",
                     value=f"${usage['cost_per_1k']:.3f} per 1K requests",
                     inline=True
                 )
-                
+
                 # Projections
                 monthly_projection = usage['request_count'] * 30  # rough estimate
                 monthly_cost = (monthly_projection * usage['cost_per_1k']) / 1000
-                
+
                 embed.add_field(
                     name="📈 Monthly Projection",
                     value=f"~{monthly_projection:,} requests\n~${monthly_cost:.2f}/month",
                     inline=False
                 )
-                
+
                 # Info
                 embed.add_field(
                     name="ℹ️ How It Works",
@@ -647,7 +647,7 @@ class AdminCog(commands.Cog):
                     value="Add `ZYTE_API_KEY` to environment variables to enable premium bypass.",
                     inline=False
                 )
-            
+
             embed.set_footer(text="💡 Session resets on bot restart")
             await interaction.followup.send(embed=embed, ephemeral=True)
         else:

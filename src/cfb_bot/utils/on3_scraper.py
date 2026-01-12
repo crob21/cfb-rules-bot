@@ -132,17 +132,19 @@ class On3Scraper:
         self._zyte_cost_per_1k = 0.233  # Cost per 1,000 requests
         
         if ZYTE_AVAILABLE:
+            logger.info(f"🔍 Zyte API library available (ZYTE_AVAILABLE={ZYTE_AVAILABLE})")
             zyte_api_key = os.getenv('ZYTE_API_KEY')
+            logger.info(f"🔍 Environment variable check: ZYTE_API_KEY={'SET' if zyte_api_key else 'NOT SET'}")
             if zyte_api_key:
                 try:
                     self._zyte_client = ZyteAPIClient(api_key=zyte_api_key)
                     logger.info("✅ Zyte API initialized (premium Cloudflare bypass available)")
                 except Exception as e:
-                    logger.warning(f"⚠️ Failed to initialize Zyte API: {e}")
+                    logger.error(f"❌ Failed to initialize Zyte API: {e}", exc_info=True)
             else:
-                logger.debug("ℹ️ ZYTE_API_KEY not set - premium bypass unavailable")
+                logger.warning("⚠️ ZYTE_API_KEY environment variable not set - premium bypass unavailable")
         else:
-            logger.debug("ℹ️ zyte-api not installed - premium bypass unavailable")
+            logger.warning("⚠️ zyte-api library not installed - premium bypass unavailable")
 
         # HTTP headers for fallback httpx client
         self._headers = {
