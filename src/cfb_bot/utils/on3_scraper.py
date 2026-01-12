@@ -24,13 +24,19 @@ from urllib.parse import quote_plus
 import httpx
 from bs4 import BeautifulSoup
 
-# Cloudflare bypass
+# Playwright for Cloudflare bypass (best option)
+try:
+    from playwright.async_api import async_playwright
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
+
+# Cloudflare bypass fallback
 try:
     import cloudscraper
     CLOUDSCRAPER_AVAILABLE = True
 except ImportError:
     CLOUDSCRAPER_AVAILABLE = False
-    logger.warning("⚠️ cloudscraper not available - Cloudflare blocks may occur")
 
 # Fuzzy matching for player name typos
 try:
@@ -95,7 +101,12 @@ class On3Scraper:
         self._rate_limit_delay_max = 2.5  # Maximum 2.5 seconds (randomized)
         self._is_blocked = False  # Track if we're currently blocked
 
-        # Use cloudscraper to bypass Cloudflare if available
+        # Playwright browser (best for Cloudflare)
+        self._playwright = None
+        self._browser = None
+        self._browser_context = None
+        
+        # Cloudscraper fallback
         if CLOUDSCRAPER_AVAILABLE:
             self._scraper = cloudscraper.create_scraper(
                 browser={
@@ -104,10 +115,8 @@ class On3Scraper:
                     'desktop': True
                 }
             )
-            logger.info("✅ Using cloudscraper for Cloudflare bypass")
         else:
             self._scraper = None
-            logger.warning("⚠️ cloudscraper not available - using httpx (may encounter blocks)")
 
         # HTTP headers for fallback httpx client
         self._headers = {
@@ -115,6 +124,14 @@ class On3Scraper:
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
         }
+        
+        # Log scraping method
+        if PLAYWRIGHT_AVAILABLE:
+            logger.info("✅ Playwright available - will use headless browser for Cloudflare bypass")
+        elif CLOUDSCRAPER_AVAILABLE:
+            logger.info("⚠️ Using cloudscraper (Playwright not available)")
+        else:
+            logger.warning("⚠️ Using httpx only - may encounter Cloudflare blocks")
 
     def _get_current_recruiting_year(self) -> int:
         """Get the current recruiting class year"""
@@ -136,6 +153,51 @@ class On3Scraper:
             return 2
         else:
             return 1
+    
+    async def _init_browser(self):
+        """Initialize Playwright browser if not already running"""
+        if not PLAYWRIGHT_AVAILABLE:
+            return False
+        
+        if self._browser:
+            return True  # Already initialized
+        
+        try:
+            self._playwright = await async_playwright().start()
+            self._browser = await self._playwright.chromium.launch(
+                headless=True,
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                ]
+            )
+            self._browser_context = await self._browser.new_context(
+                viewport={'width': 1920, 'height': 1080},
+                user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            )
+            logger.info("🌐 Playwright browser initialized")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Playwright: {e}")
+            return False
+    
+    async def _close_browser(self):
+        """Clean up Playwright browser"""
+        try:
+            if self._browser_context:
+                await self._browser_context.close()
+            if self._browser:
+                await self._browser.close()
+            if self._playwright:
+                await self._playwright.stop()
+            logger.info("🌐 Playwright browser closed")
+        except Exception as e:
+            logger.warning(f"⚠️ Error closing browser: {e}")
+        finally:
+            self._browser = None
+            self._browser_context = None
+            self._playwright = None
 
     async def _rate_limit(self):
         """Enforce rate limiting between requests with randomized delays"""
@@ -183,13 +245,53 @@ class On3Scraper:
             logger.debug(f"🧹 Cleaned up {len(expired_keys)} expired cache entries")
 
     async def _fetch_page(self, url: str) -> Optional[str]:
-        """Fetch a page with rate limiting and Cloudflare bypass"""
+        """Fetch a page with rate limiting and Cloudflare bypass (Playwright > Cloudscraper > httpx)"""
         await self._rate_limit()
 
         try:
             logger.info(f"🔍 Fetching: {url}")
             
-            # Use cloudscraper if available (bypasses Cloudflare)
+            # PRIORITY 1: Use Playwright (best for Cloudflare)
+            if PLAYWRIGHT_AVAILABLE:
+                # Initialize browser if needed
+                if not self._browser:
+                    await self._init_browser()
+                
+                if self._browser_context:
+                    try:
+                        page = await self._browser_context.new_page()
+                        
+                        # Navigate to URL with timeout
+                        response = await page.goto(url, timeout=15000, wait_until='domcontentloaded')
+                        
+                        if response and response.status == 200:
+                            # Wait a bit for any JS to execute
+                            await page.wait_for_timeout(1000)
+                            
+                            html = await page.content()
+                            await page.close()
+                            
+                            # Check for blocking
+                            if self._check_if_blocked(html):
+                                logger.error(f"🚫 BLOCKED by On3 even with Playwright!")
+                                return None
+                            
+                            logger.debug(f"✅ Playwright fetch successful")
+                            return html
+                        elif response and response.status == 404:
+                            await page.close()
+                            logger.warning(f"⚠️ Page not found: {url}")
+                            return None
+                        else:
+                            await page.close()
+                            status = response.status if response else "unknown"
+                            logger.warning(f"⚠️ Playwright returned status {status}, trying fallback...")
+                            # Fall through to cloudscraper
+                    except Exception as e:
+                        logger.warning(f"⚠️ Playwright error: {e}, trying fallback...")
+                        # Fall through to cloudscraper
+            
+            # PRIORITY 2: Use cloudscraper if Playwright failed/unavailable
             if self._scraper and CLOUDSCRAPER_AVAILABLE:
                 # Run sync cloudscraper in thread pool to keep async
                 response = await asyncio.to_thread(self._scraper.get, url, timeout=15)
@@ -198,8 +300,9 @@ class On3Scraper:
                     html = response.text
                     # Check for blocking indicators
                     if self._check_if_blocked(html):
-                        logger.error(f"🚫 BLOCKED by On3 even with cloudscraper!")
+                        logger.error(f"🚫 BLOCKED by On3 with cloudscraper")
                         return None
+                    logger.debug(f"✅ Cloudscraper fetch successful")
                     return html
                 elif response.status_code == 403:
                     logger.error(f"🚫 BLOCKED (403 Forbidden)")
@@ -216,7 +319,7 @@ class On3Scraper:
                     logger.error(f"❌ HTTP {response.status_code}")
                     return None
                     
-            # Fallback to httpx if cloudscraper not available
+            # PRIORITY 3: Fallback to httpx (will likely be blocked)
             else:
                 async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
                     response = await client.get(url, headers=self._headers)
@@ -224,8 +327,9 @@ class On3Scraper:
                     if response.status_code == 200:
                         html = response.text
                         if self._check_if_blocked(html):
-                            logger.error(f"🚫 BLOCKED by On3! Install cloudscraper: pip install cloudscraper")
+                            logger.error(f"🚫 BLOCKED by On3! Install Playwright: pip install playwright && playwright install chromium")
                             return None
+                        logger.debug(f"✅ httpx fetch successful")
                         return html
                     elif response.status_code == 403:
                         logger.error(f"🚫 BLOCKED (403 Forbidden)")
@@ -1694,6 +1798,16 @@ class On3Scraper:
                 lines.append(f"`{i:2d}.` {stars} **{name}** ({pos})")
 
         return '\n'.join(lines)
+    
+    async def cleanup(self):
+        """Clean up resources (call on bot shutdown)"""
+        await self._close_browser()
+    
+    def __del__(self):
+        """Cleanup when object is destroyed"""
+        # Note: Can't use async in __del__, so just log
+        if self._browser:
+            logger.warning("⚠️ On3Scraper deleted without cleanup - browser may still be running")
 
 
 # Global instance

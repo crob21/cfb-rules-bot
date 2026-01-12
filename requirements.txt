@@ -20,6 +20,8 @@ beautifulsoup4>=4.12.0
 
 # Cloudflare bypass for web scraping
 cloudscraper>=1.2.71
+playwright>=1.40.0
+playwright-stealth>=1.0.5
 
 # Fuzzy string matching for player name typos
 rapidfuzz>=3.0.0
