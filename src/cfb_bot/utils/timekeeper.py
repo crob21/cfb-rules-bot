@@ -779,30 +779,41 @@ class TimekeeperManager:
 
                     logger.info(f"📧 DM channel created/accessed: {dm_channel.id}")
 
-                    # Search DM channel for state messages
+                    # Search DM channel for state messages (search more messages - state could be older)
                     message_count = 0
-                    async for message in dm_channel.history(limit=10):
+                    async for message in dm_channel.history(limit=100):
                         message_count += 1
-                        if message.author == self.bot.user and message.content.startswith("```json"):
-                            logger.info(f"📧 Found JSON message in DM (message #{message_count})")
-                            # Extract JSON from code block
-                            content = message.content.strip()
-                            if content.startswith("```json"):
-                                content = content[7:]  # Remove ```json
-                            if content.endswith("```"):
-                                content = content[:-3]  # Remove ```
-                            content = content.strip()
-
-                            try:
-                                state = json.loads(content)
-                                # Validate it's a timer state
-                                if 'channel_id' in state and 'end_time' in state:
-                                    self.state_message_id = message.id
-                                    logger.info(f"✅ Found timer state message in bot owner DM")
-                                    return state
-                            except json.JSONDecodeError as e:
-                                logger.debug(f"Failed to parse JSON from DM message: {e}")
-                                continue
+                        if message.author != self.bot.user:
+                            continue
+                        
+                        content = message.content.strip()
+                        
+                        # Try to extract JSON - handle both code block and raw JSON formats
+                        json_content = None
+                        
+                        # Format 1: ```json ... ```
+                        if content.startswith("```json"):
+                            json_content = content[7:]  # Remove ```json
+                            if json_content.endswith("```"):
+                                json_content = json_content[:-3]
+                            json_content = json_content.strip()
+                        # Format 2: Raw JSON starting with {
+                        elif content.startswith("{") and "channel_id" in content and "end_time" in content:
+                            json_content = content
+                        
+                        if not json_content:
+                            continue
+                            
+                        try:
+                            state = json.loads(json_content)
+                            # Validate it's a timer state (has channel_id and end_time)
+                            if 'channel_id' in state and 'end_time' in state:
+                                self.state_message_id = message.id
+                                logger.info(f"✅ Found timer state in bot owner DM (message #{message_count})")
+                                return state
+                        except json.JSONDecodeError as e:
+                            logger.debug(f"Failed to parse JSON from DM message: {e}")
+                            continue
                     logger.info(f"📧 Searched {message_count} messages in DM, no timer state found")
                     # If we got here, DM worked but no state found - continue to public channels
                 else:
@@ -1131,26 +1142,36 @@ class TimekeeperManager:
                     if not dm_channel:
                         dm_channel = await bot_owner.create_dm()
 
-                    async for message in dm_channel.history(limit=10):
-                        if (message.author == self.bot.user and
-                            message.content.startswith("```json") and
-                            '"type": "season_week"' in message.content):
-                            content = message.content.strip()
-                            if content.startswith("```json"):
-                                content = content[7:]
+                    # Search more messages (100 instead of 10)
+                    async for message in dm_channel.history(limit=100):
+                        if message.author != self.bot.user:
+                            continue
+                        
+                        # Check if message contains season_week marker
+                        if '"type": "season_week"' not in message.content and '"season"' not in message.content:
+                            continue
+                        
+                        content = message.content.strip()
+                        
+                        # Handle both code block and raw JSON formats
+                        if content.startswith("```json"):
+                            content = content[7:]
                             if content.endswith("```"):
                                 content = content[:-3]
                             content = content.strip()
+                        elif not content.startswith("{"):
+                            continue
 
-                            try:
-                                state = json.loads(content)
-                                if state.get('type') == 'season_week':
-                                    self.season = state.get('season')
-                                    self.week = state.get('week')
-                                    logger.info(f"✅ Loaded season/week: Season {self.season}, Week {self.week}")
-                                    return
-                            except json.JSONDecodeError:
-                                continue
+                        try:
+                            state = json.loads(content)
+                            # Check for season_week type OR just season/week keys
+                            if state.get('type') == 'season_week' or ('season' in state and 'week' in state and 'channel_id' not in state):
+                                self.season = state.get('season')
+                                self.week = state.get('week')
+                                logger.info(f"✅ Loaded season/week: Season {self.season}, Week {self.week}")
+                                return
+                        except json.JSONDecodeError:
+                            continue
                 except Exception as e:
                     logger.debug(f"Could not load season/week from DM: {e}")
         except Exception as e:
@@ -1372,28 +1393,38 @@ class TimekeeperManager:
                     if not dm_channel:
                         dm_channel = await bot_owner.create_dm()
 
-                    async for message in dm_channel.history(limit=15):
-                        if (message.author == self.bot.user and
-                            message.content.startswith("```json") and
-                            '"type": "league_staff"' in message.content):
-                            content = message.content.strip()
-                            if content.startswith("```json"):
-                                content = content[7:]
+                    # Search more messages (100 instead of 15)
+                    async for message in dm_channel.history(limit=100):
+                        if message.author != self.bot.user:
+                            continue
+                        
+                        # Check if message contains league_staff marker
+                        if '"type": "league_staff"' not in message.content and '"league_owner_id"' not in message.content:
+                            continue
+                        
+                        content = message.content.strip()
+                        
+                        # Handle both code block and raw JSON formats
+                        if content.startswith("```json"):
+                            content = content[7:]
                             if content.endswith("```"):
                                 content = content[:-3]
                             content = content.strip()
+                        elif not content.startswith("{"):
+                            continue
 
-                            try:
-                                state = json.loads(content)
-                                if state.get('type') == 'league_staff':
-                                    self.league_owner_id = state.get('league_owner_id')
-                                    self.league_owner_name = state.get('league_owner_name')
-                                    self.co_commish_id = state.get('co_commish_id')
-                                    self.co_commish_name = state.get('co_commish_name')
-                                    logger.info(f"✅ Loaded league staff: Owner={self.league_owner_name}, Co-Commish={self.co_commish_name}")
-                                    return
-                            except json.JSONDecodeError:
-                                continue
+                        try:
+                            state = json.loads(content)
+                            # Check for league_staff type OR just league_owner_id key
+                            if state.get('type') == 'league_staff' or 'league_owner_id' in state:
+                                self.league_owner_id = state.get('league_owner_id')
+                                self.league_owner_name = state.get('league_owner_name')
+                                self.co_commish_id = state.get('co_commish_id')
+                                self.co_commish_name = state.get('co_commish_name')
+                                logger.info(f"✅ Loaded league staff: Owner={self.league_owner_name}, Co-Commish={self.co_commish_name}")
+                                return
+                        except json.JSONDecodeError:
+                            continue
                 except Exception as e:
                     logger.debug(f"Could not load league staff from DM: {e}")
         except Exception as e:

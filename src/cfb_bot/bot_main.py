@@ -86,7 +86,7 @@ async def setup_dependencies():
     This is called after bot is ready so we can access Discord objects.
     """
     global timekeeper_manager, charter_editor, version_manager
-    
+
     logger.info("⚙️ Setting up cog dependencies...")
 
     # Import optional dependencies
@@ -223,7 +223,7 @@ async def send_startup_notification():
     current_version = "3.0.0"
     version_title = "Cog Architecture"
     version_emoji = "🏗️"
-    
+
     if version_manager:
         try:
             current_version = version_manager.get_current_version()
