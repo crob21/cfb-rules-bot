@@ -653,50 +653,53 @@ class On3Scraper:
             # ==================== TRANSFER PORTAL DETECTION ====================
             # Check for "Transfer Portal" section which indicates a college transfer
             # On3 shows: "Transfer Portal (SHSU)" with previous school, experience years
-            if 'Transfer Portal' in page_text:
+            # IMPORTANT: Must be specific - "Transfer Portal" can appear in sidebars/ads
+            
+            # First, look for specific transfer portal indicators (not just any mention)
+            portal_indicators = 0
+            prev_school = None
+            college_exp = None
+            portal_rating = None
+            portal_entry = None
+            
+            # Check for "Transfer Portal (SCHOOL)" pattern - strong indicator
+            prev_school_match = re.search(r'Transfer Portal\s*\(([^)]+)\)', page_text)
+            if prev_school_match:
+                prev_school = prev_school_match.group(1)
+                portal_indicators += 2  # Strong indicator
+            
+            # Check for portal entry date - strong indicator
+            entered_match = re.search(r'Entered\s*[-–]\s*(\d{1,2}/\d{1,2}/\d{2,4})', page_text)
+            if entered_match:
+                portal_entry = entered_match.group(1)
+                portal_indicators += 2  # Strong indicator
+            
+            # Check for Transfer Portal Rating - strong indicator
+            portal_rating_match = re.search(r'Transfer Portal Rating\s*(\d{2}\.\d{2})', page_text)
+            if portal_rating_match:
+                portal_rating = float(portal_rating_match.group(1))
+                portal_indicators += 2  # Strong indicator
+            
+            # Check for college experience years (e.g., "Experience2023 - 2025")
+            exp_match = re.search(r'Experience\s*(\d{4})\s*[-–]\s*(\d{4})', page_text)
+            if exp_match:
+                college_exp = f"{exp_match.group(1)}-{exp_match.group(2)}"
+                portal_indicators += 1  # Weak indicator (could just be enrolled player)
+            
+            # Only mark as transfer if we have STRONG evidence (not just "Transfer Portal" text)
+            # Require at least 2 points (one strong indicator or multiple weak ones)
+            if portal_indicators >= 2:
                 recruit['is_transfer'] = True
-
-                # Try to get previous school - multiple patterns
-                # Pattern 1: "Transfer Portal(SCHOOL)" or "Transfer Portal (SCHOOL)"
-                prev_school_match = re.search(r'Transfer Portal\s*\(([^)]+)\)', page_text)
-                if prev_school_match:
-                    recruit['previous_school'] = prev_school_match.group(1)
-
-                # Pattern 2: "Previous School: SCHOOL" or "Prev School: SCHOOL"
+                recruit['previous_school'] = prev_school
+                recruit['college_experience'] = college_exp
+                recruit['portal_rating'] = portal_rating
+                recruit['portal_entry_date'] = portal_entry
+                
+                # Try additional patterns for previous school if not found
                 if not recruit['previous_school']:
                     prev_match2 = re.search(r'(?:Previous|Prev\.?)\s*School[:\s]+([A-Za-z\s&]+?)(?:\s*\||\s*$|\s*\d)', page_text)
                     if prev_match2:
                         recruit['previous_school'] = prev_match2.group(1).strip()
-
-                # Pattern 3: Look for college links near "Transfer Portal" text
-                if not recruit['previous_school']:
-                    # Find college mentioned near transfer portal section
-                    portal_section = soup.find(string=re.compile(r'Transfer Portal', re.I))
-                    if portal_section:
-                        parent = portal_section.find_parent(['div', 'section', 'article'])
-                        if parent:
-                            college_link = parent.select_one('a[href*="/college/"]')
-                            if college_link:
-                                img = college_link.select_one('img')
-                                if img and img.get('alt'):
-                                    school = img.get('alt', '').replace(' Avatar', '').replace(' logo', '').strip()
-                                    if school and len(school) > 2 and school != recruit.get('committed_to'):
-                                        recruit['previous_school'] = school
-
-                # Try to get experience years (e.g., "Experience2023 - 2025")
-                exp_match = re.search(r'Experience\s*(\d{4})\s*[-–]\s*(\d{4})', page_text)
-                if exp_match:
-                    recruit['college_experience'] = f"{exp_match.group(1)}-{exp_match.group(2)}"
-
-                # Try to get transfer portal rating
-                portal_rating_match = re.search(r'Transfer Portal Rating\s*(\d{2}\.\d{2})', page_text)
-                if portal_rating_match:
-                    recruit['portal_rating'] = float(portal_rating_match.group(1))
-
-                # Try to get portal entry date
-                entered_match = re.search(r'Entered\s*[-–]\s*(\d{1,2}/\d{1,2}/\d{2,4})', page_text)
-                if entered_match:
-                    recruit['portal_entry_date'] = entered_match.group(1)
 
             logger.info(f"✅ Scraped profile: {recruit['name']} ({recruit['position']}) - {recruit['stars']}⭐ | {len(recruit['offers'])} offers, {len(recruit['visits'])} visits" + (" | 🌀 PORTAL" if recruit.get('is_transfer') else ""))
             return recruit
