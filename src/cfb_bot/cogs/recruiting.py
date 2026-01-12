@@ -71,25 +71,23 @@ class RecruitingCog(commands.Cog):
             return
 
         try:
-            await interaction.response.defer()
-        except discord.errors.NotFound:
-            logger.warning(f"⚠️ /recruiting player interaction expired for {name}")
-            return
-
-        if not await check_module_enabled_deferred(interaction, FeatureModule.RECRUITING, server_config):
-            return
-
-        try:
             guild_id = interaction.guild.id if interaction.guild else 0
             scraper, source_name = get_recruiting_scraper(guild_id)
 
             search_depth = "deep (all ~3000)" if deep_search else "standard"
             logger.info(f"🔍 /recruiting player: {name} ({year or 'current'}) via {source_name} - {search_depth}")
 
+            # Search first (fast enough to not need defer initially)
             max_pages = 65 if deep_search else 20
             recruit = await scraper.search_recruit(name, year, max_pages=max_pages)
 
             if recruit:
+                # Found! Defer now for building the response
+                try:
+                    await interaction.response.defer()
+                except discord.errors.NotFound:
+                    logger.warning(f"⚠️ /recruiting player interaction expired for {name}")
+                    return
                 embed = discord.Embed(
                     title=f"⭐ Recruit: {recruit.get('name', name)}",
                     description=scraper.format_recruit(recruit),
@@ -209,11 +207,16 @@ class RecruitingCog(commands.Cog):
                     color=Colors.WARNING
                 )
                 embed.set_footer(text=f"Harry's Recruiting 🏈 | Data from {source_name}")
-                await interaction.followup.send(embed=embed, ephemeral=True)
+                # Not found - send ephemeral (we never deferred)
+                await interaction.response.send_message(embed=embed, ephemeral=True)
 
         except Exception as e:
             logger.error(f"❌ Error in /recruiting player: {e}", exc_info=True)
-            await interaction.followup.send(f"❌ Error looking up recruit: {str(e)}", ephemeral=True)
+            # Try to respond ephemerally (interaction might not be deferred)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error looking up recruit: {str(e)}", ephemeral=True)
+            else:
+                await interaction.followup.send(f"❌ Error looking up recruit: {str(e)}", ephemeral=True)
 
     @recruiting_group.command(name="top", description="Get top recruits by position or state")
     @app_commands.describe(
