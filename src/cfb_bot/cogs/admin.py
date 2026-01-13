@@ -293,6 +293,7 @@ class AdminCog(commands.Cog):
         app_commands.Choice(name="league - Timer, charter, rules", value="league"),
         app_commands.Choice(name="hs_stats - High school stats", value="hs_stats"),
         app_commands.Choice(name="recruiting - On3/247 rankings", value="recruiting"),
+        app_commands.Choice(name="fun_games - Rivalry responses (Fuck Oregon!)", value="fun_games"),
     ])
     async def config(
         self,
@@ -472,7 +473,8 @@ class AdminCog(commands.Cog):
                            f"• CFB Data\n"
                            f"• League\n"
                            f"• HS Stats\n"
-                           f"• Recruiting",
+                           f"• Recruiting\n"
+                           f"• Fun & Games",
                 color=Colors.SUCCESS
             )
             embed.set_footer(text="Use /admin config view to see full status")

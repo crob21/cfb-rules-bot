@@ -419,7 +419,7 @@ async def on_message(message):
                         inline=False
                     )
                     embed.set_footer(text="Harry's Advance Timer 🏈 | Use /league timer_status to check progress")
-                    
+
                     # Send to message channel (usually #general)
                     await message.channel.send(content="@everyone", embed=embed)
                     logger.info(f"⏰ Timer restarted by {message.author} via @everyone + 'advanced'")
@@ -468,11 +468,58 @@ async def on_message(message):
             # Don't process this message further - timer restart was handled
             return
 
+    # RIVALRY RESPONSES - Team banter (Fuck Oregon!, etc.)
+    # Only if message is in a guild and FUN_GAMES module is enabled
+    if message.guild:
+        guild_id = message.guild.id
+        channel_id = message.channel.id
+
+        # Import FeatureModule here to avoid circular imports
+        from .utils.server_config import FeatureModule
+
+        # Check if Fun & Games module is enabled
+        fun_games_enabled = server_config.is_module_enabled(guild_id, FeatureModule.FUN_GAMES)
+
+        if fun_games_enabled:
+            message_lower = message.content.lower()
+
+            # Team banter keywords
+            team_keywords = {
+                'oregon': 'Fuck Oregon! 🦆💩',
+                'ducks': 'Ducks are assholes! 🦆💩',
+                'oregon ducks': 'Fuck Oregon! 🦆💩',
+                'oregon state': 'BEAVS!',
+                'detroit lions': 'Go Lions! 🦁',
+                'lions': 'Go Lions! 🦁',
+                'tampa bay buccaneers': 'Go Bucs! 🏴‍☠️',
+                'buccaneers': 'Go Bucs! 🏴‍☠️',
+                'bucs': 'Go Bucs! 🏴‍☠️',
+                'chicago bears': 'Da Bears! 🧸',
+                'bears': 'Da Bears! 🧸',
+                'washington': 'Go Huskies! 🐕',
+                'huskies': 'Go Huskies! 🐕',
+                'uw': 'Go Huskies! 🐕',
+                'alabama': 'Roll Tide! 🐘',
+                'crimson tide': 'Roll Tide! 🐘',
+                'georgia': 'Wrong Dawgs...',
+                'bulldogs': 'Wrong Dawgs...',
+                'ohio state': 'Ohio sucks! 🌰',
+                'buckeyes': 'Ohio sucks! 🌰',
+                'michigan': 'Go Blue! 💙',
+                'wolverines': 'Go Blue! 💙',
+            }
+
+            # Check for keyword matches
+            for keyword, response in team_keywords.items():
+                if keyword in message_lower:
+                    await message.channel.send(response)
+                    logger.info(f"🏈 Rivalry response triggered: '{keyword}' → {response}")
+                    break  # Only respond once per message
+
     # Let cogs handle their own message processing
     await bot.process_commands(message)
 
     # @mention handling is done in AIChatCog
-    # Rivalry responses are also handled there
 
 
 # ==================== MAIN ====================

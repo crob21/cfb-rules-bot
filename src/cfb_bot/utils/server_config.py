@@ -24,6 +24,7 @@ class FeatureModule(Enum):
     LEAGUE = "league"       # Timer, charter, rules, league staff
     HS_STATS = "hs_stats"   # High school stats scraping (MaxPreps)
     RECRUITING = "recruiting"  # 247Sports recruiting data (web scraping)
+    FUN_GAMES = "fun_games" # Rivalry responses (Fuck Oregon!), team banter
 
 
 # Recruiting data sources
@@ -42,6 +43,7 @@ DEFAULT_CONFIG = {
         FeatureModule.LEAGUE.value: False,   # Disabled by default (opt-in)
         FeatureModule.HS_STATS.value: False, # Disabled by default (opt-in, uses web scraping)
         FeatureModule.RECRUITING.value: False, # Disabled by default (opt-in, uses web scraping)
+        FeatureModule.FUN_GAMES.value: True, # Enabled by default - rivalry responses, team banter
     },
     "settings": {
         "timer_channel_id": None,
@@ -345,6 +347,7 @@ class ServerConfigManager:
             FeatureModule.LEAGUE: "🏆 **League** - `/league` (staff, season, timer) & `/charter` groups",
             FeatureModule.HS_STATS: "🏫 **HS Stats** - `/hs` group: high school stats from MaxPreps",
             FeatureModule.RECRUITING: "⭐ **Recruiting** - `/recruiting` group: On3/Rivals or 247Sports data",
+            FeatureModule.FUN_GAMES: "🎮 **Fun & Games** - Rivalry responses (Fuck Oregon!), team banter",
         }
         return descriptions.get(module, str(module))
 
