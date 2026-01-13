@@ -12,8 +12,10 @@ class TestImports:
 
     def test_import_bot(self):
         """Test that main bot module imports"""
-        from cfb_bot.bot import CFB26Bot
-        assert CFB26Bot is not None
+        # Bot migrated to bot_main.py with cogs architecture
+        from cfb_bot.bot_main import bot, main
+        assert bot is not None
+        assert main is not None
 
     def test_import_all_cogs(self):
         """Test that all cog modules import without errors"""
@@ -22,7 +24,7 @@ class TestImports:
         from cfb_bot.cogs.hs_stats import HSStatsCog
         from cfb_bot.cogs.admin import AdminCog
         from cfb_bot.cogs.core import CoreCog
-        
+
         assert CFBDataCog is not None
         assert RecruitingCog is not None
         assert HSStatsCog is not None
@@ -35,7 +37,7 @@ class TestImports:
         from cfb_bot.utils.on3_scraper import on3_scraper
         from cfb_bot.utils.server_config import server_config
         from cfb_bot.utils.version_manager import CURRENT_VERSION
-        
+
         assert cfb_data is not None
         assert on3_scraper is not None
         assert server_config is not None
@@ -44,7 +46,7 @@ class TestImports:
     def test_import_services(self):
         """Test that service modules import"""
         from cfb_bot.services.checks import check_module_enabled, check_module_enabled_deferred
-        
+
         assert check_module_enabled is not None
         assert check_module_enabled_deferred is not None
 
@@ -60,8 +62,7 @@ class TestBasicSyntax:
     def test_no_syntax_errors_in_main(self):
         """Test that __main__ has no syntax errors"""
         import runpy
-        # Just compile it, don't run it
-        with open('src/cfb_bot/bot.py', 'r') as f:
+        # Just compile it, don't run it (bot_main.py is the entry point)
+        with open('src/cfb_bot/bot_main.py', 'r') as f:
             code = f.read()
-            compile(code, 'bot.py', 'exec')
-
+            compile(code, 'bot_main.py', 'exec')

@@ -326,6 +326,7 @@ class AdminCog(commands.Cog):
                 color=Colors.PRIMARY
             )
 
+            # Module statuses
             for mod in FeatureModule:
                 is_enabled = mod.value in enabled
                 status = "✅ Enabled" if is_enabled else "❌ Disabled"
@@ -334,6 +335,66 @@ class AdminCog(commands.Cog):
 
                 desc = server_config.get_module_description(mod)
                 embed.add_field(name=f"{desc}", value=f"**Status:** {status}", inline=False)
+
+            # Server settings section
+            embed.add_field(name="━━━━━━━━━━━━━━━", value="", inline=False)  # Divider
+
+            # Auto-responses (rivalry mode)
+            auto_resp = server_config.auto_responses_enabled(guild_id)
+            auto_status = "✅ Enabled" if auto_resp else "❌ Disabled"
+            embed.add_field(
+                name="💬 Auto-Responses (Rivalry Mode)",
+                value=f"**Status:** {auto_status}\n{'Harry will respond to "Oregon", "Ducks", etc.' if auto_resp else 'Harry only responds when @mentioned'}",
+                inline=False
+            )
+
+            # Recruiting source
+            rec_source = server_config.get_recruiting_source(guild_id)
+            rec_name = "On3/Rivals" if rec_source == "on3" else "247Sports"
+            embed.add_field(
+                name="⭐ Recruiting Data Source",
+                value=f"**Source:** {rec_name}",
+                inline=True
+            )
+
+            # Season/Week info (if timekeeper available)
+            if self.timekeeper_manager:
+                season_info = self.timekeeper_manager.get_season_week()
+                if season_info and season_info.get('season'):
+                    week_name = season_info.get('week_name', f"Week {season_info.get('week', '?')}")
+                    embed.add_field(
+                        name="🏈 Current Season",
+                        value=f"**S{season_info['season']}{week_name}**",
+                        inline=True
+                    )
+
+            # Bot admins count
+            if self.admin_manager:
+                admin_count = self.admin_manager.get_admin_count()
+                embed.add_field(
+                    name="🔧 Bot Admins",
+                    value=f"**{admin_count}** configured\nUse `/admin list` to view",
+                    inline=True
+                )
+
+            # Blocked channels
+            if self.channel_manager:
+                blocked_count = len(self.channel_manager.get_blocked_channels(guild_id))
+                if blocked_count > 0:
+                    embed.add_field(
+                        name="🚫 Blocked Channels",
+                        value=f"**{blocked_count}** blocked\nUse `/admin blocked` to view",
+                        inline=True
+                    )
+
+            embed.add_field(
+                name="ℹ️ More Commands",
+                value="`/admin list` - View admins\n"
+                      "`/admin blocked` - View blocked channels\n"
+                      "`/recruiting source` - Change recruiting source\n"
+                      "`/league week` - View current season/week",
+                inline=False
+            )
 
             embed.set_footer(text=Footers.CONFIG)
             await interaction.followup.send(embed=embed, ephemeral=True)

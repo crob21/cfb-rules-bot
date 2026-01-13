@@ -357,6 +357,18 @@ class ServerConfigManager:
                 return override
         return self.get_setting(guild_id, "auto_responses", True)
 
+    def toggle_auto_responses(self, guild_id: int, channel_id: int) -> bool:
+        """Toggle automatic jump-in responses for a channel (rivalry mode)
+
+        Returns:
+            bool: The new state (True = enabled, False = disabled)
+        """
+        current = self.auto_responses_enabled(guild_id, channel_id)
+        new_value = not current
+        self.set_channel_override(guild_id, channel_id, "auto_responses", new_value)
+        logger.info(f"{'✅' if new_value else '❌'} Toggled auto_responses for channel {channel_id} in guild {guild_id}: {new_value}")
+        return new_value
+
     def get_personality_prompt(self, guild_id: int) -> str:
         """Get Harry's personality prompt - ALWAYS the full cockney asshole Duck-hater"""
         return HARRY_PERSONALITY
