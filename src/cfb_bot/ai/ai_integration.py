@@ -34,11 +34,11 @@ class AICharterAssistant:
         self.total_openai_tokens = 0
         self.total_anthropic_tokens = 0
         self.total_requests = 0
-        
+
         # Cost tracking (per 1k tokens - averaged input/output)
         self.openai_cost_per_1k = 0.001  # GPT-3.5-turbo average
         self.anthropic_cost_per_1k = 0.0007  # Claude 3 Haiku average
-        
+
         # Storage
         self._storage = get_storage()
         self._loaded = False
@@ -47,7 +47,7 @@ class AICharterAssistant:
         """Load usage statistics from persistent storage"""
         if self._loaded:
             return
-        
+
         try:
             data = await self._storage.load("ai_usage", "global")
             if data:
@@ -272,7 +272,7 @@ class AICharterAssistant:
                         # Update token counters
                         self.total_openai_tokens += total_tokens
                         self.total_requests += 1
-                        
+
                         # Save updated stats
                         await self._save_usage_stats()
 
@@ -400,7 +400,7 @@ class AICharterAssistant:
                         total_tokens = input_tokens + output_tokens
                         self.total_anthropic_tokens += total_tokens
                         self.total_requests += 1
-                        
+
                         # Save updated stats
                         await self._save_usage_stats()
 
@@ -422,7 +422,7 @@ class AICharterAssistant:
 
     async def ask_ai(self, question: str, user_info: str = None, include_league_context: bool = True) -> Optional[str]:
         """Ask AI about the charter (tries OpenAI first, then Anthropic)
-        
+
         Args:
             question: The question to ask
             user_info: User info for logging
@@ -430,7 +430,7 @@ class AICharterAssistant:
         """
         # Load usage stats on first use
         await self._load_usage_stats()
-        
+
         if user_info:
             logger.info(f"🤖 AI asked by {user_info}: {question[:100]}...")
         else:
@@ -476,6 +476,59 @@ class AICharterAssistant:
             'anthropic_cost': anthropic_cost,
             'total_cost': total_cost
         }
+
+    async def get_openai_usage_from_api(self, days: int = 30) -> Optional[dict]:
+        """Query OpenAI Usage API for official usage statistics
+        
+        Args:
+            days: Number of days to look back (default 30)
+            
+        Returns:
+            Dictionary with usage data or None if unavailable
+        """
+        if not self.openai_api_key:
+            logger.warning("⚠️ OpenAI API key not found")
+            return None
+        
+        headers = {
+            'Authorization': f'Bearer {self.openai_api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Calculate date range
+        from datetime import datetime, timedelta
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        
+        # Format dates for API (YYYY-MM-DD)
+        params = {
+            'start_date': start_date.strftime('%Y-%m-%d'),
+            'end_date': end_date.strftime('%Y-%m-%d')
+        }
+        
+        try:
+            logger.info(f"📊 Querying OpenAI Usage API ({days} days)...")
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    'https://api.openai.com/v1/usage',
+                    headers=headers,
+                    params=params,
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        logger.info(f"✅ Retrieved OpenAI usage data")
+                        return data
+                    else:
+                        error_text = await response.text()
+                        logger.warning(f"⚠️ OpenAI Usage API error: {response.status} - {error_text}")
+                        return None
+        except asyncio.TimeoutError:
+            logger.warning("⚠️ OpenAI Usage API timeout")
+            return None
+        except Exception as e:
+            logger.error(f"❌ Error querying OpenAI Usage API: {e}")
+            return None
 
     def log_token_summary(self):
         """Log a summary of token usage with cost estimates"""

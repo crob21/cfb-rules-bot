@@ -454,7 +454,7 @@ class On3Scraper:
         logger.info("✅ Block status cleared - will try normal request timing")
     
     def get_zyte_usage(self) -> Dict[str, Any]:
-        """Get Zyte API usage statistics"""
+        """Get Zyte API usage statistics (current session)"""
         estimated_cost = (self._zyte_request_count * self._zyte_cost_per_1k) / 1000
         return {
             'request_count': self._zyte_request_count,
@@ -462,6 +462,60 @@ class On3Scraper:
             'cost_per_1k': self._zyte_cost_per_1k,
             'is_available': self._zyte_client is not None
         }
+    
+    async def get_zyte_usage_from_api(self, days: int = 30) -> Optional[Dict[str, Any]]:
+        """Query Zyte Stats API for official usage statistics
+        
+        Args:
+            days: Number of days to look back (default 30)
+            
+        Returns:
+            Dictionary with usage data or None if unavailable
+            
+        Note: Requires ZYTE_STATS_API_KEY and ZYTE_ORG_ID environment variables
+        """
+        stats_api_key = os.getenv('ZYTE_STATS_API_KEY')
+        org_id = os.getenv('ZYTE_ORG_ID')
+        
+        if not stats_api_key or not org_id:
+            logger.debug("⚠️ Zyte Stats API not configured (need ZYTE_STATS_API_KEY and ZYTE_ORG_ID)")
+            return None
+        
+        try:
+            from datetime import datetime, timedelta
+            
+            # Calculate date range
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days)
+            
+            # Zyte Stats API uses ISO format
+            params = {
+                'organization_id': org_id,
+                'start': start_date.strftime('%Y-%m-%d'),
+                'end': end_date.strftime('%Y-%m-%d')
+            }
+            
+            logger.info(f"📊 Querying Zyte Stats API ({days} days)...")
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    'https://zyte-api-stats.zyte.com/api/stats',
+                    params=params,
+                    auth=(stats_api_key, ''),  # HTTP Basic Auth with empty password
+                    timeout=10.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    logger.info(f"✅ Retrieved Zyte usage data")
+                    return data
+                else:
+                    logger.warning(f"⚠️ Zyte Stats API error: {response.status_code} - {response.text}")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"❌ Error querying Zyte Stats API: {e}")
+            return None
     
     def reset_zyte_usage(self):
         """Reset Zyte usage counter (for tracking periods)"""

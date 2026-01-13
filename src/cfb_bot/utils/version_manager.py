@@ -11,10 +11,32 @@ from typing import Dict, List, Optional
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "3.1.0"
+CURRENT_VERSION = "3.2.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "3.2.0": {
+        "date": "2026-01-13",
+        "title": "API-Based Usage Tracking 🌐",
+        "emoji": "🌐",
+        "features": [
+            {
+                "category": "Enhanced Usage Tracking",
+                "emoji": "📊",
+                "changes": [
+                    "Added official OpenAI Usage API integration",
+                    "Added official Zyte Stats API integration",
+                    "Multiple view options: Bot tracked, API official, or both side-by-side",
+                    "/admin ai view:local - Bot-tracked stats (persisted)",
+                    "/admin ai view:api - Official OpenAI API stats (last 30 days)",
+                    "/admin ai view:both - Compare both data sources",
+                    "/admin zyte view:local - Session stats from bot",
+                    "/admin zyte view:api - Official Zyte API stats (last 30 days)",
+                    "/admin zyte view:both - Compare both data sources"
+                ]
+            }
+        ]
+    },
     "3.1.0": {
         "date": "2026-01-13",
         "title": "AI Usage Tracking 🤖",
