@@ -757,15 +757,58 @@ class AdminCog(commands.Cog):
                             description=f"Last 30 days from Zyte Stats API\n*(Includes ALL usage on this API key)*",
                             color=Colors.PRIMARY
                         )
-
+                        
                         # Parse Zyte Stats API response
-                        # Format varies, so display raw data for now
-                        embed.add_field(
-                            name="📊 Official Usage Data",
-                            value=f"```json\n{str(api_data)[:500]}...\n```",
-                            inline=False
-                        )
-
+                        results = api_data.get('results', [])
+                        if results:
+                            result = results[0]
+                            
+                            # Convert microUSD to USD
+                            total_cost_usd = float(result.get('cost_microusd_total', 0)) / 1000000
+                            avg_cost_usd = float(result.get('cost_microusd_avg', 0)) / 1000000
+                            request_count = result.get('request_count', 0)
+                            avg_response_time = float(result.get('response_time_sec_avg', 0))
+                            
+                            embed.add_field(
+                                name="📊 Request Count",
+                                value=f"**{request_count:,}** requests",
+                                inline=True
+                            )
+                            
+                            embed.add_field(
+                                name="💰 Total Cost",
+                                value=f"**${total_cost_usd:.6f}**",
+                                inline=True
+                            )
+                            
+                            embed.add_field(
+                                name="💵 Avg Cost",
+                                value=f"${avg_cost_usd:.6f}/request",
+                                inline=True
+                            )
+                            
+                            embed.add_field(
+                                name="⏱️ Avg Response Time",
+                                value=f"{avg_response_time:.2f} seconds",
+                                inline=True
+                            )
+                            
+                            # Status codes
+                            status_codes = result.get('status_codes', [])
+                            if status_codes:
+                                status_summary = "\n".join([f"**{sc.get('code', 'N/A')}**: {sc.get('count', 0)}" for sc in status_codes])
+                                embed.add_field(
+                                    name="📈 Status Codes",
+                                    value=status_summary,
+                                    inline=True
+                                )
+                        else:
+                            embed.add_field(
+                                name="ℹ️ No Data",
+                                value="No usage data available for the last 30 days.",
+                                inline=False
+                            )
+                        
                         embed.set_footer(text="💡 From Zyte Stats API | Last 30 days")
 
             else:  # view == "both"
