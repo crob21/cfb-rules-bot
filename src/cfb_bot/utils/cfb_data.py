@@ -823,15 +823,34 @@ class CFBDataLookup:
                 year_has_stats = False
                 year_parts = []
 
+                # Helper function to safely convert stat values to int/float
+                def safe_int(val, default=0):
+                    """Convert value to int, handling strings and None"""
+                    if val is None or val == '':
+                        return default
+                    try:
+                        return int(float(val))  # Handle both "15" and "15.0"
+                    except (ValueError, TypeError):
+                        return default
+                
+                def safe_float(val, default=0.0):
+                    """Convert value to float, handling strings and None"""
+                    if val is None or val == '':
+                        return default
+                    try:
+                        return float(val)
+                    except (ValueError, TypeError):
+                        return default
+
                 # Passing
                 passing = year_stats.get('passing', {})
                 if passing:
-                    comp = passing.get('COMPLETIONS', passing.get('completions', 0))
-                    att = passing.get('ATT', passing.get('attempts', 0))
-                    yards = passing.get('YDS', passing.get('yards', 0))
-                    tds = passing.get('TD', passing.get('touchdowns', 0))
-                    ints = passing.get('INT', passing.get('interceptions', 0))
-                    long = passing.get('LONG', passing.get('LNG', 0))
+                    comp = safe_int(passing.get('COMPLETIONS', passing.get('completions', 0)))
+                    att = safe_int(passing.get('ATT', passing.get('attempts', 0)))
+                    yards = safe_int(passing.get('YDS', passing.get('yards', 0)))
+                    tds = safe_int(passing.get('TD', passing.get('touchdowns', 0)))
+                    ints = safe_int(passing.get('INT', passing.get('interceptions', 0)))
+                    long = safe_int(passing.get('LONG', passing.get('LNG', 0)))
                     
                     if any([comp, yards, tds]):
                         # Calculate completion % and YPA
@@ -847,10 +866,10 @@ class CFBDataLookup:
                 # Rushing
                 rushing = year_stats.get('rushing', {})
                 if rushing:
-                    carries = rushing.get('CAR', rushing.get('carries', 0))
-                    yards = rushing.get('YDS', rushing.get('yards', 0))
-                    tds = rushing.get('TD', rushing.get('touchdowns', 0))
-                    long = rushing.get('LONG', rushing.get('LNG', 0))
+                    carries = safe_int(rushing.get('CAR', rushing.get('carries', 0)))
+                    yards = safe_int(rushing.get('YDS', rushing.get('yards', 0)))
+                    tds = safe_int(rushing.get('TD', rushing.get('touchdowns', 0)))
+                    long = safe_int(rushing.get('LONG', rushing.get('LNG', 0)))
                     
                     if any([carries, yards, tds]):
                         ypc = f"{yards/carries:.1f}" if carries > 0 else "0.0"
@@ -863,10 +882,10 @@ class CFBDataLookup:
                 # Receiving
                 receiving = year_stats.get('receiving', {})
                 if receiving:
-                    rec = receiving.get('REC', receiving.get('receptions', 0))
-                    yards = receiving.get('YDS', receiving.get('yards', 0))
-                    tds = receiving.get('TD', receiving.get('touchdowns', 0))
-                    long = receiving.get('LONG', receiving.get('LNG', 0))
+                    rec = safe_int(receiving.get('REC', receiving.get('receptions', 0)))
+                    yards = safe_int(receiving.get('YDS', receiving.get('yards', 0)))
+                    tds = safe_int(receiving.get('TD', receiving.get('touchdowns', 0)))
+                    long = safe_int(receiving.get('LONG', receiving.get('LNG', 0)))
                     
                     if any([rec, yards, tds]):
                         ypr = f"{yards/rec:.1f}" if rec > 0 else "0.0"
@@ -879,15 +898,15 @@ class CFBDataLookup:
                 # Defense
                 defense = year_stats.get('defense', {})
                 if defense:
-                    tackles = defense.get('TOT', defense.get('SOLO', defense.get('tackles', 0)))
-                    solo = defense.get('SOLO', 0)
-                    tfl = defense.get('TFL', 0)
-                    sacks = defense.get('SACKS', defense.get('SK', 0))
-                    ints = defense.get('INT', 0)
-                    pd = defense.get('PD', 0)  # Pass Deflections
-                    qb_hur = defense.get('QBH', defense.get('QB HUR', 0))  # QB Hurries
-                    ff = defense.get('FF', 0)  # Forced Fumbles
-                    fr = defense.get('FR', 0)  # Fumble Recoveries
+                    tackles = safe_int(defense.get('TOT', defense.get('SOLO', defense.get('tackles', 0))))
+                    solo = safe_int(defense.get('SOLO', 0))
+                    tfl = safe_float(defense.get('TFL', 0))
+                    sacks = safe_float(defense.get('SACKS', defense.get('SK', 0)))
+                    ints = safe_int(defense.get('INT', 0))
+                    pd = safe_int(defense.get('PD', 0))  # Pass Deflections
+                    qb_hur = safe_int(defense.get('QBH', defense.get('QB HUR', 0)))  # QB Hurries
+                    ff = safe_int(defense.get('FF', 0))  # Forced Fumbles
+                    fr = safe_int(defense.get('FR', 0))  # Fumble Recoveries
                     
                     if any([tackles, solo, tfl, sacks, ints, pd, qb_hur, ff, fr]):
                         stat_parts = []
@@ -896,9 +915,9 @@ class CFBDataLookup:
                         if solo:
                             stat_parts.append(f"{solo} Solo")
                         if tfl:
-                            stat_parts.append(f"{tfl} TFL")
+                            stat_parts.append(f"{tfl:.1f} TFL" if isinstance(tfl, float) and tfl % 1 != 0 else f"{int(tfl)} TFL")
                         if sacks:
-                            stat_parts.append(f"{sacks} Sacks")
+                            stat_parts.append(f"{sacks:.1f} Sacks" if isinstance(sacks, float) and sacks % 1 != 0 else f"{int(sacks)} Sacks")
                         if qb_hur:
                             stat_parts.append(f"{qb_hur} QBH")
                         if ints:
@@ -915,10 +934,10 @@ class CFBDataLookup:
                 # Kicking
                 kicking = year_stats.get('kicking', {})
                 if kicking:
-                    fgm = kicking.get('FGM', 0)
-                    fga = kicking.get('FGA', 0)
-                    xpm = kicking.get('XPM', 0)
-                    long_fg = kicking.get('LONG', kicking.get('LNG', 0))
+                    fgm = safe_int(kicking.get('FGM', 0))
+                    fga = safe_int(kicking.get('FGA', 0))
+                    xpm = safe_int(kicking.get('XPM', 0))
+                    long_fg = safe_int(kicking.get('LONG', kicking.get('LNG', 0)))
                     if any([fgm, fga, xpm]):
                         kick_parts = [f"{fgm}/{fga} FG"]
                         if xpm:
@@ -931,12 +950,12 @@ class CFBDataLookup:
                 # Punting
                 punting = year_stats.get('punting', {})
                 if punting:
-                    punts = punting.get('NO', punting.get('PUNTS', 0))
-                    punt_yds = punting.get('YDS', punting.get('YARDS', 0))
-                    avg = punting.get('AVG', 0)
-                    tb = punting.get('TB', 0)  # Touchbacks
-                    in20 = punting.get('IN 20', punting.get('IN20', 0))
-                    long_punt = punting.get('LONG', punting.get('LNG', 0))
+                    punts = safe_int(punting.get('NO', punting.get('PUNTS', 0)))
+                    punt_yds = safe_int(punting.get('YDS', punting.get('YARDS', 0)))
+                    avg = safe_float(punting.get('AVG', 0))
+                    tb = safe_int(punting.get('TB', 0))  # Touchbacks
+                    in20 = safe_int(punting.get('IN 20', punting.get('IN20', 0)))
+                    long_punt = safe_int(punting.get('LONG', punting.get('LNG', 0)))
                     
                     if any([punts, punt_yds, avg]):
                         punt_parts = []
@@ -956,12 +975,12 @@ class CFBDataLookup:
                 # Returns
                 returns = year_stats.get('returns', {})
                 if returns:
-                    kr = returns.get('KR', 0)  # Kick Returns
-                    kr_yds = returns.get('KR YDS', returns.get('KRYDS', 0))
-                    kr_td = returns.get('KR TD', returns.get('KRTD', 0))
-                    pr = returns.get('PR', 0)  # Punt Returns
-                    pr_yds = returns.get('PR YDS', returns.get('PRYDS', 0))
-                    pr_td = returns.get('PR TD', returns.get('PRTD', 0))
+                    kr = safe_int(returns.get('KR', 0))  # Kick Returns
+                    kr_yds = safe_int(returns.get('KR YDS', returns.get('KRYDS', 0)))
+                    kr_td = safe_int(returns.get('KR TD', returns.get('KRTD', 0)))
+                    pr = safe_int(returns.get('PR', 0))  # Punt Returns
+                    pr_yds = safe_int(returns.get('PR YDS', returns.get('PRYDS', 0)))
+                    pr_td = safe_int(returns.get('PR TD', returns.get('PRTD', 0)))
                     
                     if any([kr, kr_yds, kr_td, pr, pr_yds, pr_td]):
                         return_parts = []
