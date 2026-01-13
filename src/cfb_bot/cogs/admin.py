@@ -913,7 +913,7 @@ class AdminCog(commands.Cog):
         elif view == "api":
             # Query OpenAI Usage API
             api_data = await self.bot.ai_assistant.get_openai_usage_from_api()
-            
+
             if not api_data:
                 embed = discord.Embed(
                     title="⚠️ API Data Unavailable",
@@ -937,7 +937,7 @@ class AdminCog(commands.Cog):
                     description=f"Today's usage from OpenAI Usage API\n*(Includes ALL usage on this API key)*",
                     color=Colors.PRIMARY
                 )
-                
+
                 # The exact fields depend on OpenAI's response format
                 # This is a placeholder - adjust based on actual API response
                 total_usage = api_data.get('total_usage', 0)
@@ -946,7 +946,7 @@ class AdminCog(commands.Cog):
                     value=f"```json\n{str(api_data)[:500]}...\n```",
                     inline=False
                 )
-                
+
                 embed.set_footer(text="💡 From OpenAI Usage API | Today's usage only")
 
         else:  # view == "both"

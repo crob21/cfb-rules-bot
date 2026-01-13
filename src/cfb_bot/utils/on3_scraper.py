@@ -478,8 +478,12 @@ class On3Scraper:
         api_key = os.getenv('ZYTE_API_KEY')
         org_id = os.getenv('ZYTE_ORG_ID')
 
-        if not api_key or not org_id:
-            logger.debug("⚠️ Zyte Stats API not configured (need ZYTE_API_KEY and ZYTE_ORG_ID)")
+        if not api_key:
+            logger.debug("⚠️ Zyte Stats API not configured - ZYTE_API_KEY missing")
+            return None
+        
+        if not org_id:
+            logger.debug("⚠️ Zyte Stats API not configured - ZYTE_ORG_ID missing")
             return None
 
         try:
@@ -496,7 +500,9 @@ class On3Scraper:
                 'end': end_date.strftime('%Y-%m-%d')
             }
 
-            logger.info(f"📊 Querying Zyte Stats API ({days} days)...")
+            logger.info(f"📊 Querying Zyte Stats API (org_id: {org_id}, {days} days)...")
+            logger.debug(f"   API endpoint: https://zyte-api-stats.zyte.com/api/stats")
+            logger.debug(f"   Params: {params}")
 
             async with httpx.AsyncClient() as client:
                 response = await client.get(
@@ -506,16 +512,31 @@ class On3Scraper:
                     timeout=10.0
                 )
 
+                logger.info(f"   Response status: {response.status_code}")
+                
                 if response.status_code == 200:
                     data = response.json()
                     logger.info(f"✅ Retrieved Zyte usage data")
                     return data
+                elif response.status_code == 401:
+                    logger.error(f"❌ Zyte Stats API: Authentication failed - check ZYTE_API_KEY")
+                    logger.error(f"   Response: {response.text}")
+                    return None
+                elif response.status_code == 404:
+                    logger.error(f"❌ Zyte Stats API: Organization not found - check ZYTE_ORG_ID ({org_id})")
+                    logger.error(f"   Response: {response.text}")
+                    return None
                 else:
-                    logger.warning(f"⚠️ Zyte Stats API error: {response.status_code} - {response.text}")
+                    logger.warning(f"⚠️ Zyte Stats API error: {response.status_code}")
+                    logger.warning(f"   Response: {response.text}")
                     return None
 
+        except httpx.TimeoutException:
+            logger.error(f"❌ Zyte Stats API timeout (10s)")
+            return None
         except Exception as e:
             logger.error(f"❌ Error querying Zyte Stats API: {e}")
+            logger.exception("Full traceback:")
             return None
 
     def reset_zyte_usage(self):

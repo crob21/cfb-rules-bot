@@ -479,14 +479,14 @@ class AICharterAssistant:
 
     async def get_openai_usage_from_api(self, date: str = None) -> Optional[dict]:
         """Query OpenAI Usage API for official usage statistics for a specific date
-        
+
         Args:
             date: Date to query (YYYY-MM-DD format). Defaults to today.
-            
+
         Returns:
             Dictionary with usage data or None if unavailable
-            
-        Note: OpenAI Usage API returns daily usage data. For historical data, 
+
+        Note: OpenAI Usage API returns daily usage data. For historical data,
               check the OpenAI Dashboard at https://platform.openai.com/usage
         """
         if not self.openai_api_key:
@@ -502,12 +502,12 @@ class AICharterAssistant:
         from datetime import datetime
         if not date:
             date = datetime.now().strftime('%Y-%m-%d')
-        
+
         # OpenAI Usage API takes a single 'date' parameter for daily usage
         params = {
             'date': date
         }
-        
+
         try:
             logger.info(f"📊 Querying OpenAI Usage API (date: {date})...")
             async with aiohttp.ClientSession() as session:
