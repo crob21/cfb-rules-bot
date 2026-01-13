@@ -11,10 +11,39 @@ from typing import Dict, List, Optional
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "3.2.0"
+CURRENT_VERSION = "3.3.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "3.3.0": {
+        "date": "2026-01-13",
+        "title": "Recruiting Data Cache 💾",
+        "emoji": "💾",
+        "features": [
+            {
+                "category": "Cost Optimization",
+                "emoji": "💰",
+                "changes": [
+                    "Added intelligent caching system for recruiting player lookups",
+                    "Player data cached for 24 hours (saves $$$ on API calls!)",
+                    "Cache automatically invalidates when data expires",
+                    "Added /admin cache command to view stats and manage cache",
+                    "Shows estimated cost savings from cache hits",
+                    "Can clear recruiting cache or all cache manually"
+                ]
+            },
+            {
+                "category": "Performance",
+                "emoji": "🚀",
+                "changes": [
+                    "Instant responses for cached player lookups",
+                    "Tracks cache hit rate for monitoring efficiency",
+                    "Per-namespace cache organization (recruiting, etc.)",
+                    "Automatic cleanup of expired entries"
+                ]
+            }
+        ]
+    },
     "3.2.0": {
         "date": "2026-01-13",
         "title": "API-Based Usage Tracking 🌐",

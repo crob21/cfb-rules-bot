@@ -981,15 +981,15 @@ class AdminCog(commands.Cog):
                     description=f"Today's usage from OpenAI Usage API\n*(Includes ALL usage on this API key)*",
                     color=Colors.PRIMARY
                 )
-                
+
                 # Parse OpenAI Usage API response
                 data = api_data.get('data', [])
-                
+
                 if data:
                     # Aggregate usage across all entries
                     total_tokens = 0
                     total_requests = 0
-                    
+
                     for entry in data:
                         # OpenAI API returns usage in different formats
                         # Try to extract token counts
@@ -999,21 +999,21 @@ class AdminCog(commands.Cog):
                             total_tokens += entry.get('n_generated_tokens_total', 0)
                         if 'num_requests' in entry:
                             total_requests += entry.get('num_requests', 0)
-                    
+
                     if total_requests > 0:
                         embed.add_field(
                             name="📊 Requests (Today)",
                             value=f"**{total_requests:,}** requests",
                             inline=True
                         )
-                    
+
                     if total_tokens > 0:
                         embed.add_field(
                             name="🎯 Tokens (Today)",
                             value=f"**{total_tokens:,}** tokens",
                             inline=True
                         )
-                        
+
                         # Estimate cost (rough estimate for GPT-3.5-turbo)
                         estimated_cost = (total_tokens / 1000) * 0.001
                         embed.add_field(
@@ -1033,7 +1033,7 @@ class AdminCog(commands.Cog):
                         value="No usage data available for today. This is normal if you haven't made any OpenAI API calls today.",
                         inline=False
                     )
-                
+
                 embed.set_footer(text="💡 From OpenAI Usage API | Resets daily at midnight UTC")
 
         else:  # view == "both"
@@ -1088,6 +1088,116 @@ class AdminCog(commands.Cog):
             )
 
         await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @admin_group.command(name="cache", description="View or manage bot cache")
+    @app_commands.describe(
+        action="Action to perform"
+    )
+    @app_commands.choices(action=[
+        app_commands.Choice(name="📊 View Stats", value="stats"),
+        app_commands.Choice(name="🗑️ Clear Recruiting Cache", value="clear_recruiting"),
+        app_commands.Choice(name="🗑️ Clear All Cache", value="clear_all")
+    ])
+    async def cache_management(self, interaction: discord.Interaction, action: str = "stats"):
+        """Manage bot cache"""
+        if not interaction.guild:
+            await interaction.response.send_message("❌ This only works in servers!", ephemeral=True)
+            return
+
+        # Check if user is admin
+        is_admin = (
+            interaction.user.guild_permissions.administrator or
+            (self.admin_manager and self.admin_manager.is_admin(interaction.user, interaction))
+        )
+        if not is_admin:
+            await interaction.response.send_message("❌ Only admins can manage cache!", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        from ..utils.cache import get_cache
+        cache = get_cache()
+
+        if action == "stats":
+            # Show cache statistics
+            stats = cache.get_stats()
+            
+            embed = discord.Embed(
+                title="📦 Cache Statistics",
+                description=f"Performance and usage statistics",
+                color=Colors.PRIMARY
+            )
+
+            # Overall stats
+            embed.add_field(
+                name="📊 Requests",
+                value=f"**Total:** {stats['total_requests']:,}\n"
+                      f"**Hits:** {stats['hits']:,}\n"
+                      f"**Misses:** {stats['misses']:,}",
+                inline=True
+            )
+
+            embed.add_field(
+                name="✅ Hit Rate",
+                value=f"**{stats['hit_rate']:.1f}%**\n"
+                      f"(Higher = more savings!)",
+                inline=True
+            )
+
+            embed.add_field(
+                name="💾 Cache Size",
+                value=f"**{stats['cache_size']:,}** entries\n"
+                      f"**{stats['evictions']:,}** evicted",
+                inline=True
+            )
+
+            # Per-namespace breakdown
+            if stats['namespaces']:
+                namespace_text = "\n".join([f"**{ns}**: {count}" for ns, count in stats['namespaces'].items()])
+                embed.add_field(
+                    name="📂 By Type",
+                    value=namespace_text,
+                    inline=False
+                )
+
+            # Cost savings estimate
+            if stats['hits'] > 0:
+                # Assume each cache hit saves ~$0.00023 (one Zyte request)
+                estimated_savings = stats['hits'] * 0.00023
+                embed.add_field(
+                    name="💰 Estimated Savings",
+                    value=f"~${estimated_savings:.4f}\n"
+                          f"({stats['hits']} API calls avoided!)",
+                    inline=False
+                )
+
+            embed.set_footer(text="💡 Cache helps reduce API costs by reusing recent data")
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+        elif action == "clear_recruiting":
+            # Clear recruiting cache
+            cache.clear(namespace='recruiting')
+            
+            embed = discord.Embed(
+                title="🗑️ Recruiting Cache Cleared",
+                description="All cached recruiting data has been removed. Next player lookups will be fresh from the source.",
+                color=Colors.SUCCESS
+            )
+            embed.set_footer(text="Useful when you want fresh data (e.g., during signing day)")
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+        elif action == "clear_all":
+            # Clear all cache
+            count = cache.get_stats()['cache_size']
+            cache.clear()
+            
+            embed = discord.Embed(
+                title="🗑️ All Cache Cleared",
+                description=f"Removed **{count}** cached entries. All future requests will fetch fresh data.",
+                color=Colors.SUCCESS
+            )
+            embed.set_footer(text="Cache will rebuild automatically as commands are used")
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 async def setup(bot: commands.Bot):

@@ -26,6 +26,7 @@ from ..utils.server_config import server_config, FeatureModule, RecruitingSource
 from ..utils.on3_scraper import on3_scraper
 from ..utils.recruiting_scraper import recruiting_scraper
 from ..utils.cfb_data import cfb_data
+from ..utils.cache import get_cache
 
 logger = logging.getLogger('CFB26Bot.Recruiting')
 
@@ -85,9 +86,22 @@ class RecruitingCog(commands.Cog):
             search_depth = "deep (all ~3000)" if deep_search else "standard"
             logger.info(f"🔍 /recruiting player: {name} ({year or 'current'}) via {source_name} - {search_depth}")
 
-            # Search 
-            max_pages = 65 if deep_search else 20
-            recruit = await scraper.search_recruit(name, year, max_pages=max_pages)
+            # Check cache first (24 hour TTL)
+            cache = get_cache()
+            cache_key = f"{name.lower()}:{year or 'current'}:{source_name}:{deep_search}"
+            recruit = cache.get(cache_key, namespace='recruiting')
+            
+            if recruit:
+                logger.info(f"✅ Cache HIT for {name} - saved API call!")
+            else:
+                # Cache miss - scrape the data
+                max_pages = 65 if deep_search else 20
+                recruit = await scraper.search_recruit(name, year, max_pages=max_pages)
+                
+                if recruit:
+                    # Cache successful lookups for 24 hours (86400 seconds)
+                    cache.set(cache_key, recruit, ttl_seconds=86400, namespace='recruiting')
+                    logger.info(f"💾 Cached {name} for 24 hours")
 
             if recruit:
                 embed = discord.Embed(
