@@ -122,12 +122,11 @@ async def setup_dependencies():
         logger.warning("⚠️ Channel summarizer not available")
 
     try:
-        from .utils.admin_manager import AdminManager
+        from .utils.admin_check import AdminManager
         admin_manager = AdminManager()
-        await admin_manager.load_admins(bot)
         logger.info(f"✅ Admin manager initialized ({admin_manager.get_admin_count()} admins)")
-    except ImportError:
-        logger.warning("⚠️ Admin manager not available")
+    except ImportError as e:
+        logger.warning(f"⚠️ Admin manager not available: {e}")
 
     try:
         from .utils.channel_manager import ChannelManager
