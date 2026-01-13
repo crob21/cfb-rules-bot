@@ -479,33 +479,33 @@ class AICharterAssistant:
 
     async def get_openai_usage_from_api(self, days: int = 30) -> Optional[dict]:
         """Query OpenAI Usage API for official usage statistics
-        
+
         Args:
             days: Number of days to look back (default 30)
-            
+
         Returns:
             Dictionary with usage data or None if unavailable
         """
         if not self.openai_api_key:
             logger.warning("⚠️ OpenAI API key not found")
             return None
-        
+
         headers = {
             'Authorization': f'Bearer {self.openai_api_key}',
             'Content-Type': 'application/json'
         }
-        
+
         # Calculate date range
         from datetime import datetime, timedelta
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
-        
+
         # Format dates for API (YYYY-MM-DD)
         params = {
             'start_date': start_date.strftime('%Y-%m-%d'),
             'end_date': end_date.strftime('%Y-%m-%d')
         }
-        
+
         try:
             logger.info(f"📊 Querying OpenAI Usage API ({days} days)...")
             async with aiohttp.ClientSession() as session:

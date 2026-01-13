@@ -725,7 +725,7 @@ class AdminCog(commands.Cog):
                     )
                 else:
                     api_data = await scraper.get_zyte_usage_from_api(days=30)
-                    
+
                     if not api_data:
                         embed = discord.Embed(
                             title="⚠️ Zyte Stats API Unavailable",
@@ -735,9 +735,9 @@ class AdminCog(commands.Cog):
                         embed.add_field(
                             name="📝 Setup Required",
                             value="To enable official Zyte stats:\n"
-                                  "1. Get your Stats API key from [Zyte Dashboard](https://app.zyte.com)\n"
-                                  "2. Add `ZYTE_STATS_API_KEY` to environment variables\n"
-                                  "3. Add `ZYTE_ORG_ID` from your dashboard URL",
+                                  "1. You already have `ZYTE_API_KEY` configured ✅\n"
+                                  "2. Just add `ZYTE_ORG_ID` from your dashboard URL\n"
+                                  "   (e.g., if URL is `app.zyte.com/o/123456`, use `123456`)",
                             inline=False
                         )
                         embed.add_field(
@@ -752,7 +752,7 @@ class AdminCog(commands.Cog):
                             description=f"Last 30 days from Zyte Stats API\n*(Includes ALL usage on this API key)*",
                             color=Colors.PRIMARY
                         )
-                        
+
                         # Parse Zyte Stats API response
                         # Format varies, so display raw data for now
                         embed.add_field(
@@ -760,7 +760,7 @@ class AdminCog(commands.Cog):
                             value=f"```json\n{str(api_data)[:500]}...\n```",
                             inline=False
                         )
-                        
+
                         embed.set_footer(text="💡 From Zyte Stats API | Last 30 days")
 
             else:  # view == "both"
@@ -792,7 +792,7 @@ class AdminCog(commands.Cog):
                     else:
                         embed.add_field(
                             name="🌐 Zyte Stats API",
-                            value="*Not configured*\nNeeds ZYTE_STATS_API_KEY",
+                            value="*Not configured*\nNeeds ZYTE_ORG_ID",
                             inline=True
                         )
 
@@ -910,7 +910,7 @@ class AdminCog(commands.Cog):
         elif view == "api":
             # Query OpenAI Usage API
             api_data = await self.bot.ai_assistant.get_openai_usage_from_api(days=30)
-            
+
             if not api_data:
                 embed = discord.Embed(
                     title="⚠️ API Data Unavailable",
@@ -933,7 +933,7 @@ class AdminCog(commands.Cog):
                     description=f"Last 30 days from OpenAI Usage API\n*(Includes ALL usage on this API key)*",
                     color=Colors.PRIMARY
                 )
-                
+
                 # The exact fields depend on OpenAI's response format
                 # This is a placeholder - adjust based on actual API response
                 total_usage = api_data.get('total_usage', 0)
@@ -942,7 +942,7 @@ class AdminCog(commands.Cog):
                     value=f"```json\n{str(api_data)[:500]}...\n```",
                     inline=False
                 )
-                
+
                 embed.set_footer(text="💡 From OpenAI Usage API | Last 30 days")
 
         else:  # view == "both"
@@ -984,7 +984,7 @@ class AdminCog(commands.Cog):
         if local_usage['total_requests'] > 0 and view == "local":
             avg_tokens_per_request = local_usage['total_tokens'] / local_usage['total_requests']
             avg_cost_per_request = local_usage['total_cost'] / local_usage['total_requests']
-            
+
             # Estimate based on 100 requests/month (conservative)
             monthly_requests = 100
             monthly_tokens = int(monthly_requests * avg_tokens_per_request)

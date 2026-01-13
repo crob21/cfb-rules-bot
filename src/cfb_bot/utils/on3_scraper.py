@@ -117,7 +117,7 @@ class On3Scraper:
         self._playwright = None
         self._browser = None
         self._browser_context = None
-        
+
         # Cloudscraper fallback
         if CLOUDSCRAPER_AVAILABLE:
             self._scraper = cloudscraper.create_scraper(
@@ -129,12 +129,12 @@ class On3Scraper:
             )
         else:
             self._scraper = None
-        
+
         # Zyte API (premium fallback - guaranteed to work)
         self._zyte_client = None
         self._zyte_request_count = 0  # Track Zyte API usage
         self._zyte_cost_per_1k = 0.233  # Cost per 1,000 requests
-        
+
         if ZYTE_AVAILABLE:
             logger.info(f"🔍 Zyte API library available (AsyncZyteAPI imported successfully)")
             zyte_api_key = os.getenv('ZYTE_API_KEY')
@@ -159,7 +159,7 @@ class On3Scraper:
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
         }
-        
+
         # Log scraping method
         if PLAYWRIGHT_AVAILABLE:
             logger.info("✅ Playwright available - will use headless browser for Cloudflare bypass")
@@ -188,15 +188,15 @@ class On3Scraper:
             return 2
         else:
             return 1
-    
+
     async def _init_browser(self):
         """Initialize Playwright browser if not already running"""
         if not PLAYWRIGHT_AVAILABLE:
             return False
-        
+
         if self._browser:
             return True  # Already initialized
-        
+
         try:
             self._playwright = await async_playwright().start()
             self._browser = await self._playwright.chromium.launch(
@@ -216,7 +216,7 @@ class On3Scraper:
         except Exception as e:
             logger.error(f"❌ Failed to initialize Playwright: {e}")
             return False
-    
+
     async def _close_browser(self):
         """Clean up Playwright browser"""
         try:
@@ -238,15 +238,15 @@ class On3Scraper:
         """Enforce rate limiting between requests with randomized delays"""
         now = datetime.now()
         elapsed = (now - self._last_request).total_seconds()
-        
+
         # Use randomized delay to appear more human-like
         delay = random.uniform(self._rate_limit_delay_min, self._rate_limit_delay_max)
-        
+
         # If we were recently blocked, add extra delay
         if self._is_blocked:
             delay += random.uniform(2.0, 5.0)
             logger.info(f"⏳ Adding extra delay due to previous block ({delay:.1f}s)")
-        
+
         if elapsed < delay:
             await asyncio.sleep(delay - elapsed)
         self._last_request = datetime.now()
@@ -285,32 +285,32 @@ class On3Scraper:
 
         try:
             logger.info(f"🔍 Fetching: {url}")
-            
+
             # PRIORITY 1: Use Playwright (best for Cloudflare)
             if PLAYWRIGHT_AVAILABLE:
                 # Initialize browser if needed
                 if not self._browser:
                     await self._init_browser()
-                
+
                 if self._browser_context:
                     try:
                         page = await self._browser_context.new_page()
-                        
+
                         # Navigate to URL with timeout
                         response = await page.goto(url, timeout=15000, wait_until='domcontentloaded')
-                        
+
                         if response and response.status == 200:
                             # Wait a bit for any JS to execute
                             await page.wait_for_timeout(1000)
-                            
+
                             html = await page.content()
                             await page.close()
-                            
+
                             # Check for blocking
                             if self._check_if_blocked(html):
                                 logger.error(f"🚫 BLOCKED by On3 even with Playwright!")
                                 return None
-                            
+
                             logger.debug(f"✅ Playwright fetch successful")
                             return html
                         elif response and response.status == 404:
@@ -325,12 +325,12 @@ class On3Scraper:
                     except Exception as e:
                         logger.warning(f"⚠️ Playwright error: {e}, trying fallback...")
                         # Fall through to cloudscraper
-            
+
             # PRIORITY 2: Use cloudscraper if Playwright failed/unavailable
             if self._scraper and CLOUDSCRAPER_AVAILABLE:
                 # Run sync cloudscraper in thread pool to keep async
                 response = await asyncio.to_thread(self._scraper.get, url, timeout=15)
-                
+
                 if response.status_code == 200:
                     html = response.text
                     # Check for blocking indicators
@@ -354,28 +354,28 @@ class On3Scraper:
                 else:
                     logger.warning(f"⚠️ HTTP {response.status_code} with cloudscraper, trying Zyte...")
                     # Fall through to Zyte
-            
+
             # PRIORITY 3: Use Zyte API (premium, guaranteed bypass)
             if self._zyte_client:
                 try:
                     # Increment usage counter
                     self._zyte_request_count += 1
                     estimated_cost = (self._zyte_request_count * self._zyte_cost_per_1k) / 1000
-                    
+
                     logger.info(f"💰 Using Zyte API for: {url}")
                     logger.info(f"💳 Zyte usage: {self._zyte_request_count} requests | Est. cost: ${estimated_cost:.4f}")
-                    
+
                     # Make async request to Zyte
                     response = await self._zyte_client.get({
                         "url": url,
                         "httpResponseBody": True,
                         "httpResponseHeaders": True
                     })
-                    
+
                     # Decode the response
                     import base64
                     html = base64.b64decode(response["httpResponseBody"]).decode('utf-8')
-                    
+
                     if html and '<html' in html.lower():
                         logger.info(f"✅ Zyte API fetch successful (bypassed Cloudflare)")
                         self._is_blocked = False  # Clear blocked status
@@ -383,11 +383,11 @@ class On3Scraper:
                     else:
                         logger.error(f"❌ Zyte returned invalid HTML")
                         # Fall through to httpx as last resort
-                        
+
                 except Exception as e:
                     logger.error(f"❌ Zyte API error: {e}")
                     # Fall through to httpx as last resort
-            
+
             # PRIORITY 4: Fallback to httpx (will likely be blocked)
             else:
                 async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
@@ -438,21 +438,21 @@ class On3Scraper:
                 logger.warning(f"⚠️ Block indicator found: '{indicator}'")
                 self._is_blocked = True  # Set flag for increased delays
                 return True
-        
+
         # If we got valid content, clear the blocked flag
         if '<html' in html_lower and 'on3' in html_lower:
             self._is_blocked = False
         return False
-    
+
     def is_blocked(self) -> bool:
         """Check if On3 is currently blocking requests"""
         return self._is_blocked
-    
+
     def clear_block_status(self):
         """Manually clear the blocked status (e.g., after waiting)"""
         self._is_blocked = False
         logger.info("✅ Block status cleared - will try normal request timing")
-    
+
     def get_zyte_usage(self) -> Dict[str, Any]:
         """Get Zyte API usage statistics (current session)"""
         estimated_cost = (self._zyte_request_count * self._zyte_cost_per_1k) / 1000
@@ -462,7 +462,7 @@ class On3Scraper:
             'cost_per_1k': self._zyte_cost_per_1k,
             'is_available': self._zyte_client is not None
         }
-    
+
     async def get_zyte_usage_from_api(self, days: int = 30) -> Optional[Dict[str, Any]]:
         """Query Zyte Stats API for official usage statistics
         
@@ -472,39 +472,40 @@ class On3Scraper:
         Returns:
             Dictionary with usage data or None if unavailable
             
-        Note: Requires ZYTE_STATS_API_KEY and ZYTE_ORG_ID environment variables
+        Note: Uses the same ZYTE_API_KEY. Requires ZYTE_ORG_ID environment variable.
         """
-        stats_api_key = os.getenv('ZYTE_STATS_API_KEY')
+        # Use the same API key as regular Zyte API
+        api_key = os.getenv('ZYTE_API_KEY')
         org_id = os.getenv('ZYTE_ORG_ID')
         
-        if not stats_api_key or not org_id:
-            logger.debug("⚠️ Zyte Stats API not configured (need ZYTE_STATS_API_KEY and ZYTE_ORG_ID)")
+        if not api_key or not org_id:
+            logger.debug("⚠️ Zyte Stats API not configured (need ZYTE_API_KEY and ZYTE_ORG_ID)")
             return None
-        
+
         try:
             from datetime import datetime, timedelta
-            
+
             # Calculate date range
             end_date = datetime.now()
             start_date = end_date - timedelta(days=days)
-            
+
             # Zyte Stats API uses ISO format
             params = {
                 'organization_id': org_id,
                 'start': start_date.strftime('%Y-%m-%d'),
                 'end': end_date.strftime('%Y-%m-%d')
             }
-            
+
             logger.info(f"📊 Querying Zyte Stats API ({days} days)...")
-            
+
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     'https://zyte-api-stats.zyte.com/api/stats',
                     params=params,
-                    auth=(stats_api_key, ''),  # HTTP Basic Auth with empty password
+                    auth=(api_key, ''),  # HTTP Basic Auth with empty password
                     timeout=10.0
                 )
-                
+
                 if response.status_code == 200:
                     data = response.json()
                     logger.info(f"✅ Retrieved Zyte usage data")
@@ -512,11 +513,11 @@ class On3Scraper:
                 else:
                     logger.warning(f"⚠️ Zyte Stats API error: {response.status_code} - {response.text}")
                     return None
-                    
+
         except Exception as e:
             logger.error(f"❌ Error querying Zyte Stats API: {e}")
             return None
-    
+
     def reset_zyte_usage(self):
         """Reset Zyte usage counter (for tracking periods)"""
         old_count = self._zyte_request_count
@@ -1939,11 +1940,11 @@ class On3Scraper:
                 lines.append(f"`{i:2d}.` {stars} **{name}** ({pos})")
 
         return '\n'.join(lines)
-    
+
     async def cleanup(self):
         """Clean up resources (call on bot shutdown)"""
         await self._close_browser()
-    
+
     def __del__(self):
         """Cleanup when object is destroyed"""
         # Note: Can't use async in __del__, so just log
