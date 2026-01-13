@@ -11,10 +11,48 @@ from typing import Dict, List, Optional
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "3.3.0"
+CURRENT_VERSION = "3.4.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "3.4.0": {
+        "date": "2026-01-13",
+        "title": "Cost Tracking & Budgets 💰",
+        "emoji": "💰",
+        "features": [
+            {
+                "category": "Budget Management",
+                "emoji": "📊",
+                "changes": [
+                    "Added /admin budget command to track monthly spending",
+                    "Set budget limits for AI, Zyte, and total costs",
+                    "Visual progress bars show percentage used",
+                    "Color-coded indicators (green/yellow/red)",
+                    "Shows remaining budget for each service"
+                ]
+            },
+            {
+                "category": "Cost Alerts",
+                "emoji": "⚠️",
+                "changes": [
+                    "Automatic alerts at 50%, 80%, 90%, and 100% of budget",
+                    "Alerts logged for each service (AI, Zyte, Total)",
+                    "One alert per threshold per month",
+                    "Prevents surprise bills"
+                ]
+            },
+            {
+                "category": "Configuration",
+                "emoji": "⚙️",
+                "changes": [
+                    "AI_MONTHLY_BUDGET env var (default: $10)",
+                    "ZYTE_MONTHLY_BUDGET env var (default: $5)",
+                    "TOTAL_MONTHLY_BUDGET env var (default: $15)",
+                    "Budgets reset monthly automatically"
+                ]
+            }
+        ]
+    },
     "3.3.0": {
         "date": "2026-01-13",
         "title": "Recruiting Data Cache 💾",

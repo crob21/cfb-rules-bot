@@ -17,6 +17,7 @@ Commands:
 """
 
 import logging
+from datetime import datetime
 from typing import Optional
 
 import discord
@@ -1198,6 +1199,90 @@ class AdminCog(commands.Cog):
             )
             embed.set_footer(text="Cache will rebuild automatically as commands are used")
             await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @admin_group.command(name="budget", description="View monthly API cost budget and spending")
+    async def budget_status(self, interaction: discord.Interaction):
+        """View monthly budget status"""
+        if not interaction.guild:
+            await interaction.response.send_message("❌ This only works in servers!", ephemeral=True)
+            return
+
+        # Check if user is admin
+        is_admin = (
+            interaction.user.guild_permissions.administrator or
+            (self.admin_manager and self.admin_manager.is_admin(interaction.user, interaction))
+        )
+        if not is_admin:
+            await interaction.response.send_message("❌ Only admins can view budget!", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        from ..utils.cost_tracker import get_cost_tracker
+        tracker = get_cost_tracker()
+        status = await tracker.get_budget_status()
+
+        embed = discord.Embed(
+            title="💰 Monthly Budget Status",
+            description=f"API costs for {datetime.now().strftime('%B %Y')}",
+            color=Colors.PRIMARY
+        )
+
+        # AI costs
+        ai_percent = status['percentages']['ai']
+        ai_emoji = "🟢" if ai_percent < 50 else "🟡" if ai_percent < 80 else "🔴"
+        embed.add_field(
+            name=f"{ai_emoji} AI (OpenAI/Anthropic)",
+            value=f"**${status['costs']['ai']:.4f}** / ${status['budgets']['ai']:.2f}\n"
+                  f"**{ai_percent:.1f}%** used • ${status['remaining']['ai']:.2f} left",
+            inline=True
+        )
+
+        # Zyte costs
+        zyte_percent = status['percentages']['zyte']
+        zyte_emoji = "🟢" if zyte_percent < 50 else "🟡" if zyte_percent < 80 else "🔴"
+        embed.add_field(
+            name=f"{zyte_emoji} Zyte API",
+            value=f"**${status['costs']['zyte']:.4f}** / ${status['budgets']['zyte']:.2f}\n"
+                  f"**{zyte_percent:.1f}%** used • ${status['remaining']['zyte']:.2f} left",
+            inline=True
+        )
+
+        # Total
+        total_percent = status['percentages']['total']
+        total_emoji = "🟢" if total_percent < 50 else "🟡" if total_percent < 80 else "🔴"
+        embed.add_field(
+            name=f"{total_emoji} Total Budget",
+            value=f"**${status['costs']['total']:.4f}** / ${status['budgets']['total']:.2f}\n"
+                  f"**{total_percent:.1f}%** used • ${status['remaining']['total']:.2f} left",
+            inline=True
+        )
+
+        # Progress bars
+        def progress_bar(percent: float, length: int = 10) -> str:
+            filled = int(percent / 100 * length)
+            empty = length - filled
+            return f"[{'█' * filled}{'░' * empty}]"
+
+        embed.add_field(
+            name="📊 Progress",
+            value=f"**AI:** {progress_bar(ai_percent)} {ai_percent:.0f}%\n"
+                  f"**Zyte:** {progress_bar(zyte_percent)} {zyte_percent:.0f}%\n"
+                  f"**Total:** {progress_bar(total_percent)} {total_percent:.0f}%",
+            inline=False
+        )
+
+        # Budget info
+        embed.add_field(
+            name="ℹ️ About Budgets",
+            value="Budgets are configured in environment variables:\n"
+                  "`AI_MONTHLY_BUDGET`, `ZYTE_MONTHLY_BUDGET`, `TOTAL_MONTHLY_BUDGET`\n"
+                  "Alerts trigger at 50%, 80%, 90%, and 100% of budget.",
+            inline=False
+        )
+
+        embed.set_footer(text="💡 Resets monthly • Configure budgets in Render env vars")
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
