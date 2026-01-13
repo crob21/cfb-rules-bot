@@ -65,10 +65,12 @@ class CFBDataCog(commands.Cog):
         team: Optional[str] = None
     ):
         """Look up player info from CollegeFootballData.com"""
-        await interaction.response.defer()
-
-        if not await check_module_enabled_deferred(interaction, FeatureModule.CFB_DATA, server_config):
+        # Check module enabled BEFORE deferring so we can respond ephemerally if needed
+        if not await check_module_enabled(interaction, FeatureModule.CFB_DATA, server_config):
             return
+
+        # Now defer publicly (results will be public)
+        await interaction.response.defer()
 
         if not await self._check_cfb_available(interaction):
             return
@@ -95,6 +97,8 @@ class CFBDataCog(commands.Cog):
 
                 await interaction.followup.send(embed=embed)
             else:
+                # Player not found - delete the public "thinking" message and respond ephemerally
+                await interaction.delete_original_response()
                 embed = discord.Embed(
                     title="❓ Player Not Found",
                     description=f"Couldn't find a player matching **{name}**" + (f" from **{team}**" if team else "") + ".",
@@ -110,6 +114,11 @@ class CFBDataCog(commands.Cog):
 
         except Exception as e:
             logger.error(f"❌ Error in /cfb player: {e}", exc_info=True)
+            # Try to delete the public "thinking" message
+            try:
+                await interaction.delete_original_response()
+            except:
+                pass  # May already be deleted or expired
             await interaction.followup.send(f"❌ Error looking up player: {str(e)}", ephemeral=True)
 
     @cfb_group.command(name="players", description="Look up multiple players at once")
