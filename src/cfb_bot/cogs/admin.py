@@ -738,8 +738,10 @@ class AdminCog(commands.Cog):
                         embed.add_field(
                             name="📝 Setup Required",
                             value="To enable official Zyte stats:\n"
-                                  "1. You already have `ZYTE_API_KEY` configured ✅\n"
-                                  "2. Just add `ZYTE_ORG_ID` from your dashboard URL\n"
+                                  "1. Get your **Dashboard API Key** (different from regular API key!)\n"
+                                  "   Go to: https://app.zyte.com/o/YOUR_ORG_ID/settings/apikeys\n"
+                                  "2. Add `ZYTE_DASHBOARD_API_KEY` to environment variables\n"
+                                  "3. Add `ZYTE_ORG_ID` from your dashboard URL\n"
                                   "   (e.g., if URL is `app.zyte.com/o/123456`, use `123456`)",
                             inline=False
                         )
@@ -795,7 +797,7 @@ class AdminCog(commands.Cog):
                     else:
                         embed.add_field(
                             name="🌐 Zyte Stats API",
-                            value="*Not configured*\nNeeds ZYTE_ORG_ID",
+                            value="*Not configured*\nNeeds ZYTE_DASHBOARD_API_KEY + ZYTE_ORG_ID",
                             inline=True
                         )
 

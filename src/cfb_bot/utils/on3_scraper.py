@@ -465,21 +465,23 @@ class On3Scraper:
 
     async def get_zyte_usage_from_api(self, days: int = 30) -> Optional[Dict[str, Any]]:
         """Query Zyte Stats API for official usage statistics
-
+        
         Args:
             days: Number of days to look back (default 30)
-
+            
         Returns:
             Dictionary with usage data or None if unavailable
-
-        Note: Uses the same ZYTE_API_KEY. Requires ZYTE_ORG_ID environment variable.
+            
+        Note: Requires ZYTE_DASHBOARD_API_KEY (different from ZYTE_API_KEY!) and ZYTE_ORG_ID.
+              Get your dashboard API key from: https://app.zyte.com/o/YOUR_ORG_ID/settings/apikeys
         """
-        # Use the same API key as regular Zyte API
-        api_key = os.getenv('ZYTE_API_KEY')
+        # Stats API requires the DASHBOARD API key (different from regular API key!)
+        dashboard_api_key = os.getenv('ZYTE_DASHBOARD_API_KEY')
         org_id = os.getenv('ZYTE_ORG_ID')
-
-        if not api_key:
-            logger.debug("⚠️ Zyte Stats API not configured - ZYTE_API_KEY missing")
+        
+        if not dashboard_api_key:
+            logger.debug("⚠️ Zyte Stats API not configured - ZYTE_DASHBOARD_API_KEY missing")
+            logger.debug("   Get your dashboard API key from: https://app.zyte.com/o/YOUR_ORG_ID/settings/apikeys")
             return None
         
         if not org_id:
@@ -489,15 +491,15 @@ class On3Scraper:
         try:
             from datetime import datetime, timedelta
 
-            # Calculate date range
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=days)
+            # Calculate date range (ISO 8601 datetime format required)
+            end_time = datetime.now()
+            start_time = end_time - timedelta(days=days)
 
-            # Zyte Stats API uses ISO format
+            # Zyte Stats API uses ISO 8601 datetime format
             params = {
                 'organization_id': org_id,
-                'start': start_date.strftime('%Y-%m-%d'),
-                'end': end_date.strftime('%Y-%m-%d')
+                'start_time': start_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                'end_time': end_time.strftime('%Y-%m-%dT%H:%M:%SZ')
             }
 
             logger.info(f"📊 Querying Zyte Stats API (org_id: {org_id}, {days} days)...")
@@ -508,12 +510,12 @@ class On3Scraper:
                 response = await client.get(
                     'https://zyte-api-stats.zyte.com/api/stats',
                     params=params,
-                    auth=(api_key, ''),  # HTTP Basic Auth with empty password
+                    auth=(dashboard_api_key, ''),  # HTTP Basic Auth with dashboard API key
                     timeout=10.0
                 )
 
                 logger.info(f"   Response status: {response.status_code}")
-                
+
                 if response.status_code == 200:
                     data = response.json()
                     logger.info(f"✅ Retrieved Zyte usage data")
