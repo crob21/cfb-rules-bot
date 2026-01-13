@@ -301,8 +301,15 @@ class AdminCog(commands.Cog):
         module: Optional[str] = None
     ):
         """Configure which features are enabled"""
+        # Defer IMMEDIATELY to prevent timeout (building the embed is slow)
+        if action == "view":
+            await interaction.response.defer(ephemeral=True)
+
         if not interaction.guild:
-            await interaction.response.send_message("❌ This only works in servers!", ephemeral=True)
+            if action == "view":
+                await interaction.followup.send("❌ This only works in servers!", ephemeral=True)
+            else:
+                await interaction.response.send_message("❌ This only works in servers!", ephemeral=True)
             return
 
         guild_id = interaction.guild.id
@@ -317,7 +324,6 @@ class AdminCog(commands.Cog):
                 return
 
         if action == "view":
-            await interaction.response.defer(ephemeral=True)
             enabled = server_config.get_enabled_modules(guild_id)
 
             embed = discord.Embed(
@@ -377,13 +383,13 @@ class AdminCog(commands.Cog):
                     inline=True
                 )
 
-            # Blocked channels
+            # Blocked channels (global, not per-guild)
             if self.channel_manager:
-                blocked_count = len(self.channel_manager.get_blocked_channels(guild_id))
+                blocked_count = self.channel_manager.get_blocked_count()
                 if blocked_count > 0:
                     embed.add_field(
                         name="🚫 Blocked Channels",
-                        value=f"**{blocked_count}** blocked\nUse `/admin blocked` to view",
+                        value=f"**{blocked_count}** blocked (global)\nUse `/admin blocked` to view",
                         inline=True
                     )
 
