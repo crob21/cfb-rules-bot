@@ -43,7 +43,11 @@ except ImportError:
 try:
     from zyte_api import ZyteAPIClient
     ZYTE_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    logger.error(f"❌ Failed to import zyte_api: {e}")
+    ZYTE_AVAILABLE = False
+except Exception as e:
+    logger.error(f"❌ Unexpected error importing zyte_api: {e}", exc_info=True)
     ZYTE_AVAILABLE = False
 
 # Fuzzy matching for player name typos
