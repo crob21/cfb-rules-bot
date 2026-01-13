@@ -1122,7 +1122,7 @@ class AdminCog(commands.Cog):
         if action == "stats":
             # Show cache statistics
             stats = cache.get_stats()
-            
+
             embed = discord.Embed(
                 title="📦 Cache Statistics",
                 description=f"Performance and usage statistics",
@@ -1178,7 +1178,7 @@ class AdminCog(commands.Cog):
         elif action == "clear_recruiting":
             # Clear recruiting cache
             cache.clear(namespace='recruiting')
-            
+
             embed = discord.Embed(
                 title="🗑️ Recruiting Cache Cleared",
                 description="All cached recruiting data has been removed. Next player lookups will be fresh from the source.",
@@ -1191,7 +1191,7 @@ class AdminCog(commands.Cog):
             # Clear all cache
             count = cache.get_stats()['cache_size']
             cache.clear()
-            
+
             embed = discord.Embed(
                 title="🗑️ All Cache Cleared",
                 description=f"Removed **{count}** cached entries. All future requests will fetch fresh data.",
@@ -1283,6 +1283,46 @@ class AdminCog(commands.Cog):
 
         embed.set_footer(text="💡 Resets monthly • Configure budgets in Render env vars")
         await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @admin_group.command(name="digest", description="View or send weekly summary digest")
+    @app_commands.describe(
+        action="Action to perform"
+    )
+    @app_commands.choices(action=[
+        app_commands.Choice(name="📊 View Now", value="view"),
+        app_commands.Choice(name="📧 Send to All Admins", value="send")
+    ])
+    async def weekly_digest(self, interaction: discord.Interaction, action: str = "view"):
+        """View or send the weekly digest"""
+        if not interaction.guild:
+            await interaction.response.send_message("❌ This only works in servers!", ephemeral=True)
+            return
+
+        # Check if user is admin
+        is_admin = (
+            interaction.user.guild_permissions.administrator or
+            (self.admin_manager and self.admin_manager.is_admin(interaction.user, interaction))
+        )
+        if not is_admin:
+            await interaction.response.send_message("❌ Only admins can view digest!", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        from ..utils.weekly_digest import get_weekly_digest
+        digest = get_weekly_digest(self.bot)
+
+        if action == "view":
+            # Show digest to requesting admin only
+            await digest.send_manual_digest(interaction)
+        
+        elif action == "send":
+            # Send to all admins
+            await digest.send_digest_to_admins()
+            await interaction.followup.send(
+                "✅ Weekly digest sent to all admins!",
+                ephemeral=True
+            )
 
 
 async def setup(bot: commands.Bot):

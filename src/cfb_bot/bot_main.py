@@ -22,7 +22,7 @@ import os
 import sys
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 # Setup logging
 logging.basicConfig(
@@ -218,6 +218,31 @@ async def on_ready():
 
     # Send startup notification to admin channels
     await send_startup_notification()
+    
+    # Start background tasks
+    if not check_weekly_digest.is_running():
+        check_weekly_digest.start()
+        logger.info("📊 Weekly digest task started")
+
+
+@tasks.loop(hours=24)
+async def check_weekly_digest():
+    """Check daily if weekly digest should be sent"""
+    try:
+        from .utils.weekly_digest import get_weekly_digest
+        digest = get_weekly_digest(bot)
+        
+        if await digest.should_send_digest():
+            logger.info("📧 Sending weekly digest...")
+            await digest.send_digest_to_admins()
+    except Exception as e:
+        logger.error(f"❌ Error in weekly digest task: {e}")
+
+
+@check_weekly_digest.before_loop
+async def before_digest_check():
+    """Wait until bot is ready before starting digest checks"""
+    await bot.wait_until_ready()
 
 
 async def send_startup_notification():

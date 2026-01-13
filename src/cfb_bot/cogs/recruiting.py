@@ -90,14 +90,14 @@ class RecruitingCog(commands.Cog):
             cache = get_cache()
             cache_key = f"{name.lower()}:{year or 'current'}:{source_name}:{deep_search}"
             recruit = cache.get(cache_key, namespace='recruiting')
-            
+
             if recruit:
                 logger.info(f"✅ Cache HIT for {name} - saved API call!")
             else:
                 # Cache miss - scrape the data
                 max_pages = 65 if deep_search else 20
                 recruit = await scraper.search_recruit(name, year, max_pages=max_pages)
-                
+
                 if recruit:
                     # Cache successful lookups for 24 hours (86400 seconds)
                     cache.set(cache_key, recruit, ttl_seconds=86400, namespace='recruiting')
@@ -118,13 +118,13 @@ class RecruitingCog(commands.Cog):
                     college_stats = None
                     recruit_name = recruit.get('name', name)
                     previous_school = recruit.get('previous_school')
-                    
+
                     # Try 1: Full name lookup
                     try:
                         college_stats = await cfb_data.get_full_player_info(recruit_name, previous_school)
                     except Exception as e:
                         logger.debug(f"Full name CFB lookup failed for {recruit_name}: {e}")
-                    
+
                     # Try 2: Last name only with position matching (handles nicknames like "Hollywood Smothers" -> "Daylan Smothers")
                     if not college_stats:
                         name_parts = recruit_name.split()
@@ -154,7 +154,7 @@ class RecruitingCog(commands.Cog):
                                     college_stats = await cfb_data.get_full_player_info(players[0].get('name'), players[0].get('team'))
                             except Exception as e:
                                 logger.debug(f"Last name CFB lookup failed: {e}")
-                    
+
                     # Display college stats if found
                     if college_stats and college_stats.get('stats'):
                         stats_lines = []
@@ -209,7 +209,7 @@ class RecruitingCog(commands.Cog):
                 ]
                 if not deep_search and source_name == "247Sports Composite":
                     tips.append("• Try `deep_search:True` to search all ~3000 ranked recruits")
-                
+
                 # Suggest alternative source
                 if source_name == "On3/Rivals":
                     tips.append("• Try `/recruiting source 247sports` if On3 is blocked")
@@ -775,4 +775,3 @@ async def setup(bot: commands.Bot):
     cog = RecruitingCog(bot)
     await bot.add_cog(cog)
     logger.info("✅ RecruitingCog loaded")
-

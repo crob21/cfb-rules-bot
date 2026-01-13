@@ -11,10 +11,49 @@ from typing import Dict, List, Optional
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "3.4.0"
+CURRENT_VERSION = "3.5.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "3.5.0": {
+        "date": "2026-01-13",
+        "title": "Weekly Digest Reporting 📊",
+        "emoji": "📊",
+        "features": [
+            {
+                "category": "Automated Reporting",
+                "emoji": "📧",
+                "changes": [
+                    "Weekly digest automatically sent to all admins",
+                    "Checks daily at midnight for 7-day interval",
+                    "Sends via DM to each admin",
+                    "Includes cache performance, costs, budget status"
+                ]
+            },
+            {
+                "category": "Digest Commands",
+                "emoji": "🎯",
+                "changes": [
+                    "/admin digest (view) - Preview digest instantly",
+                    "/admin digest (send) - Manually trigger to all admins",
+                    "Shows cache hit rate and cost savings",
+                    "Displays AI usage stats",
+                    "Budget status with color indicators"
+                ]
+            },
+            {
+                "category": "Weekly Summary",
+                "emoji": "📈",
+                "changes": [
+                    "Cache performance (hit rate, savings)",
+                    "Monthly costs (AI, Zyte, Total)",
+                    "Budget status with visual indicators",
+                    "AI usage (requests, tokens, cost)",
+                    "Timestamp and date range"
+                ]
+            }
+        ]
+    },
     "3.4.0": {
         "date": "2026-01-13",
         "title": "Cost Tracking & Budgets 💰",
