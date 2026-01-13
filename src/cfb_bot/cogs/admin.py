@@ -757,42 +757,42 @@ class AdminCog(commands.Cog):
                             description=f"Last 30 days from Zyte Stats API\n*(Includes ALL usage on this API key)*",
                             color=Colors.PRIMARY
                         )
-                        
+
                         # Parse Zyte Stats API response
                         results = api_data.get('results', [])
                         if results:
                             result = results[0]
-                            
+
                             # Convert microUSD to USD
                             total_cost_usd = float(result.get('cost_microusd_total', 0)) / 1000000
                             avg_cost_usd = float(result.get('cost_microusd_avg', 0)) / 1000000
                             request_count = result.get('request_count', 0)
                             avg_response_time = float(result.get('response_time_sec_avg', 0))
-                            
+
                             embed.add_field(
                                 name="📊 Request Count",
                                 value=f"**{request_count:,}** requests",
                                 inline=True
                             )
-                            
+
                             embed.add_field(
                                 name="💰 Total Cost",
                                 value=f"**${total_cost_usd:.6f}**",
                                 inline=True
                             )
-                            
+
                             embed.add_field(
                                 name="💵 Avg Cost",
                                 value=f"${avg_cost_usd:.6f}/request",
                                 inline=True
                             )
-                            
+
                             embed.add_field(
                                 name="⏱️ Avg Response Time",
                                 value=f"{avg_response_time:.2f} seconds",
                                 inline=True
                             )
-                            
+
                             # Status codes
                             status_codes = result.get('status_codes', [])
                             if status_codes:
@@ -808,7 +808,7 @@ class AdminCog(commands.Cog):
                                 value="No usage data available for the last 30 days.",
                                 inline=False
                             )
-                        
+
                         embed.set_footer(text="💡 From Zyte Stats API | Last 30 days")
 
             else:  # view == "both"
@@ -976,23 +976,65 @@ class AdminCog(commands.Cog):
                 )
             else:
                 # Parse API response and display
-                # Note: OpenAI Usage API response format may vary
                 embed = discord.Embed(
                     title="🌐 OpenAI API Usage (Official)",
                     description=f"Today's usage from OpenAI Usage API\n*(Includes ALL usage on this API key)*",
                     color=Colors.PRIMARY
                 )
-
-                # The exact fields depend on OpenAI's response format
-                # This is a placeholder - adjust based on actual API response
-                total_usage = api_data.get('total_usage', 0)
-                embed.add_field(
-                    name="📊 Official Usage Data (Today)",
-                    value=f"```json\n{str(api_data)[:500]}...\n```",
-                    inline=False
-                )
-
-                embed.set_footer(text="💡 From OpenAI Usage API | Today's usage only")
+                
+                # Parse OpenAI Usage API response
+                data = api_data.get('data', [])
+                
+                if data:
+                    # Aggregate usage across all entries
+                    total_tokens = 0
+                    total_requests = 0
+                    
+                    for entry in data:
+                        # OpenAI API returns usage in different formats
+                        # Try to extract token counts
+                        if 'n_context_tokens_total' in entry:
+                            total_tokens += entry.get('n_context_tokens_total', 0)
+                        if 'n_generated_tokens_total' in entry:
+                            total_tokens += entry.get('n_generated_tokens_total', 0)
+                        if 'num_requests' in entry:
+                            total_requests += entry.get('num_requests', 0)
+                    
+                    if total_requests > 0:
+                        embed.add_field(
+                            name="📊 Requests (Today)",
+                            value=f"**{total_requests:,}** requests",
+                            inline=True
+                        )
+                    
+                    if total_tokens > 0:
+                        embed.add_field(
+                            name="🎯 Tokens (Today)",
+                            value=f"**{total_tokens:,}** tokens",
+                            inline=True
+                        )
+                        
+                        # Estimate cost (rough estimate for GPT-3.5-turbo)
+                        estimated_cost = (total_tokens / 1000) * 0.001
+                        embed.add_field(
+                            name="💰 Est. Cost (Today)",
+                            value=f"~${estimated_cost:.6f}",
+                            inline=True
+                        )
+                    else:
+                        embed.add_field(
+                            name="ℹ️ No Usage Today",
+                            value="No OpenAI API usage recorded for today yet.",
+                            inline=False
+                        )
+                else:
+                    embed.add_field(
+                        name="ℹ️ No Data Available",
+                        value="No usage data available for today. This is normal if you haven't made any OpenAI API calls today.",
+                        inline=False
+                    )
+                
+                embed.set_footer(text="💡 From OpenAI Usage API | Resets daily at midnight UTC")
 
         else:  # view == "both"
             # Show both side by side
