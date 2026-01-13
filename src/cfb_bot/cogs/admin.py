@@ -346,15 +346,6 @@ class AdminCog(commands.Cog):
             # Server settings section
             embed.add_field(name="━━━━━━━━━━━━━━━", value="", inline=False)  # Divider
 
-            # Auto-responses (rivalry mode)
-            auto_resp = server_config.auto_responses_enabled(guild_id)
-            auto_status = "✅ Enabled" if auto_resp else "❌ Disabled"
-            embed.add_field(
-                name="💬 Auto-Responses (Rivalry Mode)",
-                value=f"**Status:** {auto_status}\n{'Harry will respond to "Oregon", "Ducks", etc.' if auto_resp else 'Harry only responds when @mentioned'}",
-                inline=False
-            )
-
             # Recruiting source
             rec_source = server_config.get_recruiting_source(guild_id)
             rec_name = "On3/Rivals" if rec_source == "on3" else "247Sports"

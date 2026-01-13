@@ -167,7 +167,19 @@ class ServerConfigManager:
         """Get configuration for a guild, creating default if needed"""
         if guild_id not in self._configs:
             self._configs[guild_id] = json.loads(json.dumps(DEFAULT_CONFIG))
-        return self._configs[guild_id]
+
+        # AUTOMATIC MIGRATION: Merge in any new modules from DEFAULT_CONFIG
+        # This ensures existing servers get new features when we add them
+        config = self._configs[guild_id]
+        if "modules" not in config:
+            config["modules"] = {}
+
+        for module_name, default_enabled in DEFAULT_CONFIG["modules"].items():
+            if module_name not in config["modules"]:
+                config["modules"][module_name] = default_enabled
+                logger.info(f"🆕 Auto-migrated new module '{module_name}' (enabled={default_enabled}) for guild {guild_id}")
+
+        return config
 
     def is_module_enabled(self, guild_id: int, module: FeatureModule) -> bool:
         """Check if a module is enabled for a guild"""
