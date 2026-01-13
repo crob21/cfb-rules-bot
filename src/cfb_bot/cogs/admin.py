@@ -723,6 +723,114 @@ class AdminCog(commands.Cog):
             )
             await interaction.followup.send(embed=embed, ephemeral=True)
 
+    @admin_group.command(name="ai", description="Check AI API usage, token consumption, and estimated costs")
+    async def ai_usage(self, interaction: discord.Interaction):
+        """Check AI token usage and cost statistics"""
+        if not interaction.guild:
+            await interaction.response.send_message("❌ This only works in servers!", ephemeral=True)
+            return
+
+        # Check if user is admin
+        is_admin = (
+            interaction.user.guild_permissions.administrator or
+            (self.admin_manager and self.admin_manager.is_admin(interaction.user, interaction))
+        )
+        if not is_admin:
+            await interaction.response.send_message("❌ Only admins can view AI usage!", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        # Get AI integration from bot
+        if not hasattr(self.bot, 'ai_assistant') or not self.bot.ai_assistant:
+            embed = discord.Embed(
+                title="ℹ️ AI Not Available",
+                description="AI integration is not currently configured.",
+                color=Colors.WARNING
+            )
+            embed.add_field(
+                name="⚠️ Setup Required",
+                value="Add `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` to environment variables to enable AI features.",
+                inline=False
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            return
+
+        # Get usage stats
+        usage = self.bot.ai_assistant.get_token_usage()
+
+        embed = discord.Embed(
+            title="🤖 AI API Usage Report",
+            description=f"Token consumption and cost statistics for **{interaction.guild.name}**",
+            color=Colors.PRIMARY
+        )
+
+        # Overall stats
+        embed.add_field(
+            name="📊 Total Requests",
+            value=f"**{usage['total_requests']:,}** queries",
+            inline=True
+        )
+
+        embed.add_field(
+            name="🎯 Total Tokens",
+            value=f"**{usage['total_tokens']:,}** tokens",
+            inline=True
+        )
+
+        embed.add_field(
+            name="💰 Total Cost",
+            value=f"**${usage['total_cost']:.4f}**",
+            inline=True
+        )
+
+        # OpenAI breakdown
+        if usage['openai_tokens'] > 0:
+            embed.add_field(
+                name="🟢 OpenAI (GPT-3.5-turbo)",
+                value=f"**{usage['openai_tokens']:,}** tokens\n${usage['openai_cost']:.4f}",
+                inline=True
+            )
+
+        # Anthropic breakdown
+        if usage['anthropic_tokens'] > 0:
+            embed.add_field(
+                name="🔵 Anthropic (Claude 3 Haiku)",
+                value=f"**{usage['anthropic_tokens']:,}** tokens\n${usage['anthropic_cost']:.4f}",
+                inline=True
+            )
+
+        # Add spacing field if needed
+        if usage['openai_tokens'] > 0 or usage['anthropic_tokens'] > 0:
+            embed.add_field(name="\u200b", value="\u200b", inline=True)
+
+        # Monthly projection
+        if usage['total_requests'] > 0:
+            avg_tokens_per_request = usage['total_tokens'] / usage['total_requests']
+            avg_cost_per_request = usage['total_cost'] / usage['total_requests']
+            
+            # Estimate based on 100 requests/month (conservative)
+            monthly_requests = 100
+            monthly_tokens = int(monthly_requests * avg_tokens_per_request)
+            monthly_cost = monthly_requests * avg_cost_per_request
+
+            embed.add_field(
+                name="📈 Monthly Projection (est. 100 queries)",
+                value=f"~{monthly_tokens:,} tokens\n~${monthly_cost:.2f}/month",
+                inline=False
+            )
+
+        # Info
+        embed.add_field(
+            name="ℹ️ How It Works",
+            value="AI is used for `/harry`, `/ask`, `/summarize` commands and @mentions. "
+                  "Costs are typically minimal - OpenAI GPT-3.5 and Anthropic Claude Haiku are very affordable.",
+            inline=False
+        )
+
+        embed.set_footer(text="💡 Session stats reset on bot restart")
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
 
 async def setup(bot: commands.Bot):
     """Required setup function for loading cog"""

@@ -32,6 +32,10 @@ class AICharterAssistant:
         self.total_openai_tokens = 0
         self.total_anthropic_tokens = 0
         self.total_requests = 0
+        
+        # Cost tracking (per 1k tokens - averaged input/output)
+        self.openai_cost_per_1k = 0.001  # GPT-3.5-turbo average
+        self.anthropic_cost_per_1k = 0.0007  # Claude 3 Haiku average
 
     async def get_charter_content(self) -> Optional[str]:
         """Get charter content for AI context"""
@@ -411,22 +415,30 @@ class AICharterAssistant:
         return response
 
     def get_token_usage(self) -> dict:
-        """Get current token usage statistics"""
+        """Get current token usage statistics with cost estimates"""
+        openai_cost = (self.total_openai_tokens / 1000) * self.openai_cost_per_1k
+        anthropic_cost = (self.total_anthropic_tokens / 1000) * self.anthropic_cost_per_1k
+        total_cost = openai_cost + anthropic_cost
+        
         return {
             'total_requests': self.total_requests,
             'openai_tokens': self.total_openai_tokens,
             'anthropic_tokens': self.total_anthropic_tokens,
-            'total_tokens': self.total_openai_tokens + self.total_anthropic_tokens
+            'total_tokens': self.total_openai_tokens + self.total_anthropic_tokens,
+            'openai_cost': openai_cost,
+            'anthropic_cost': anthropic_cost,
+            'total_cost': total_cost
         }
 
     def log_token_summary(self):
-        """Log a summary of token usage"""
+        """Log a summary of token usage with cost estimates"""
         stats = self.get_token_usage()
         logger.info(f"📊 AI Token Usage Summary:")
         logger.info(f"   Total Requests: {stats['total_requests']}")
-        logger.info(f"   OpenAI Tokens: {stats['openai_tokens']}")
-        logger.info(f"   Anthropic Tokens: {stats['anthropic_tokens']}")
-        logger.info(f"   Total Tokens: {stats['total_tokens']}")
+        logger.info(f"   OpenAI Tokens: {stats['openai_tokens']:,} (${stats['openai_cost']:.4f})")
+        logger.info(f"   Anthropic Tokens: {stats['anthropic_tokens']:,} (${stats['anthropic_cost']:.4f})")
+        logger.info(f"   Total Tokens: {stats['total_tokens']:,}")
+        logger.info(f"   💰 Estimated Total Cost: ${stats['total_cost']:.4f}")
 
 def setup_ai_integration():
     """Setup instructions for AI integration"""

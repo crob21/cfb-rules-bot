@@ -11,10 +11,27 @@ from typing import Dict, List, Optional
 logger = logging.getLogger('CFB26Bot.Version')
 
 # Current version
-CURRENT_VERSION = "3.0.1"
+CURRENT_VERSION = "3.1.0"
 
 # Changelog - organized by version
 CHANGELOG: Dict[str, Dict] = {
+    "3.1.0": {
+        "date": "2026-01-13",
+        "title": "AI Usage Tracking 🤖",
+        "emoji": "🤖",
+        "features": [
+            {
+                "category": "AI Monitoring",
+                "emoji": "📊",
+                "changes": [
+                    "Added /admin ai command to track token usage and costs",
+                    "Real-time monitoring of OpenAI (GPT-3.5) and Anthropic (Claude) API usage",
+                    "Cost estimates and monthly projections",
+                    "Separate tracking for each AI provider"
+                ]
+            }
+        ]
+    },
     "3.0.1": {
         "date": "2026-01-12",
         "title": "Cloudflare Bypass & Admin Enhancements 🎭",
