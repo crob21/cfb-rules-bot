@@ -40,15 +40,15 @@ except ImportError:
     CLOUDSCRAPER_AVAILABLE = False
 
 # Zyte API for premium scraping (guaranteed bypass)
+ZYTE_AVAILABLE = False
+ZYTE_IMPORT_ERROR = None
 try:
-    from zyte_api import ZyteAPIClient
+    from zyte_api import AsyncZyteAPI as ZyteAPIClient  # v0.8+ uses AsyncZyteAPI
     ZYTE_AVAILABLE = True
 except ImportError as e:
-    logger.error(f"❌ Failed to import zyte_api: {e}")
-    ZYTE_AVAILABLE = False
+    ZYTE_IMPORT_ERROR = f"ImportError: {e}"
 except Exception as e:
-    logger.error(f"❌ Unexpected error importing zyte_api: {e}", exc_info=True)
-    ZYTE_AVAILABLE = False
+    ZYTE_IMPORT_ERROR = f"Exception: {e}"
 
 # Fuzzy matching for player name typos
 try:
@@ -136,7 +136,7 @@ class On3Scraper:
         self._zyte_cost_per_1k = 0.233  # Cost per 1,000 requests
         
         if ZYTE_AVAILABLE:
-            logger.info(f"🔍 Zyte API library available (ZYTE_AVAILABLE={ZYTE_AVAILABLE})")
+            logger.info(f"🔍 Zyte API library available (AsyncZyteAPI imported successfully)")
             zyte_api_key = os.getenv('ZYTE_API_KEY')
             logger.info(f"🔍 Environment variable check: ZYTE_API_KEY={'SET' if zyte_api_key else 'NOT SET'}")
             if zyte_api_key:
@@ -148,7 +148,10 @@ class On3Scraper:
             else:
                 logger.warning("⚠️ ZYTE_API_KEY environment variable not set - premium bypass unavailable")
         else:
-            logger.warning("⚠️ zyte-api library not installed - premium bypass unavailable")
+            if ZYTE_IMPORT_ERROR:
+                logger.warning(f"⚠️ zyte-api import failed: {ZYTE_IMPORT_ERROR}")
+            else:
+                logger.warning("⚠️ zyte-api library not installed - premium bypass unavailable")
 
         # HTTP headers for fallback httpx client
         self._headers = {
