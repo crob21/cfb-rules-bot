@@ -465,19 +465,19 @@ class On3Scraper:
 
     async def get_zyte_usage_from_api(self, days: int = 30) -> Optional[Dict[str, Any]]:
         """Query Zyte Stats API for official usage statistics
-        
+
         Args:
             days: Number of days to look back (default 30)
-            
+
         Returns:
             Dictionary with usage data or None if unavailable
-            
+
         Note: Uses the same ZYTE_API_KEY. Requires ZYTE_ORG_ID environment variable.
         """
         # Use the same API key as regular Zyte API
         api_key = os.getenv('ZYTE_API_KEY')
         org_id = os.getenv('ZYTE_ORG_ID')
-        
+
         if not api_key or not org_id:
             logger.debug("⚠️ Zyte Stats API not configured (need ZYTE_API_KEY and ZYTE_ORG_ID)")
             return None

@@ -40,11 +40,14 @@ class AdminCog(commands.Cog):
         self.timekeeper_manager = None
         logger.info("🔧 AdminCog initialized")
 
-    def set_dependencies(self, admin_manager=None, channel_manager=None, timekeeper_manager=None):
+    def set_dependencies(self, admin_manager=None, channel_manager=None, timekeeper_manager=None, ai_assistant=None):
         """Set dependencies after bot is ready"""
         self.admin_manager = admin_manager
         self.channel_manager = channel_manager
         self.timekeeper_manager = timekeeper_manager
+        # Store ai_assistant on bot for access in commands
+        if ai_assistant:
+            self.bot.ai_assistant = ai_assistant
 
     # Command group
     admin_group = app_commands.Group(

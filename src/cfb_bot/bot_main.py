@@ -99,12 +99,15 @@ async def setup_dependencies():
     schedule_manager = None
 
     try:
-        from .utils.ai_assistant import ai_assistant as _ai, AI_AVAILABLE as _ai_avail
+        from .ai import ai_assistant as _ai, AI_AVAILABLE as _ai_avail
         ai_assistant = _ai
         AI_AVAILABLE = _ai_avail
-        logger.info("✅ AI assistant available")
-    except ImportError:
-        logger.warning("⚠️ AI assistant not available")
+        if AI_AVAILABLE:
+            logger.info("✅ AI assistant available")
+        else:
+            logger.info("ℹ️ AI assistant not configured")
+    except ImportError as e:
+        logger.warning(f"⚠️ AI assistant not available: {e}")
 
     try:
         from .utils.charter_editor import CharterEditor
@@ -175,7 +178,7 @@ async def setup_dependencies():
             elif cog_name == 'LeagueCog':
                 cog.set_dependencies(timekeeper_manager=timekeeper_manager, admin_manager=admin_manager, schedule_manager=schedule_manager, channel_summarizer=channel_summarizer, ai_assistant=ai_assistant, AI_AVAILABLE=AI_AVAILABLE)
             elif cog_name == 'AdminCog':
-                cog.set_dependencies(admin_manager=admin_manager, channel_manager=channel_manager, timekeeper_manager=timekeeper_manager)
+                cog.set_dependencies(admin_manager=admin_manager, channel_manager=channel_manager, timekeeper_manager=timekeeper_manager, ai_assistant=ai_assistant)
             elif cog_name == 'RecruitingCog':
                 if hasattr(cog, 'admin_manager'):
                     cog.admin_manager = admin_manager
