@@ -477,14 +477,17 @@ class AICharterAssistant:
             'total_cost': total_cost
         }
 
-    async def get_openai_usage_from_api(self, days: int = 30) -> Optional[dict]:
-        """Query OpenAI Usage API for official usage statistics
-
+    async def get_openai_usage_from_api(self, date: str = None) -> Optional[dict]:
+        """Query OpenAI Usage API for official usage statistics for a specific date
+        
         Args:
-            days: Number of days to look back (default 30)
-
+            date: Date to query (YYYY-MM-DD format). Defaults to today.
+            
         Returns:
             Dictionary with usage data or None if unavailable
+            
+        Note: OpenAI Usage API returns daily usage data. For historical data, 
+              check the OpenAI Dashboard at https://platform.openai.com/usage
         """
         if not self.openai_api_key:
             logger.warning("⚠️ OpenAI API key not found")
@@ -495,19 +498,18 @@ class AICharterAssistant:
             'Content-Type': 'application/json'
         }
 
-        # Calculate date range
-        from datetime import datetime, timedelta
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
-
-        # Format dates for API (YYYY-MM-DD)
+        # Use provided date or default to today (YYYY-MM-DD format)
+        from datetime import datetime
+        if not date:
+            date = datetime.now().strftime('%Y-%m-%d')
+        
+        # OpenAI Usage API takes a single 'date' parameter for daily usage
         params = {
-            'start_date': start_date.strftime('%Y-%m-%d'),
-            'end_date': end_date.strftime('%Y-%m-%d')
+            'date': date
         }
-
+        
         try:
-            logger.info(f"📊 Querying OpenAI Usage API ({days} days)...")
+            logger.info(f"📊 Querying OpenAI Usage API (date: {date})...")
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     'https://api.openai.com/v1/usage',

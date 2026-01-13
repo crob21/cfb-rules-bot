@@ -826,8 +826,8 @@ class AdminCog(commands.Cog):
         view="Choose which stats to view"
     )
     @app_commands.choices(view=[
-        app_commands.Choice(name="📊 Bot Tracked (This Bot Only)", value="local"),
-        app_commands.Choice(name="🌐 OpenAI API (Official - All Usage)", value="api"),
+        app_commands.Choice(name="📊 Bot Tracked (All Time)", value="local"),
+        app_commands.Choice(name="🌐 OpenAI API (Official - Today Only)", value="api"),
         app_commands.Choice(name="📋 Both (Side by Side)", value="both")
     ])
     async def ai_usage(self, interaction: discord.Interaction, view: str = "local"):
@@ -912,20 +912,21 @@ class AdminCog(commands.Cog):
 
         elif view == "api":
             # Query OpenAI Usage API
-            api_data = await self.bot.ai_assistant.get_openai_usage_from_api(days=30)
-
+            api_data = await self.bot.ai_assistant.get_openai_usage_from_api()
+            
             if not api_data:
                 embed = discord.Embed(
                     title="⚠️ API Data Unavailable",
                     description="Could not retrieve data from OpenAI Usage API. This may be due to:\n"
                                "- API endpoint not available yet\n"
                                "- Account permissions\n"
-                               "- Network issues",
+                               "- Network issues\n"
+                               "- No usage data for today",
                     color=Colors.WARNING
                 )
                 embed.add_field(
                     name="💡 Alternative",
-                    value="Try the 'Bot Tracked' view or check your [OpenAI Dashboard](https://platform.openai.com/usage)",
+                    value="Try the 'Bot Tracked' view or check your [OpenAI Dashboard](https://platform.openai.com/usage) for historical data",
                     inline=False
                 )
             else:
@@ -933,20 +934,20 @@ class AdminCog(commands.Cog):
                 # Note: OpenAI Usage API response format may vary
                 embed = discord.Embed(
                     title="🌐 OpenAI API Usage (Official)",
-                    description=f"Last 30 days from OpenAI Usage API\n*(Includes ALL usage on this API key)*",
+                    description=f"Today's usage from OpenAI Usage API\n*(Includes ALL usage on this API key)*",
                     color=Colors.PRIMARY
                 )
-
+                
                 # The exact fields depend on OpenAI's response format
                 # This is a placeholder - adjust based on actual API response
                 total_usage = api_data.get('total_usage', 0)
                 embed.add_field(
-                    name="📊 Official Usage Data",
+                    name="📊 Official Usage Data (Today)",
                     value=f"```json\n{str(api_data)[:500]}...\n```",
                     inline=False
                 )
-
-                embed.set_footer(text="💡 From OpenAI Usage API | Last 30 days")
+                
+                embed.set_footer(text="💡 From OpenAI Usage API | Today's usage only")
 
         else:  # view == "both"
             # Show both side by side
@@ -966,10 +967,10 @@ class AdminCog(commands.Cog):
             )
 
             # Try to get API data
-            api_data = await self.bot.ai_assistant.get_openai_usage_from_api(days=30)
+            api_data = await self.bot.ai_assistant.get_openai_usage_from_api()
             if api_data:
                 embed.add_field(
-                    name="🌐 OpenAI API (Last 30 Days)",
+                    name="🌐 OpenAI API (Today)",
                     value=f"*Official data from OpenAI*\n"
                           f"Check details with `/admin ai view:api`",
                     inline=True
@@ -977,7 +978,7 @@ class AdminCog(commands.Cog):
             else:
                 embed.add_field(
                     name="🌐 OpenAI API",
-                    value="*Not available*\nCheck [Dashboard](https://platform.openai.com/usage)",
+                    value="*Not available for today*\nCheck [Dashboard](https://platform.openai.com/usage)",
                     inline=True
                 )
 

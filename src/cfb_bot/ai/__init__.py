@@ -11,7 +11,7 @@ AI_AVAILABLE = False
 
 try:
     from .ai_integration import AICharterAssistant
-    
+
     # Check if we have at least one AI API key
     if os.getenv('OPENAI_API_KEY') or os.getenv('ANTHROPIC_API_KEY'):
         ai_assistant = AICharterAssistant()
