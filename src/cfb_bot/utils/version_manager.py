@@ -25,9 +25,11 @@ CHANGELOG: Dict[str, Dict] = {
                 "emoji": "📊",
                 "changes": [
                     "Added /admin ai command to track token usage and costs",
+                    "Persistent tracking - stats survive bot restarts",
                     "Real-time monitoring of OpenAI (GPT-3.5) and Anthropic (Claude) API usage",
                     "Cost estimates and monthly projections",
-                    "Separate tracking for each AI provider"
+                    "Separate tracking for each AI provider",
+                    "Stored in Discord DMs for free persistence"
                 ]
             }
         ]

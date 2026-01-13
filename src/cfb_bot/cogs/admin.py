@@ -761,25 +761,25 @@ class AdminCog(commands.Cog):
 
         embed = discord.Embed(
             title="🤖 AI API Usage Report",
-            description=f"Token consumption and cost statistics for **{interaction.guild.name}**",
+            description=f"Lifetime token consumption and cost statistics",
             color=Colors.PRIMARY
         )
 
         # Overall stats
         embed.add_field(
-            name="📊 Total Requests",
+            name="📊 Total Requests (All Time)",
             value=f"**{usage['total_requests']:,}** queries",
             inline=True
         )
 
         embed.add_field(
-            name="🎯 Total Tokens",
+            name="🎯 Total Tokens (All Time)",
             value=f"**{usage['total_tokens']:,}** tokens",
             inline=True
         )
 
         embed.add_field(
-            name="💰 Total Cost",
+            name="💰 Total Cost (All Time)",
             value=f"**${usage['total_cost']:.4f}**",
             inline=True
         )
@@ -808,7 +808,7 @@ class AdminCog(commands.Cog):
         if usage['total_requests'] > 0:
             avg_tokens_per_request = usage['total_tokens'] / usage['total_requests']
             avg_cost_per_request = usage['total_cost'] / usage['total_requests']
-            
+
             # Estimate based on 100 requests/month (conservative)
             monthly_requests = 100
             monthly_tokens = int(monthly_requests * avg_tokens_per_request)
@@ -828,7 +828,7 @@ class AdminCog(commands.Cog):
             inline=False
         )
 
-        embed.set_footer(text="💡 Session stats reset on bot restart")
+        embed.set_footer(text="💡 Stats persist across bot restarts | Stored in Discord DMs")
         await interaction.followup.send(embed=embed, ephemeral=True)
 
 

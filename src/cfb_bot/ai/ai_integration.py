@@ -13,6 +13,8 @@ from typing import Dict, List, Optional
 import aiohttp
 from dotenv import load_dotenv
 
+from ..utils.storage import get_storage
+
 # Load environment variables
 load_dotenv()
 
@@ -28,7 +30,7 @@ class AICharterAssistant:
         self.charter_url = "https://docs.google.com/document/d/1lX28DlMmH0P77aficBA_1Vo9ykEm_bAroSTpwMhWr_8/edit"
         self.charter_content = None
 
-        # Token usage tracking
+        # Token usage tracking (loaded from storage)
         self.total_openai_tokens = 0
         self.total_anthropic_tokens = 0
         self.total_requests = 0
@@ -36,6 +38,42 @@ class AICharterAssistant:
         # Cost tracking (per 1k tokens - averaged input/output)
         self.openai_cost_per_1k = 0.001  # GPT-3.5-turbo average
         self.anthropic_cost_per_1k = 0.0007  # Claude 3 Haiku average
+        
+        # Storage
+        self._storage = get_storage()
+        self._loaded = False
+
+    async def _load_usage_stats(self):
+        """Load usage statistics from persistent storage"""
+        if self._loaded:
+            return
+        
+        try:
+            data = await self._storage.load("ai_usage", "global")
+            if data:
+                self.total_openai_tokens = data.get('openai_tokens', 0)
+                self.total_anthropic_tokens = data.get('anthropic_tokens', 0)
+                self.total_requests = data.get('total_requests', 0)
+                logger.info(f"📊 Loaded AI usage stats: {self.total_requests:,} requests, {self.total_openai_tokens + self.total_anthropic_tokens:,} tokens")
+            else:
+                logger.info("📊 No existing AI usage stats found - starting fresh")
+            self._loaded = True
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to load AI usage stats: {e}")
+            self._loaded = True  # Don't try again
+
+    async def _save_usage_stats(self):
+        """Save usage statistics to persistent storage"""
+        try:
+            data = {
+                'openai_tokens': self.total_openai_tokens,
+                'anthropic_tokens': self.total_anthropic_tokens,
+                'total_requests': self.total_requests
+            }
+            await self._storage.save("ai_usage", "global", data)
+            logger.debug(f"💾 Saved AI usage stats")
+        except Exception as e:
+            logger.error(f"❌ Failed to save AI usage stats: {e}")
 
     async def get_charter_content(self) -> Optional[str]:
         """Get charter content for AI context"""
@@ -102,7 +140,7 @@ class AICharterAssistant:
 
     async def ask_openai(self, question: str, context: str, max_tokens: int = 500, personality_prompt: str = None, include_league_context: bool = True) -> Optional[str]:
         """Ask OpenAI - optionally includes league charter and schedule context
-        
+
         Args:
             question: The question to ask
             context: Additional context (charter content, etc.)
@@ -126,7 +164,7 @@ class AICharterAssistant:
         if include_league_context:
             # Get schedule context for league servers
             schedule_context = self.get_schedule_context()
-            
+
             prompt = f"""
             {personality}
             Answer questions based on the league charter AND schedule information provided below in a hilariously sarcastic way.
@@ -234,6 +272,9 @@ class AICharterAssistant:
                         # Update token counters
                         self.total_openai_tokens += total_tokens
                         self.total_requests += 1
+                        
+                        # Save updated stats
+                        await self._save_usage_stats()
 
                         logger.info(f"📊 Total OpenAI tokens used: {self.total_openai_tokens} (across {self.total_requests} requests)")
 
@@ -251,7 +292,7 @@ class AICharterAssistant:
 
     async def ask_anthropic(self, question: str, context: str, max_tokens: int = 500, personality_prompt: str = None, include_league_context: bool = True) -> Optional[str]:
         """Ask Anthropic Claude - optionally includes league charter and schedule context
-        
+
         Args:
             question: The question to ask
             context: Additional context (charter content, etc.)
@@ -276,7 +317,7 @@ class AICharterAssistant:
         if include_league_context:
             # Get schedule context for league servers
             schedule_context = self.get_schedule_context()
-            
+
             prompt = f"""
             {personality}
             Answer questions based on the league charter AND schedule information provided below.
@@ -359,6 +400,9 @@ class AICharterAssistant:
                         total_tokens = input_tokens + output_tokens
                         self.total_anthropic_tokens += total_tokens
                         self.total_requests += 1
+                        
+                        # Save updated stats
+                        await self._save_usage_stats()
 
                         logger.info(f"✅ Anthropic response received")
                         logger.info(f"🔢 Token usage - Input: {input_tokens}, Output: {output_tokens}")
@@ -384,6 +428,9 @@ class AICharterAssistant:
             user_info: User info for logging
             include_league_context: Whether to include league schedule/charter info (False for non-league servers)
         """
+        # Load usage stats on first use
+        await self._load_usage_stats()
+        
         if user_info:
             logger.info(f"🤖 AI asked by {user_info}: {question[:100]}...")
         else:
@@ -419,7 +466,7 @@ class AICharterAssistant:
         openai_cost = (self.total_openai_tokens / 1000) * self.openai_cost_per_1k
         anthropic_cost = (self.total_anthropic_tokens / 1000) * self.anthropic_cost_per_1k
         total_cost = openai_cost + anthropic_cost
-        
+
         return {
             'total_requests': self.total_requests,
             'openai_tokens': self.total_openai_tokens,
