@@ -23,7 +23,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from ..config import Colors, Footers
-from ..services.checks import check_module_enabled_deferred
+from ..services.checks import check_module_enabled, check_module_enabled_deferred
 from ..utils.server_config import server_config, FeatureModule
 from ..utils.cfb_data import cfb_data
 
