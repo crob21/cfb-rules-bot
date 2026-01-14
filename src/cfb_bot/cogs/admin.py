@@ -1315,7 +1315,7 @@ class AdminCog(commands.Cog):
         if action == "view":
             # Show digest to requesting admin only
             await digest.send_manual_digest(interaction)
-        
+
         elif action == "send":
             # Send to all admins
             await digest.send_digest_to_admins()

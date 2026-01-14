@@ -218,7 +218,7 @@ async def on_ready():
 
     # Send startup notification to admin channels
     await send_startup_notification()
-    
+
     # Start background tasks
     if not check_weekly_digest.is_running():
         check_weekly_digest.start()
@@ -231,7 +231,7 @@ async def check_weekly_digest():
     try:
         from .utils.weekly_digest import get_weekly_digest
         digest = get_weekly_digest(bot)
-        
+
         if await digest.should_send_digest():
             logger.info("📧 Sending weekly digest...")
             await digest.send_digest_to_admins()
